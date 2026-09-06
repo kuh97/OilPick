@@ -63,6 +63,7 @@
     "jsdom": "^30.0.1",
     "kakao.maps.d.ts": "^0.1.40",
     "msw": "^2.7.5",
+    "playwright": "^1.63.0",
     "tailwindcss": "^4",
     "tsx": "^4.23.12",
     "typescript": "^5",

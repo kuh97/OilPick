@@ -340,7 +340,7 @@ export async function bulkUpsertFromCsv(rows: CsvRow[], db: Db = getDb()) {
 
 ```
 GitHub Actions (05:00 KST)                Vercel Cron (05:40 KST, 안전망)
-  → 오피넷 다운로드 (NetFunnel)              → Blob latest 읽기
+  → 오피넷 다운로드 (헤드리스 브라우저)      → Blob latest 읽기
   → Vercel Blob 업로드 (latest + archive)   → 검증 게이트 G1~G8 (§8)
   → 임포트 엔드포인트 호출 ──────────────▶   → 신규/좌표결손 행만 지오코딩
                                             → 스테이징 적재 → 원자적 스왑
@@ -348,13 +348,15 @@ GitHub Actions (05:00 KST)                Vercel Cron (05:40 KST, 안전망)
 ```
 
 **다운로드와 임포트를 분리했습니다 (결정 로그 ① 편차).** 실측해보니 오피넷 다운로드가
-NetFunnel(대기열·봇차단, `nfl.opinet.co.kr/ts.wseq`) 뒤에 있고 서버 생성에 "수 분"이
-걸립니다. 이 취약한 스크래핑을 Vercel 서버리스 함수에 넣으면 디버깅이 어렵고 조용히
-깨집니다. 그래서:
+3중 게이트(진입 NetFunnel + `opinet_key` 세션 → 폼 프래그먼트 AJAX 로드 → 다운로드
+NetFunnel) 뒤에 있고 서버 생성에 시간이 걸립니다. 순수 HTTP로 이 게이트들을 흉내내는 건
+취약해서 **헤드리스 브라우저(Playwright)로 실제 페이지를 조작**합니다 — 브라우저가 JS
+게이트를 전부 네이티브로 통과합니다. 이걸 Vercel 서버리스 함수에 넣으면 디버깅이 어렵고
+조용히 깨지므로 GitHub Actions에서 돌립니다. 그래서:
 
 | 부분 | 위치 | 파일 |
 | --- | --- | --- |
-| 스크래핑 (NetFunnel 핸드셰이크 + 수분 POST) | GitHub Actions | `src/infra/opinet/download.ts`, `scripts/download-opinet-csv.ts`, `.github/workflows/opinet-daily.yml` |
+| 스크래핑 (Playwright로 폼 조작 + 다운로드) | GitHub Actions | `src/infra/opinet/download.ts`, `scripts/download-opinet-csv.ts`, `.github/workflows/opinet-daily.yml` |
 | CSV 보관 (`latest` 덮어쓰기 + `archive/{종류}-YYYYMMDD`) | Vercel Blob | `src/infra/blob/price-csv.ts` |
 | 파이프라인 본체 (게이트→지오코딩→스테이징→스왑→로그) | Vercel Cron | `src/services/price-import-service.ts`, `src/app/api/cron/import-prices/route.ts` |
 | 게이트 G1~G8 | 순수 함수 | `src/infra/csv/gates.ts` (G1·G2는 `parse.ts`가 throw로 강제) |
@@ -529,7 +531,7 @@ Phase C까지는 `collectStations`의 구현만 바뀌므로, 이전 구현을 �
 
 | # | 항목 | 결정 | 근거 |
 | --- | --- | --- | --- |
-| ① | 데이터 수급 | **다운로드 자동화**. 검증 실패 시 새 파일 미반영. ~~크론~~ → 스크래핑은 GitHub Actions, 임포트는 Vercel Cron(§7 Phase D — NetFunnel 취약성 때문에 분리) | 수동 업로드는 운영 부담. 실패해도 어제 데이터로 서비스 지속 |
+| ① | 데이터 수급 | **다운로드 자동화**. 검증 실패 시 새 파일 미반영. ~~크론~~ → 스크래핑은 GitHub Actions(Playwright), 임포트는 Vercel Cron(§7 Phase D — 3중 게이트 취약성 때문에 분리) | 수동 업로드는 운영 부담. 실패해도 어제 데이터로 서비스 지속 |
 | ② | 좌표 조달 | **카카오 주소검색 지오코딩** (오피넷 좌표 우선) | 실측 중앙값 오차 15m ≪ `T1_MAX` 500m |
 | ③ | 가격 저장 | **최신 스냅샷만 덮어쓰기** (이력 테이블 없음) | 이력 기반 기능은 현재 로드맵에 없음 |
 | ④ | 시설정보 | **백그라운드 백필 280회/일 × 34일** | 검색이 예산을 안 쓰므로 전량 백필 가능 |
