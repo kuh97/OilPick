@@ -1,0 +1,473 @@
+{
+  "id": "a998ffee-4772-413c-87bb-354e3073ef98",
+  "prevId": "0b89cf4c-1e07-423a-9623-6eb189f25d3b",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.csv_import_log": {
+      "name": "csv_import_log",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "started_at": {
+          "name": "started_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "priced_on": {
+          "name": "priced_on",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "failed_gate": {
+          "name": "failed_gate",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "detail": {
+          "name": "detail",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "oil_rows": {
+          "name": "oil_rows",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "lpg_rows": {
+          "name": "lpg_rows",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "geocoded": {
+          "name": "geocoded",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.refuel_point": {
+      "name": "refuel_point",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "brand_code": {
+          "name": "brand_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "energy_type": {
+          "name": "energy_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "lat": {
+          "name": "lat",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "lng": {
+          "name": "lng",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "katec_x": {
+          "name": "katec_x",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "katec_y": {
+          "name": "katec_y",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "address_road": {
+          "name": "address_road",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "address_jibun": {
+          "name": "address_jibun",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "tel": {
+          "name": "tel",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "sigun_cd": {
+          "name": "sigun_cd",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "is_self": {
+          "name": "is_self",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "coord_source": {
+          "name": "coord_source",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "has_car_wash": {
+          "name": "has_car_wash",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "has_maintenance": {
+          "name": "has_maintenance",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "has_cvs": {
+          "name": "has_cvs",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "is_kpetro": {
+          "name": "is_kpetro",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "last_price": {
+          "name": "last_price",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "last_price_prod": {
+          "name": "last_price_prod",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "price_traded_at": {
+          "name": "price_traded_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "price_gasoline": {
+          "name": "price_gasoline",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "price_diesel": {
+          "name": "price_diesel",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "price_lpg": {
+          "name": "price_lpg",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "price_premium": {
+          "name": "price_premium",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "price_kerosene": {
+          "name": "price_kerosene",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "priced_on": {
+          "name": "priced_on",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "last_seen_on": {
+          "name": "last_seen_on",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "source": {
+          "name": "source",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "detail_synced_at": {
+          "name": "detail_synced_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "idx_refuel_point_sigun": {
+          "name": "idx_refuel_point_sigun",
+          "columns": [
+            {
+              "expression": "sigun_cd",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_refuel_point_energy": {
+          "name": "idx_refuel_point_energy",
+          "columns": [
+            {
+              "expression": "energy_type",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_refuel_point_latlng": {
+          "name": "idx_refuel_point_latlng",
+          "columns": [
+            {
+              "expression": "lat",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "lng",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_refuel_point_seen": {
+          "name": "idx_refuel_point_seen",
+          "columns": [
+            {
+              "expression": "last_seen_on",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.refuel_point_staging": {
+      "name": "refuel_point_staging",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "brand_code": {
+          "name": "brand_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "energy_type": {
+          "name": "energy_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "lat": {
+          "name": "lat",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "lng": {
+          "name": "lng",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "coord_source": {
+          "name": "coord_source",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "address_road": {
+          "name": "address_road",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "sigun_cd": {
+          "name": "sigun_cd",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "is_self": {
+          "name": "is_self",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "priced_on": {
+          "name": "priced_on",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "last_seen_on": {
+          "name": "last_seen_on",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "price_gasoline": {
+          "name": "price_gasoline",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "price_diesel": {
+          "name": "price_diesel",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "price_lpg": {
+          "name": "price_lpg",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "price_premium": {
+          "name": "price_premium",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "price_kerosene": {
+          "name": "price_kerosene",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {},
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

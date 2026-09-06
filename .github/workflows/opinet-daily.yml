@@ -1,0 +1,43 @@
+name: 오피넷 유가 CSV 일일 수급
+
+# docs/MIGRATION-DB.md §7 Phase D — 취약한 스크래핑(NetFunnel 대기열 + 수분 POST)은
+# Vercel Cron이 아니라 여기서 돈다. 실패하면 이 워크플로가 시끄럽게 알리고,
+# Vercel Cron(vercel.json, 05:40 KST)이 어제 데이터로 서비스를 이어간다.
+
+on:
+  schedule:
+    - cron: "0 20 * * *" # 05:00 KST (UTC+9)
+  workflow_dispatch:
+    inputs:
+      date:
+        description: "YYYYMMDD (비우면 KST 어제)"
+        required: false
+
+concurrency:
+  group: opinet-daily
+  cancel-in-progress: false
+
+jobs:
+  download:
+    name: 다운로드 → Blob → 임포트 트리거
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Download + upload + trigger import
+        env:
+          BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
+          APP_BASE_URL: ${{ secrets.APP_BASE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: pnpm data:download-csv ${{ github.event.inputs.date }}

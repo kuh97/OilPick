@@ -1,11 +1,11 @@
 # 오피넷 API → DB 기반 전환 계획
 
-> **상태: Phase A~C 완료, Phase D~E 미착수** — 2026-09-05 작성, 2026-09-05 갱신
+> **상태: Phase A~D 완료, Phase E 미착수** — 2026-09-05 작성, 2026-09-06 갱신
 >
 > §7 Phase A(마스터 CSV 임포트)·Phase B(스키마)·Phase C(검색 경로 교체 — `collectStations` bbox
-> 조회, 예산·확장 수집·`sigungu_avg_price` 전량 삭제, §9.1·§9.2 일자 기준 신선도 표시) 완료.
-> 남은 건 Phase D(일일 CSV 자동 갱신 크론)와 Phase E(시설정보 백필). §11.3 문서 갱신(ARCHITECTURE.md)은
-> 아직 하지 않았다.
+> 조회, 예산·확장 수집·`sigungu_avg_price` 전량 삭제, §9.1·§9.2 일자 기준 신선도 표시)·
+> Phase D(일일 CSV 자동 갱신 파이프라인) 완료. 남은 건 Phase E(시설정보 백필).
+> §11.3 문서 갱신(ARCHITECTURE.md)은 아직 하지 않았다.
 >
 > 이 문서는 검색 경로의 오피넷 실시간 호출을 **일 1회 CSV 임포트 + DB 조회**로 바꾸는
 > 작업의 실행 문서입니다. 작업 중에 옆에 켜두고 단계별로 체크하십시오.
@@ -336,18 +336,42 @@ export async function bulkUpsertFromCsv(rows: CsvRow[], db: Db = getDb()) {
 - `sigun_cd IS NULL`인 행 0건 → 확인 후 `sigungu_avg_price` 제거
 - 기존 테스트(`recommendation-service.test.ts` 등) 통과 또는 명시적 갱신
 
-### Phase D — 일일 갱신 파이프라인
+### Phase D — 일일 갱신 파이프라인 ✅ (2026-09-06 완료)
 
 ```
-Vercel Cron (일 1회)
-  → 오피넷 다운로드
-  → 검증 게이트 8개 (§8)
-  → 스테이징 적재 → 트랜잭션 스왑
-  → 신규 UNI_ID만 지오코딩 (하루 수 건)
-  → csv_import_log 기록
+GitHub Actions (05:00 KST)                Vercel Cron (05:40 KST, 안전망)
+  → 오피넷 다운로드 (NetFunnel)              → Blob latest 읽기
+  → Vercel Blob 업로드 (latest + archive)   → 검증 게이트 G1~G8 (§8)
+  → 임포트 엔드포인트 호출 ──────────────▶   → 신규/좌표결손 행만 지오코딩
+                                            → 스테이징 적재 → 원자적 스왑
+                                            → csv_import_log 기록
 ```
 
-실패 시 `refuel_point`를 **건드리지 않고** 종료합니다. 어제 데이터로 계속 서비스됩니다.
+**다운로드와 임포트를 분리했습니다 (결정 로그 ① 편차).** 실측해보니 오피넷 다운로드가
+NetFunnel(대기열·봇차단, `nfl.opinet.co.kr/ts.wseq`) 뒤에 있고 서버 생성에 "수 분"이
+걸립니다. 이 취약한 스크래핑을 Vercel 서버리스 함수에 넣으면 디버깅이 어렵고 조용히
+깨집니다. 그래서:
+
+| 부분 | 위치 | 파일 |
+| --- | --- | --- |
+| 스크래핑 (NetFunnel 핸드셰이크 + 수분 POST) | GitHub Actions | `src/infra/opinet/download.ts`, `scripts/download-opinet-csv.ts`, `.github/workflows/opinet-daily.yml` |
+| CSV 보관 (`latest` 덮어쓰기 + `archive/{종류}-YYYYMMDD`) | Vercel Blob | `src/infra/blob/price-csv.ts` |
+| 파이프라인 본체 (게이트→지오코딩→스테이징→스왑→로그) | Vercel Cron | `src/services/price-import-service.ts`, `src/app/api/cron/import-prices/route.ts` |
+| 게이트 G1~G8 | 순수 함수 | `src/infra/csv/gates.ts` (G1·G2는 `parse.ts`가 throw로 강제) |
+| 지역→SIGUNCD 매핑 | Redis 30일 캐시 | `src/infra/opinet/sigun-map.ts` (미스 시에만 오피넷 17회) |
+
+여전히 무인 자동화입니다 — 스크래핑 스케줄러만 Vercel Cron → GitHub Actions로 옮겼고,
+**Blob은 수동 비상구**이기도 합니다(스크래핑이 깨지면 파일만 직접 올리면 임포트는 계속 돔).
+
+**원자적 스왑.** 8개 게이트를 전부 통과한 뒤에만 `refuel_point_staging`을 채우고,
+반영은 `INSERT ... SELECT ... ON CONFLICT` **한 문장**으로 합니다(Neon HTTP 드라이버는
+문장 하나가 곧 트랜잭션). SET 절은 `bulkUpsertFromCsv`와 같은 컬럼 소유권 규칙(§6) —
+시설정보·`is_kpetro`·`tel`·`detail_synced_at`은 건드리지 않고, 좌표는 비어 있을 때만
+채웁니다. 실패하면 `refuel_point` 무변경 → 어제 데이터로 계속 서비스됩니다.
+
+**필요한 시크릿** (Vercel + GitHub 양쪽): `BLOB_READ_WRITE_TOKEN`, `CRON_SECRET`,
+`APP_BASE_URL`(GitHub Actions가 임포트를 트리거할 때). `vercel.json`은 리전을 `icn1`로
+고정하고 크론을 등록합니다.
 
 ### Phase E — 시설정보 백필 (무인, 34일)
 
@@ -505,7 +529,7 @@ Phase C까지는 `collectStations`의 구현만 바뀌므로, 이전 구현을 �
 
 | # | 항목 | 결정 | 근거 |
 | --- | --- | --- | --- |
-| ① | 데이터 수급 | **다운로드 자동화(크론)**. 검증 실패 시 새 파일 미반영 | 수동 업로드는 운영 부담. 실패해도 어제 데이터로 서비스 지속 |
+| ① | 데이터 수급 | **다운로드 자동화**. 검증 실패 시 새 파일 미반영. ~~크론~~ → 스크래핑은 GitHub Actions, 임포트는 Vercel Cron(§7 Phase D — NetFunnel 취약성 때문에 분리) | 수동 업로드는 운영 부담. 실패해도 어제 데이터로 서비스 지속 |
 | ② | 좌표 조달 | **카카오 주소검색 지오코딩** (오피넷 좌표 우선) | 실측 중앙값 오차 15m ≪ `T1_MAX` 500m |
 | ③ | 가격 저장 | **최신 스냅샷만 덮어쓰기** (이력 테이블 없음) | 이력 기반 기능은 현재 로드맵에 없음 |
 | ④ | 시설정보 | **백그라운드 백필 280회/일 × 34일** | 검색이 예산을 안 쓰므로 전량 백필 가능 |

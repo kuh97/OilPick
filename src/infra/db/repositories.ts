@@ -7,9 +7,9 @@
  * BudgetStore 주입 패턴과 동일).
  */
 
-import { and, avg, eq, gt, gte, inArray, lte, like, sql } from "drizzle-orm";
+import { and, avg, desc, eq, gt, gte, inArray, lte, like, sql } from "drizzle-orm";
 import { getDb, type Db } from "./client";
-import { refuelPoint } from "./schema";
+import { refuelPoint, refuelPointStaging, csvImportLog } from "./schema";
 import { mapDetailItem, FUEL_TO_PRODCD } from "@/infra/opinet/mapper";
 import type { OpinetDetailItem } from "@/infra/opinet/schema";
 import { wgs84, katec } from "@/domain/types";
@@ -379,4 +379,141 @@ export async function findNationalAvgPrice(fuel: Fuel, db: Db = getDb()): Promis
     .from(refuelPoint)
     .where(gt(priceCol, 0));
   return row?.avgPrice != null ? Math.round(Number(row.avgPrice)) : null;
+}
+
+// ─── 일일 CSV 임포트 — 스테이징·스왑·이력 (docs/MIGRATION-DB.md §7 Phase D) ─────
+
+const STAGING_CHUNK = 500; // Neon HTTP 한 요청에 만 건을 그대로 보내지 않음
+
+export type StagingRow = typeof refuelPointStaging.$inferInsert;
+
+export interface CsvImportLogEntry {
+  pricedOn: string | null;
+  status: "OK" | "GATE_FAILED" | "DOWNLOAD_FAILED";
+  failedGate?: string | null;
+  detail?: string | null;
+  oilRows?: number | null;
+  lpgRows?: number | null;
+  geocoded?: number | null;
+}
+
+/** 직전 '성공' 임포트의 기준일자·행 수 — G3·G4가 참조. 없으면 null(최초 임포트). */
+export async function getLastSuccessfulImport(
+  db: Db = getDb(),
+): Promise<{ pricedOn: string; oilRows: number; lpgRows: number } | null> {
+  const [row] = await db
+    .select({
+      pricedOn: csvImportLog.pricedOn,
+      oilRows: csvImportLog.oilRows,
+      lpgRows: csvImportLog.lpgRows,
+    })
+    .from(csvImportLog)
+    .where(eq(csvImportLog.status, "OK"))
+    .orderBy(desc(csvImportLog.id))
+    .limit(1);
+  if (!row || row.pricedOn == null) return null;
+  return { pricedOn: row.pricedOn, oilRows: row.oilRows ?? 0, lpgRows: row.lpgRows ?? 0 };
+}
+
+/** 가장 최근 임포트 이력 1건 (상태 무관) — 결과 화면 "가격 기준일자" 배너용. */
+export async function getLatestImportLog(
+  db: Db = getDb(),
+): Promise<{ pricedOn: string | null; status: string; startedAt: Date } | undefined> {
+  const [row] = await db
+    .select({
+      pricedOn: csvImportLog.pricedOn,
+      status: csvImportLog.status,
+      startedAt: csvImportLog.startedAt,
+    })
+    .from(csvImportLog)
+    .orderBy(desc(csvImportLog.id))
+    .limit(1);
+  return row;
+}
+
+/** refuel_point 전체의 좌표 상태 — G6(ID 교집합)과 "좌표 없는 행만 지오코딩" 판정에 쓴다. */
+export async function getExistingStationCoords(
+  db: Db = getDb(),
+): Promise<Map<string, { lat: number | null; lng: number | null; coordSource: string | null }>> {
+  const rows = await db
+    .select({
+      id: refuelPoint.id,
+      lat: refuelPoint.lat,
+      lng: refuelPoint.lng,
+      coordSource: refuelPoint.coordSource,
+    })
+    .from(refuelPoint);
+  return new Map(rows.map((r) => [r.id, { lat: r.lat, lng: r.lng, coordSource: r.coordSource }]));
+}
+
+export async function writeCsvImportLog(
+  entry: CsvImportLogEntry,
+  db: Db = getDb(),
+): Promise<void> {
+  await db.insert(csvImportLog).values({
+    pricedOn: entry.pricedOn,
+    status: entry.status,
+    failedGate: entry.failedGate ?? null,
+    detail: entry.detail ?? null,
+    oilRows: entry.oilRows ?? null,
+    lpgRows: entry.lpgRows ?? null,
+    geocoded: entry.geocoded ?? null,
+  });
+}
+
+/** 스테이징 비우기 — 매 임포트 시작 시 호출. */
+export async function resetStaging(db: Db = getDb()): Promise<void> {
+  await db.execute(sql`TRUNCATE TABLE ${refuelPointStaging}`);
+}
+
+/** 검증을 통과한 행들을 스테이징에 적재 (청크 단위). refuel_point는 아직 건드리지 않는다. */
+export async function loadStaging(rows: StagingRow[], db: Db = getDb()): Promise<number> {
+  for (let i = 0; i < rows.length; i += STAGING_CHUNK) {
+    await db.insert(refuelPointStaging).values(rows.slice(i, i + STAGING_CHUNK));
+  }
+  return rows.length;
+}
+
+/**
+ * 스테이징 → refuel_point 원자적 반영. 단일 `INSERT ... SELECT ... ON CONFLICT`이라
+ * Neon HTTP 드라이버에서도 문장 하나가 곧 트랜잭션 — 중간 실패 시 refuel_point 무변경.
+ *
+ * SET 절은 bulkUpsertFromCsv와 **정확히 같은 컬럼 소유권 규칙**을 따른다(§6):
+ * 시설정보·is_kpetro·tel·detail_synced_at·source는 건드리지 않고, 좌표는 비어 있을
+ * 때만 채운다. 좌표가 없는 스테이징 행(신규 지오코딩 실패분)은 반영에서 제외한다.
+ */
+export async function swapStagingToRefuelPoint(db: Db = getDb()): Promise<void> {
+  await db.execute(sql`
+    INSERT INTO refuel_point (
+      id, name, brand_code, energy_type, lat, lng, coord_source,
+      address_road, sigun_cd, is_self, priced_on, last_seen_on,
+      price_gasoline, price_diesel, price_lpg, price_premium, price_kerosene,
+      source, updated_at
+    )
+    SELECT
+      s.id, s.name, s.brand_code, s.energy_type, s.lat, s.lng, s.coord_source,
+      s.address_road, s.sigun_cd, s.is_self, s.priced_on, s.last_seen_on,
+      s.price_gasoline, s.price_diesel, s.price_lpg, s.price_premium, s.price_kerosene,
+      'OPINET_CSV', now()
+    FROM refuel_point_staging s
+    WHERE s.lat IS NOT NULL AND s.lng IS NOT NULL
+    ON CONFLICT (id) DO UPDATE SET
+      name = excluded.name,
+      brand_code = excluded.brand_code,
+      energy_type = excluded.energy_type,
+      address_road = excluded.address_road,
+      sigun_cd = excluded.sigun_cd,
+      is_self = excluded.is_self,
+      priced_on = excluded.priced_on,
+      last_seen_on = excluded.last_seen_on,
+      price_gasoline = excluded.price_gasoline,
+      price_diesel = excluded.price_diesel,
+      price_lpg = excluded.price_lpg,
+      price_premium = excluded.price_premium,
+      price_kerosene = excluded.price_kerosene,
+      lat = coalesce(refuel_point.lat, excluded.lat),
+      lng = coalesce(refuel_point.lng, excluded.lng),
+      coord_source = coalesce(refuel_point.coord_source, excluded.coord_source),
+      updated_at = excluded.updated_at
+  `);
 }

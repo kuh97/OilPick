@@ -11,6 +11,7 @@ import {
   doublePrecision,
   boolean,
   integer,
+  serial,
   date,
   timestamp,
   index,
@@ -70,3 +71,48 @@ export const refuelPoint = pgTable(
     index("idx_refuel_point_seen").on(table.lastSeenOn),
   ],
 );
+
+// ─── refuel_point_staging — 일일 CSV 임포트 스테이징 (docs/MIGRATION-DB.md §7 Phase D) ──
+//
+// 검증 게이트 8개를 모두 통과한 뒤에만 이 테이블을 채우고, refuel_point로의 반영은
+// 단일 `INSERT ... SELECT ... ON CONFLICT` 한 문장으로 원자적으로 수행합니다
+// (Neon HTTP 드라이버는 문장 하나가 곧 트랜잭션). 실패하면 refuel_point는 그대로,
+// 어제 데이터로 계속 서비스됩니다. CSV 소유 컬럼만 담습니다 — 시설정보(detail API
+// 소유)는 여기 없으므로 스왑이 그것을 건드릴 수 없습니다(§6 컬럼 소유권 규칙).
+
+export const refuelPointStaging = pgTable("refuel_point_staging", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  brandCode: text("brand_code").notNull(),
+  energyType: text("energy_type").notNull(),
+  lat: doublePrecision("lat"),
+  lng: doublePrecision("lng"),
+  coordSource: text("coord_source"),
+  addressRoad: text("address_road"),
+  sigunCd: text("sigun_cd"),
+  isSelf: boolean("is_self"),
+  pricedOn: date("priced_on"),
+  lastSeenOn: date("last_seen_on"),
+  priceGasoline: integer("price_gasoline"),
+  priceDiesel: integer("price_diesel"),
+  priceLpg: integer("price_lpg"),
+  pricePremium: integer("price_premium"),
+  priceKerosene: integer("price_kerosene"),
+});
+
+// ─── csv_import_log — 임포트 이력 (docs/MIGRATION-DB.md §5.2·§8) ────────────────
+//
+// G3(기준일자 신규성)·G4(행 수 ±10%)가 직전 성공분을 참조하고, 결과 화면 배너가
+// "가격 정보가 YYYY-MM-DD 기준입니다"를 여기서 읽습니다.
+
+export const csvImportLog = pgTable("csv_import_log", {
+  id: serial("id").primaryKey(),
+  startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
+  pricedOn: date("priced_on"),                    // 파일에서 파싱한 기준일자
+  status: text("status").notNull(),               // 'OK' | 'GATE_FAILED' | 'DOWNLOAD_FAILED'
+  failedGate: text("failed_gate"),                // 'G4' 등
+  detail: text("detail"),
+  oilRows: integer("oil_rows"),
+  lpgRows: integer("lpg_rows"),
+  geocoded: integer("geocoded"),
+});

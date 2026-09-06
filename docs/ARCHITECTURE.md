@@ -878,13 +878,15 @@ Client → domain/deeplink.build(app, origin, station, destination)
 
 ### 9.3 배치
 
-| 주기           | 실행 경로                                       | 하는 일                                               |
-| -------------- | ----------------------------------------------- | ----------------------------------------------------- |
-| 매일 04:00 KST | Vercel Cron → `POST /api/cron/sync-sigungu`     | `sigungu_avg_price` 갱신                              |
-| 주 1회         | 위와 같은 라우트에 파라미터 추가 또는 별도 cron | `refuel_point` 중 `detail_synced_at` 30일 초과분 갱신 |
-| 수동           | `pnpm data:import-standard` (로컬/CI 실행)      | `refuel_point` 전량 재구축                            |
+| 주기               | 실행 경로                                              | 하는 일                                                     |
+| ------------------ | ----------------------------------------------------- | ---------------------------------------------------------- |
+| 매일 05:00 KST     | GitHub Actions → 오피넷 다운로드 → Vercel Blob         | 유가 CSV 2개 수급 (NetFunnel 스크래핑, docs/MIGRATION-DB.md §7 Phase D) |
+| 매일 05:40 KST     | Vercel Cron → `GET /api/cron/import-prices`            | Blob CSV → 게이트 G1~G8 → 스테이징 → `refuel_point` 원자적 스왑 |
+| 수동               | `pnpm data:import-csv` (로컬 파일)                     | `refuel_point` 마스터 1회성 재구축 (Phase A)                |
 
-**cron 라우트와 npm 스크립트는 같은 함수를 호출합니다.** 로직을 두 곳에 복제하지 마십시오 — `scripts/sync-sigungu-avg.ts`가 export 하는 함수를 라우트가 import 합니다.
+**cron 라우트와 npm 스크립트는 같은 함수를 호출합니다.** 로직을 두 곳에 복제하지 마십시오 — 일일 임포트는 `services/price-import-service.ts`, 파싱·게이트·지오코딩은 `infra/csv`·`infra/geocode`를 라우트와 스크립트가 공유합니다.
+
+> `sigungu_avg_price` 일일 배치는 Phase C에서 삭제됐습니다 — `P_ref` 폴백이 `refuel_point` 실시간 집계로 바뀌어 배치가 불필요해졌습니다(docs/MIGRATION-DB.md §5.3).
 
 ---
 

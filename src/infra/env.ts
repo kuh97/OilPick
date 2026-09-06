@@ -26,4 +26,6 @@ export const env = {
   get KAKAO_LOCAL_BASE_URL() { return optional("KAKAO_LOCAL_BASE_URL", "https://dapi.kakao.com"); },
   get DATABASE_URL() { return required("DATABASE_URL"); },
   get CRON_SECRET() { return required("CRON_SECRET"); },
+  // Vercel Blob — 일일 CSV 임포트(Phase D). GitHub Actions가 쓰고 Cron이 읽는다.
+  get BLOB_READ_WRITE_TOKEN() { return required("BLOB_READ_WRITE_TOKEN"); },
 };
