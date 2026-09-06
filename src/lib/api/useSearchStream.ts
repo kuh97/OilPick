@@ -10,6 +10,10 @@
  *
  * `EventSource`를 쓰지 않습니다 — 자동 재연결이 곧 파이프라인 재실행이라
  * 오피넷 예산을 조용히 잠식하기 때문입니다(§6.2). fetch + ReadableStream을 직접 읽습니다.
+ *
+ * 진행 단계(progress)는 큐에 쌓아 `MIN_STEP_MS`씩 노출합니다 — 서버가 여러 단계를
+ * 연달아 flush해도 중간 단계가 배칭에 묻혀 건너뛰어지지 않도록. 큐에는 서버가
+ * 실제로 보낸 단계만 들어갑니다.
  */
 
 import { useCallback, useEffect, useRef } from "react";
@@ -31,6 +35,8 @@ const SSE_FIRST_EVENT_TIMEOUT_MS = 3_000;
 /** JSON 폴백일 때 시간 기반으로 순환시키는 문구 — EXPAND 제외 (§6.2.1) */
 const FALLBACK_STEP_CYCLE: ProgressStep[] = ["ROUTE", "COLLECT", "PRECISE"];
 const FALLBACK_STEP_INTERVAL_MS = 2_500;
+/** 진행 단계 하나가 화면에 유지되는 최소 시간 — 다음 단계가 이보다 빨리 와도 대기 */
+const MIN_STEP_MS = 700;
 
 export interface SearchStreamInput {
   origin: WirePoint;
@@ -67,6 +73,59 @@ export function useSearchStream() {
   const abortRef = useRef<AbortController | null>(null);
   const fallbackTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // ─── 진행 단계 페이서 ────────────────────────────────────────────────────
+  // 도착한 단계를 큐에 쌓고, 각 단계를 MIN_STEP_MS 이상 노출한 뒤 다음으로 넘긴다.
+  const stepQueueRef = useRef<{ step: ProgressStep; radiusM?: number }[]>([]);
+  const stepTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** 스트림이 끝났지만 아직 못 보여준 단계가 큐에 남아있을 때, 큐를 다 비운 뒤 실행할 마무리 */
+  const afterStepsRef = useRef<(() => void) | null>(null);
+
+  const resetPacer = useCallback(() => {
+    if (stepTimerRef.current != null) {
+      clearTimeout(stepTimerRef.current);
+      stepTimerRef.current = null;
+    }
+    stepQueueRef.current = [];
+    afterStepsRef.current = null;
+  }, []);
+
+  const pumpSteps = useCallback(() => {
+    if (stepTimerRef.current != null) return; // 현재 단계가 최소 시간 노출 중
+    const next = stepQueueRef.current.shift();
+    if (!next) {
+      const done = afterStepsRef.current;
+      afterStepsRef.current = null;
+      done?.();
+      return;
+    }
+    setProgressStep(next.step, next.radiusM);
+    stepTimerRef.current = setTimeout(() => {
+      stepTimerRef.current = null;
+      pumpSteps();
+    }, MIN_STEP_MS);
+  }, [setProgressStep]);
+
+  const enqueueStep = useCallback(
+    (step: ProgressStep, radiusM?: number) => {
+      stepQueueRef.current.push({ step, radiusM });
+      pumpSteps();
+    },
+    [pumpSteps],
+  );
+
+  /** 스트림 종료(result/error) — 큐에 안 보여준 단계가 남아있으면 다 보여준 뒤 실행 */
+  const finishAfterSteps = useCallback((done: () => void) => {
+    if (stepQueueRef.current.length === 0) {
+      if (stepTimerRef.current != null) {
+        clearTimeout(stepTimerRef.current);
+        stepTimerRef.current = null;
+      }
+      done();
+    } else {
+      afterStepsRef.current = done;
+    }
+  }, []);
+
   const stopFallbackCycle = useCallback(() => {
     if (fallbackTimerRef.current != null) {
       clearInterval(fallbackTimerRef.current);
@@ -74,10 +133,16 @@ export function useSearchStream() {
     }
   }, []);
 
-  useEffect(() => stopFallbackCycle, [stopFallbackCycle]);
+  useEffect(() => {
+    return () => {
+      stopFallbackCycle();
+      resetPacer();
+    };
+  }, [stopFallbackCycle, resetPacer]);
 
   const runJsonFallback = useCallback(
     async (body: SearchStreamInput, signal: AbortSignal) => {
+      resetPacer(); // 폴백은 자체 시간 순환을 쓴다 — 스트림이 남긴 큐/타이머 정리
       let i = 0;
       setProgressStep(FALLBACK_STEP_CYCLE[0]);
       fallbackTimerRef.current = setInterval(() => {
@@ -105,13 +170,14 @@ export function useSearchStream() {
         stopFallbackCycle();
       }
     },
-    [setProgressStep, setResult, setError, stopFallbackCycle],
+    [setProgressStep, setResult, setError, stopFallbackCycle, resetPacer],
   );
 
   const search = useCallback(
     async (body: SearchStreamInput) => {
       abortRef.current?.abort();
       stopFallbackCycle();
+      resetPacer();
       const controller = new AbortController();
       abortRef.current = controller;
 
@@ -159,7 +225,7 @@ export function useSearchStream() {
             switch (frame.event) {
               case "progress": {
                 const progress = frame.data as { step: ProgressStep; radiusM?: number };
-                setProgressStep(progress.step, progress.radiusM);
+                enqueueStep(progress.step, progress.radiusM);
                 break;
               }
               case "base_route":
@@ -173,14 +239,18 @@ export function useSearchStream() {
               case "warning":
                 pushWarning(frame.data as WireWarning);
                 break;
-              case "result":
-                setResult(frame.data as WireSearchResult);
+              case "result": {
+                const data = frame.data as WireSearchResult;
                 finished = true;
+                finishAfterSteps(() => setResult(data));
                 break;
-              case "error":
-                setError(frame.data as { code: string; message: string });
+              }
+              case "error": {
+                const data = frame.data as { code: string; message: string };
                 finished = true;
+                finishAfterSteps(() => setError(data));
                 break;
+              }
             }
           }
         }
@@ -188,7 +258,7 @@ export function useSearchStream() {
         // 스트림이 result/error 없이 끊김 — 마지막 partial로 마무리 (§10.2)
         if (!finished) {
           if (lastPartial && lastBaseRoute) {
-            setResult({
+            const synthesized: WireSearchResult = {
               searchId: crypto.randomUUID(),
               baseRoute: lastBaseRoute,
               candidates: lastPartial.candidates,
@@ -196,15 +266,17 @@ export function useSearchStream() {
               refPriceSource: lastPartial.refPriceSource,
               expansion: lastPartial.expansion,
               warnings: [{ code: "TIMEOUT", message: "일부 계산이 완료되지 않았습니다." }],
-            });
+            };
+            finishAfterSteps(() => setResult(synthesized));
           } else {
-            setError({ code: "TIMEOUT", message: "일부 계산이 완료되지 않았습니다." });
+            finishAfterSteps(() => setError({ code: "TIMEOUT", message: "일부 계산이 완료되지 않았습니다." }));
           }
         }
       } catch (err) {
         if (controller.signal.aborted && !gotFirstByte) {
           await runJsonFallback(body, controller.signal);
         } else if (!isAbortError(err)) {
+          resetPacer(); // 남은 큐가 에러 화면 위에 진행 문구를 덮어쓰지 않게
           setError({ code: "NETWORK_ERROR", message: "검색 중 문제가 발생했습니다." });
         }
       } finally {
@@ -213,7 +285,6 @@ export function useSearchStream() {
     },
     [
       startSearch,
-      setProgressStep,
       setBaseRoute,
       setPartial,
       pushWarning,
@@ -221,13 +292,17 @@ export function useSearchStream() {
       setError,
       runJsonFallback,
       stopFallbackCycle,
+      resetPacer,
+      enqueueStep,
+      finishAfterSteps,
     ],
   );
 
   const cancel = useCallback(() => {
     abortRef.current?.abort();
     stopFallbackCycle();
-  }, [stopFallbackCycle]);
+    resetPacer();
+  }, [stopFallbackCycle, resetPacer]);
 
   return { search, cancel };
 }

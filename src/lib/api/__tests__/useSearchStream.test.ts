@@ -28,6 +28,8 @@ beforeEach(() => {
   useSearchStore.setState({
     isLoading: false,
     progressStep: null,
+    progressStepsSeen: [],
+    expandRadiusM: null,
     baseRoute: null,
     partial: null,
     result: null,
@@ -82,6 +84,74 @@ describe("useSearchStream — SSE 정상 흐름", () => {
     const state = useSearchStore.getState();
     expect(state.error?.code).toBe("INTERNAL_ERROR");
     expect(state.result).toBeNull();
+  });
+});
+
+describe("useSearchStream — 진행 단계 페이싱", () => {
+  it("EXPAND·PRECISE·result가 한꺼번에 도착해도 각 단계를 최소 시간만큼 노출한다", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        sseStreamResponse([
+          'event: progress\ndata: {"step":"ROUTE"}\n\n',
+          'event: progress\ndata: {"step":"COLLECT"}\n\n',
+          'event: progress\ndata: {"step":"EXPAND","radiusM":14600}\n\n',
+          'event: partial\ndata: {"candidates":[],"referencePrice":1800,"refPriceSource":"MEDIAN_T1T2","expansion":{"triggered":true,"finalRadiusM":14600}}\n\n',
+          'event: progress\ndata: {"step":"PRECISE"}\n\n',
+          'event: result\ndata: {"searchId":"s-exp","baseRoute":{"distanceM":9000,"durationS":900,"polyline":[]},"candidates":[],"referencePrice":1800,"refPriceSource":"MEDIAN_T1T2","expansion":{"triggered":true,"finalRadiusM":14600},"warnings":[]}\n\n',
+        ]),
+      ),
+    );
+
+    const { result } = renderHook(() => useSearchStream());
+    await act(async () => {
+      await result.current.search(BODY);
+    });
+
+    // 프레임은 모두 소비됐지만, 첫 단계만 보이고 결과는 아직 대기 중이어야 한다.
+    expect(useSearchStore.getState().progressStep).toBe("ROUTE");
+    expect(useSearchStore.getState().result).toBeNull();
+
+    await act(async () => { await vi.advanceTimersByTimeAsync(700); });
+    expect(useSearchStore.getState().progressStep).toBe("COLLECT");
+
+    await act(async () => { await vi.advanceTimersByTimeAsync(700); });
+    expect(useSearchStore.getState().progressStep).toBe("EXPAND");
+    expect(useSearchStore.getState().expandRadiusM).toBe(14600);
+
+    await act(async () => { await vi.advanceTimersByTimeAsync(700); });
+    expect(useSearchStore.getState().progressStep).toBe("PRECISE");
+    expect(useSearchStore.getState().result).toBeNull();
+
+    await act(async () => { await vi.advanceTimersByTimeAsync(700); });
+    expect(useSearchStore.getState().result?.searchId).toBe("s-exp");
+    expect(useSearchStore.getState().isLoading).toBe(false);
+    expect(useSearchStore.getState().progressStepsSeen).toContain("EXPAND");
+  });
+
+  it("확장이 없으면 EXPAND 단계는 큐에 들어가지 않는다", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        sseStreamResponse([
+          'event: progress\ndata: {"step":"ROUTE"}\n\n',
+          'event: progress\ndata: {"step":"COLLECT"}\n\n',
+          'event: progress\ndata: {"step":"PRECISE"}\n\n',
+          'event: result\ndata: {"searchId":"s-noexp","baseRoute":{"distanceM":90000,"durationS":5000,"polyline":[]},"candidates":[],"referencePrice":1800,"refPriceSource":"MEDIAN_T1T2","expansion":{"triggered":false,"finalRadiusM":3000},"warnings":[]}\n\n',
+        ]),
+      ),
+    );
+
+    const { result } = renderHook(() => useSearchStream());
+    await act(async () => {
+      await result.current.search(BODY);
+    });
+    await act(async () => { await vi.advanceTimersByTimeAsync(5_000); });
+
+    expect(useSearchStore.getState().result?.searchId).toBe("s-noexp");
+    expect(useSearchStore.getState().progressStepsSeen).not.toContain("EXPAND");
   });
 });
 
