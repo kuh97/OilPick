@@ -14,7 +14,7 @@ import { getRedis } from "@/infra/cache/redis";
 import { getDb } from "@/infra/db/client";
 import { env } from "@/infra/env";
 import { wgs84ToProjected, pointToPolylineDistanceM } from "@/domain/geo";
-import { classifyTier } from "@/domain/tier";
+import { classifyTier, classifyTierByDetour } from "@/domain/tier";
 import {
   estimateDetourDistanceM,
   estimateDetourDurationS,
@@ -73,6 +73,9 @@ interface InternalCandidate {
   /** CSV 기준일자("YYYY-MM-DD"). 상세 API로만 채워진 행은 null — priceUpdatedAt이 비게 됨 */
   pricedOn: string | null;
   dPerp: number;
+  /** d_perp 기준 기하 티어 — P_ref·T3 게이트·확장 배너 등 파이프라인 판정의 근거. 불변. */
+  geoTier: Tier;
+  /** 화면에 표시하는 티어. precise 후보는 실측 우회거리로 재판정되어 geoTier와 다를 수 있음. */
   tier: Tier;
   detourDistanceM: number;
   detourDurationS: number;
@@ -102,6 +105,7 @@ function toInternalCandidates(
       price,
       pricedOn,
       dPerp,
+      geoTier: tier,
       tier,
       detourDistanceM,
       detourDurationS: estimateDetourDurationS(detourDistanceM),
@@ -292,7 +296,7 @@ export async function search(
   let internal = toInternalCandidates(collected.stations, projectedPolyline);
 
   // STEP7 — P_ref
-  const t1t2 = internal.filter((ic) => ic.tier === "T1" || ic.tier === "T2");
+  const t1t2 = internal.filter((ic) => ic.geoTier === "T1" || ic.geoTier === "T2");
   const priceResult = await computeReferencePrice({
     t1t2Prices: t1t2.map((ic) => ic.price),
     pool: internal.map((ic) => ({ sigunCd: ic.station.sigunCd })),
@@ -313,13 +317,13 @@ export async function search(
     warnings.push(warning);
     onProgress?.({ type: "warning", data: warning });
     // T3는 순절감액 게이트를 판정할 수 없으므로 제외합니다.
-    internal = internal.filter((ic) => ic.tier !== "T3");
+    internal = internal.filter((ic) => ic.geoTier !== "T3");
   }
 
   // STEP8 — T3 게이트 (referencePrice가 있을 때만 의미가 있음)
   if (referencePrice != null) {
     internal = internal.filter((ic) => {
-      if (ic.tier !== "T3") return true;
+      if (ic.geoTier !== "T3") return true;
       return passesT3Gate({
         priceRefWon: referencePrice!,
         priceStationWon: ic.price,
@@ -332,8 +336,9 @@ export async function search(
 
   const hasFacilityFilter = filters.facilities.length > 0;
 
+  // "어디까지 뒤졌나"는 기하 개념 — 배지가 재판정된 tier가 아니라 geoTier로 본다.
   function computeFinalRadiusM(list: InternalCandidate[]): number {
-    const t3 = list.filter((ic) => ic.tier === "T3");
+    const t3 = list.filter((ic) => ic.geoTier === "T3");
     if (t3.length === 0) return T2_MAX;
     return Math.max(...t3.map((ic) => ic.dPerp));
   }
@@ -398,10 +403,13 @@ export async function search(
     const result = preciseResults[idx];
     if (result.status !== "fulfilled") return ic; // A8 — 추정치 유지
     const preciseRoute = result.value;
+    const detourDistanceM = Math.max(0, preciseRoute.distanceM - baseRoute.distanceM);
     return {
       ...ic,
-      detourDistanceM: Math.max(0, preciseRoute.distanceM - baseRoute.distanceM),
+      detourDistanceM,
       detourDurationS: Math.max(0, preciseRoute.durationS - baseRoute.durationS),
+      // 실측 우회거리로 배지 재판정 (geoTier는 유지 — §6.4)
+      tier: classifyTierByDetour(detourDistanceM),
       precise: true,
     };
   });

@@ -3,7 +3,7 @@
  * PRODUCT.md §6.4
  */
 
-import { T1_MAX, T2_MAX, T3_MAX } from "./params";
+import { T1_MAX, T2_MAX, T3_MAX, DETOUR_ESTIMATE_FACTOR } from "./params";
 import type { Tier } from "./types";
 
 /**
@@ -22,6 +22,17 @@ export function classifyTier(dPerpM: number): Tier | null {
 /** T3_MAX 초과 여부 */
 export function isOutOfRange(dPerpM: number): boolean {
   return dPerpM > T3_MAX;
+}
+
+/**
+ * 실측 우회거리(ΔD)로 티어를 재판정 — STEP 10 정밀 계산을 마친 후보 전용 (PRODUCT.md §6.4).
+ * 경계값은 `F × 기하 임계값`이라 추정 배지(ΔD̂ = F × d_perp)와 경계에서 일치한다.
+ * 상한 제거는 없다(항상 T1~T3) — 우회 상한은 A6, 배지만 바꾸고 파이프라인 판정은 geoTier가 담당.
+ */
+export function classifyTierByDetour(detourDistanceM: number): Tier {
+  if (detourDistanceM <= DETOUR_ESTIMATE_FACTOR * T1_MAX) return "T1";
+  if (detourDistanceM <= DETOUR_ESTIMATE_FACTOR * T2_MAX) return "T2";
+  return "T3";
 }
 
 /** T1 + T2 수가 확장 발동 임계값(MIN_CANDIDATES) 미만인지 확인 */

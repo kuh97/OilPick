@@ -265,6 +265,49 @@ describe("search — T3 게이트 (STEP8)", () => {
   });
 });
 
+describe("search — 실측 우회거리로 상위 후보 배지 재판정 (STEP10)", () => {
+  it("d_perp는 0(경로상)이지만 실측 우회가 6km를 넘으면 배지가 '우회'로 바뀐다", async () => {
+    // 기본 mock: 경유 경로 = 기본 + 6,800m (F×T2_MAX=6,000m 초과 → T3)
+    collectStationsMock.mockResolvedValue({
+      stations: [collected({ id: "A1", location: wgs84(37.0, 127.15) })], // 경로 위, d_perp ≈ 0
+    });
+
+    const result = await search(baseInput(), undefined, FAKE_DEPS);
+
+    const c = result.candidates.find((x) => x.station.id === "A1")!;
+    expect(c.detour.precise).toBe(true);
+    expect(c.tier).toBe("T3"); // 실측 우회 6.8km → 재판정
+    // "어디까지 뒤졌나"는 기하 기준이라 그대로 — 배지만 바뀌고 배너는 켜지지 않는다
+    expect(result.expansion.triggered).toBe(false);
+    expect(result.expansion.finalRadiusM).toBe(T2_MAX);
+  });
+
+  it("d_perp는 5km대(T3)지만 실측 우회가 짧으면 배지가 '경로상'으로 바뀐다 — 배너는 기하 기준이라 유지", async () => {
+    getRouteMock.mockImplementation(async (opts) => {
+      if (opts.waypoint) {
+        return { distanceM: BASE_ROUTE.distanceM + 200, durationS: BASE_ROUTE.durationS + 30, polyline: BASE_ROUTE.polyline };
+      }
+      return BASE_ROUTE;
+    });
+    collectStationsMock.mockResolvedValue({
+      stations: [
+        collected({ id: "A1", location: wgs84(37.0, 127.1) }), // T1
+        collected({ id: "A2", location: wgs84(37.0, 127.2), price: 1750 }), // T1
+        collected({ id: "A3", location: wgs84(37.05, 127.15), price: 1700 }), // T3, 저렴 → 게이트 통과
+      ],
+    });
+
+    const result = await search(baseInput(), undefined, FAKE_DEPS);
+
+    const c = result.candidates.find((x) => x.station.id === "A3")!;
+    expect(c.detour.precise).toBe(true);
+    expect(c.tier).toBe("T1"); // 실측 우회 200m → 재판정
+    // geoTier는 여전히 T3라서 "넓혀서 찾았다" 배너는 그대로 켜진다
+    expect(result.expansion.triggered).toBe(true);
+    expect(result.expansion.finalRadiusM).toBe(c.dPerp);
+  });
+});
+
 describe("search — 짧은 경로에서도 우회 후보를 보여준다 (사용자 실측: 남한산성입구역→을지대학교)", () => {
   it("기본 경로가 MIN_ROUTE_DISTANCE 미만이면 우회가 D_base×50%를 넘어도 후보를 제외하지 않는다", async () => {
     getRouteMock.mockImplementation(async (opts) => {
