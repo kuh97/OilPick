@@ -1,11 +1,12 @@
 # 오피넷 API → DB 기반 전환 계획
 
-> **상태: Phase A~D 완료, Phase E 미착수** — 2026-09-05 작성, 2026-09-06 갱신
+> **상태: Phase A~E 완료** — 2026-09-05 작성, 2026-09-07 갱신
 >
 > §7 Phase A(마스터 CSV 임포트)·Phase B(스키마)·Phase C(검색 경로 교체 — `collectStations` bbox
 > 조회, 예산·확장 수집·`sigungu_avg_price` 전량 삭제, §9.1·§9.2 일자 기준 신선도 표시)·
-> Phase D(일일 CSV 자동 갱신 파이프라인) 완료. 남은 건 Phase E(시설정보 백필).
-> §11.3 문서 갱신(ARCHITECTURE.md)은 아직 하지 않았다.
+> Phase D(일일 CSV 자동 갱신 파이프라인)·Phase E(시설정보 백필 크론) 완료.
+> 남은 건 백필 크론이 34일간 완주하는 것(무인)과, §9.3(시설 필터 배너)·§9.4(셀프 필터 토글)
+> UI 작업, §11.3 문서 갱신(ARCHITECTURE.md §5.3·§7.2·§12①)이다.
 >
 > 이 문서는 검색 경로의 오피넷 실시간 호출을 **일 1회 CSV 임포트 + DB 조회**로 바꾸는
 > 작업의 실행 문서입니다. 작업 중에 옆에 켜두고 단계별로 체크하십시오.
@@ -375,7 +376,7 @@ NetFunnel) 뒤에 있고 서버 생성에 시간이 걸립니다. 순수 HTTP로
 `APP_BASE_URL`(GitHub Actions가 임포트를 트리거할 때). `vercel.json`은 리전을 `icn1`로
 고정하고 크론을 등록합니다.
 
-### Phase E — 시설정보 백필 (무인, 34일)
+### Phase E — 시설정보 백필 (무인, 34일) ✅ (2026-09-07 구현)
 
 검색이 오피넷을 쓰지 않으므로 **280회 예산 전부를 백필에 씁니다.**
 
@@ -385,14 +386,39 @@ NetFunnel) 뒤에 있고 서버 생성에 시간이 걸립니다. 순수 HTTP로
 소요 : 9,358 ÷ 280 ≈ 34일
 ```
 
+| 부분 | 위치 | 파일 |
+| --- | --- | --- |
+| 오케스트레이터 (큐 조회 → 상세 API 병렬 호출 → 시설 컬럼만 UPDATE → 남은 건수 집계) | 순수 서비스 | `src/services/detail-backfill-service.ts` |
+| 큐·UPDATE 리포지토리 (`findStationsNeedingDetailBackfill` / `updateDetailFields` / `markDetailSyncedEmpty` / `countStationsNeedingDetailBackfill`) | DB 접근 | `src/infra/db/repositories.ts` |
+| 크론 진입점 (Bearer 인증, `maxDuration=300`) | Vercel Cron | `src/app/api/cron/backfill-details/route.ts` (`vercel.json`, `0 21 * * *` UTC = 06:00 KST — 임포트 크론 뒤) |
+| 수동 실행 / 따라잡기 | 스크립트 | `scripts/backfill-details.ts` (`pnpm data:backfill-details [건수]`) |
+| 1회 처리량 | 환경변수 | `OPINET_BACKFILL_LIMIT` (기본 280) |
+
+**컬럼 소유권(§6) 준수.** `updateDetailFields`의 SET 절은 상세 API 소유 컬럼
+(`has_car_wash`·`has_maintenance`·`has_cvs`·`is_kpetro`·`tel`·`detail_synced_at`)만
+건드립니다 — 매일 도는 CSV 임포트가 소유한 `name`·`brand_code`·주소·`sigun_cd`·
+`energy_type`·좌표·가격은 넣지 않습니다. 대상 행은 이미 CSV로 존재하므로 INSERT가
+아닌 UPDATE입니다 (`upsertRefuelPointFromDetail`은 폴백 C — 신규 주유소 INSERT용이라
+여기 쓰지 않습니다).
+
+**상세 API에 없는 UNI_ID**(폐업 추정)는 `markDetailSyncedEmpty`가 `detail_synced_at`만
+찍어 매일 재시도로 예산을 갉아먹지 않게 합니다. 호출이 throw하면(타임아웃 등) 그 건은
+건너뛰고 다음 실행에서 재시도합니다.
+
 **큐 우선순위**
 
-1. 검색 결과에 노출됐는데 `detail_synced_at IS NULL`
-2. 고속도로 · 주요 국도 인접
-3. 나머지
+1. ~~검색 결과에 노출됐는데 `detail_synced_at IS NULL`~~ — 노출 이력 컬럼 필요, **미구현(TODO)**
+2. ~~고속도로 · 주요 국도 인접~~ — 도로 지오메트리 필요, **미구현(TODO)**
+3. 현재 구현: `ORDER BY last_seen_on DESC, id` — 최근까지 CSV에 등장한(= 현재 영업 중,
+   검색에 잡힐 가능성 높은) 곳을 먼저.
 
-큐가 `WHERE detail_synced_at IS NULL LIMIT 280`이므로 **대상이 없으면 저절로 멈춥니다.**
-이후엔 CSV가 발견한 신규 주유소만 처리하며, 개·폐업률 연 3~5% 기준 **하루 1~2건** 수준입니다.
+큐가 `WHERE detail_synced_at IS NULL AND energy_type <> 'LPG' LIMIT 280`이므로 **대상이
+없으면 저절로 멈춥니다.** 이후엔 CSV가 발견한 신규 주유소만 처리하며, 개·폐업률
+연 3~5% 기준 **하루 1~2건** 수준입니다.
+
+> **Vercel Hobby 크론 한도.** 이 크론을 더해 일일 크론이 2개가 됩니다(import-prices +
+> backfill-details) — Hobby 상한과 같습니다. 세 번째 크론이 필요하면 하나를 GitHub
+> Actions로 옮기십시오(Phase D 다운로드처럼).
 
 > **남는 예산은 비워두십시오.** 다운로드 자동화는 언젠가 깨집니다.
 > CSV 임포트가 2일 이상 연속 실패하면, 사용자가 지나가는 시군구의 가격만

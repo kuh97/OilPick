@@ -10,6 +10,10 @@ import {
   findSigunguAvgPrice,
   findSidoAvgPrice,
   findNationalAvgPrice,
+  findStationsNeedingDetailBackfill,
+  countStationsNeedingDetailBackfill,
+  updateDetailFields,
+  markDetailSyncedEmpty,
   type RefuelPointRow,
 } from "../repositories";
 import type { Db } from "../client";
@@ -473,5 +477,106 @@ describe("findNationalAvgPrice — DB 접근", () => {
 
     const result = await findNationalAvgPrice("LPG", { select } as unknown as Db);
     expect(result).toBeNull();
+  });
+});
+
+// ─── 시설정보 백필 (Phase E) ────────────────────────────────────────────────
+
+describe("findStationsNeedingDetailBackfill — DB 접근", () => {
+  it("select→from→where→orderBy→limit 체인을 태우고 id 배열만 뽑아 반환한다", async () => {
+    const limit = vi.fn().mockResolvedValue([{ id: "A0000001" }, { id: "A0000002" }]);
+    const orderBy = vi.fn(() => ({ limit }));
+    const where = vi.fn(() => ({ orderBy }));
+    const from = vi.fn(() => ({ where }));
+    const select = vi.fn(() => ({ from }));
+
+    const result = await findStationsNeedingDetailBackfill(280, { select } as unknown as Db);
+
+    expect(result).toEqual(["A0000001", "A0000002"]);
+    expect(limit).toHaveBeenCalledWith(280);
+  });
+
+  it("대상이 없으면 빈 배열을 반환한다", async () => {
+    const limit = vi.fn().mockResolvedValue([]);
+    const orderBy = vi.fn(() => ({ limit }));
+    const where = vi.fn(() => ({ orderBy }));
+    const from = vi.fn(() => ({ where }));
+    const select = vi.fn(() => ({ from }));
+
+    const result = await findStationsNeedingDetailBackfill(50, { select } as unknown as Db);
+    expect(result).toEqual([]);
+  });
+});
+
+describe("countStationsNeedingDetailBackfill — DB 접근", () => {
+  it("count 결과를 숫자로 반환한다", async () => {
+    const where = vi.fn().mockResolvedValue([{ n: 8_800 }]);
+    const from = vi.fn(() => ({ where }));
+    const select = vi.fn(() => ({ from }));
+
+    const result = await countStationsNeedingDetailBackfill({ select } as unknown as Db);
+    expect(result).toBe(8_800);
+  });
+
+  it("행이 없으면 0을 반환한다", async () => {
+    const where = vi.fn().mockResolvedValue([]);
+    const from = vi.fn(() => ({ where }));
+    const select = vi.fn(() => ({ from }));
+
+    const result = await countStationsNeedingDetailBackfill({ select } as unknown as Db);
+    expect(result).toBe(0);
+  });
+});
+
+describe("updateDetailFields — DB 접근", () => {
+  it("SET 절에 상세 API 소유 컬럼만 넣는다 (CSV 소유 컬럼 제외)", async () => {
+    const where = vi.fn().mockResolvedValue(undefined);
+    const set = vi.fn<(v: Record<string, unknown>) => { where: typeof where }>(() => ({ where }));
+    const update = vi.fn(() => ({ set }));
+    const now = new Date("2026-09-07T00:00:00.000Z");
+
+    await updateDetailFields(
+      {
+        id: "A0000001",
+        hasCarWash: true,
+        hasMaintenance: false,
+        hasCvs: true,
+        isKpetro: false,
+        tel: "02-123-4567",
+      },
+      { update } as unknown as Db,
+      now,
+    );
+
+    const setArg = set.mock.calls[0][0] as Record<string, unknown>;
+    expect(Object.keys(setArg).sort()).toEqual(
+      ["detailSyncedAt", "hasCarWash", "hasCvs", "hasMaintenance", "isKpetro", "tel", "updatedAt"].sort(),
+    );
+    for (const forbidden of ["name", "brandCode", "addressRoad", "sigunCd", "energyType", "lat", "lng", "priceGasoline"]) {
+      expect(setArg).not.toHaveProperty(forbidden);
+    }
+    expect(setArg.detailSyncedAt).toBe(now);
+  });
+});
+
+describe("markDetailSyncedEmpty — DB 접근", () => {
+  it("빈 배열이면 DB를 호출하지 않고 0을 반환한다", async () => {
+    const update = vi.fn();
+    const result = await markDetailSyncedEmpty([], { update } as unknown as Db);
+    expect(result).toBe(0);
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it("id 목록에 detail_synced_at만 채우는 UPDATE를 실행하고 건수를 반환한다", async () => {
+    const where = vi.fn().mockResolvedValue(undefined);
+    const set = vi.fn<(v: Record<string, unknown>) => { where: typeof where }>(() => ({ where }));
+    const update = vi.fn(() => ({ set }));
+    const now = new Date("2026-09-07T00:00:00.000Z");
+
+    const result = await markDetailSyncedEmpty(["A1", "A2", "A3"], { update } as unknown as Db, now);
+
+    expect(result).toBe(3);
+    const setArg = set.mock.calls[0][0] as Record<string, unknown>;
+    expect(Object.keys(setArg).sort()).toEqual(["detailSyncedAt", "updatedAt"].sort());
   });
 });

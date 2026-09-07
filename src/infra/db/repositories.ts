@@ -7,7 +7,7 @@
  * BudgetStore 주입 패턴과 동일).
  */
 
-import { and, avg, desc, eq, gt, gte, inArray, lte, like, sql } from "drizzle-orm";
+import { and, avg, count, desc, eq, gt, gte, inArray, isNull, lte, like, ne, sql } from "drizzle-orm";
 import { getDb, type Db } from "./client";
 import { refuelPoint, refuelPointStaging, csvImportLog } from "./schema";
 import { mapDetailItem, FUEL_TO_PRODCD } from "@/infra/opinet/mapper";
@@ -516,4 +516,96 @@ export async function swapStagingToRefuelPoint(db: Db = getDb()): Promise<void> 
       coord_source = coalesce(refuel_point.coord_source, excluded.coord_source),
       updated_at = excluded.updated_at
   `);
+}
+
+// ─── 시설정보 백필 — 상세 API (docs/MIGRATION-DB.md §7 Phase E) ────────────────
+//
+// 검색 경로가 오피넷을 더 이상 쓰지 않으므로(§7 Phase C) 일일 예산 전부를 여기 씁니다.
+// upsertRefuelPointFromDetail(폴백 C — 신규 주유소 INSERT)과 달리, 여기서는 이미
+// CSV로 존재하는 행을 UPDATE하며 **상세 API가 소유한 컬럼만** 건드립니다(§6):
+// has_car_wash·has_maintenance·has_cvs·is_kpetro·tel·detail_synced_at.
+// name·brand_code·address·sigun_cd·energy_type·좌표·가격은 CSV 소유이므로 제외합니다.
+
+/** 상세 API로 채울 시설정보 — mapDetailItem 결과에서 상세 API 소유 컬럼만 추린 것. */
+export interface DetailBackfillFields {
+  id: string; // 큐에서 꺼낸 UNI_ID를 정본으로 씀 (응답 UNI_ID가 달라도 이 행을 갱신)
+  hasCarWash: boolean;
+  hasMaintenance: boolean;
+  hasCvs: boolean;
+  isKpetro: boolean;
+  tel: string | null;
+}
+
+/**
+ * 시설정보가 아직 없는 주유소 UNI_ID 목록 (LPG 전용 충전소 제외 — 세차·정비가 무의미).
+ *
+ * 정렬: 최근까지 CSV에 등장한 곳(= 현재 영업 중, 검색에 잡힐 가능성 높음)을 먼저.
+ * 큐 조건이 `detail_synced_at IS NULL`이므로 대상이 없으면 자동으로 멈춥니다(§7 Phase E).
+ *
+ * TODO(§7 Phase E 큐 우선순위): "검색 결과에 노출된 이력"·"고속도로 인접"을 앞세우려면
+ * 각각 노출 타임스탬프 컬럼과 도로 지오메트리가 필요합니다 — 후속 작업으로 남겨둡니다.
+ */
+export async function findStationsNeedingDetailBackfill(
+  limit: number,
+  db: Db = getDb(),
+): Promise<string[]> {
+  const rows = await db
+    .select({ id: refuelPoint.id })
+    .from(refuelPoint)
+    .where(and(isNull(refuelPoint.detailSyncedAt), ne(refuelPoint.energyType, "LPG")))
+    .orderBy(desc(refuelPoint.lastSeenOn), refuelPoint.id)
+    .limit(limit);
+  return rows.map((r) => r.id);
+}
+
+/** 백필이 아직 필요한 총 건수 — 크론 응답의 `remaining`(진행률 추정용). */
+export async function countStationsNeedingDetailBackfill(db: Db = getDb()): Promise<number> {
+  const [row] = await db
+    .select({ n: count() })
+    .from(refuelPoint)
+    .where(and(isNull(refuelPoint.detailSyncedAt), ne(refuelPoint.energyType, "LPG")));
+  return Number(row?.n ?? 0);
+}
+
+/**
+ * 상세 API로 얻은 시설정보 한 행을 refuel_point에 반영.
+ * SET 절은 상세 API 소유 6개 컬럼 + updated_at 뿐입니다 — CSV 소유 컬럼은 절대 넣지
+ * 않습니다(§6 컬럼 소유권 규칙). 대상 행은 이미 존재하므로 UPDATE입니다.
+ */
+export async function updateDetailFields(
+  fields: DetailBackfillFields,
+  db: Db = getDb(),
+  now: Date = new Date(),
+): Promise<void> {
+  await db
+    .update(refuelPoint)
+    .set({
+      hasCarWash: fields.hasCarWash,
+      hasMaintenance: fields.hasMaintenance,
+      hasCvs: fields.hasCvs,
+      isKpetro: fields.isKpetro,
+      tel: fields.tel,
+      detailSyncedAt: now,
+      updatedAt: now,
+    })
+    .where(eq(refuelPoint.id, fields.id));
+}
+
+/**
+ * 상세 API에 존재하지 않는(폐업 추정) UNI_ID를 "확인함"으로만 표시합니다.
+ * detail_synced_at만 채우므로 시설 플래그는 기본값(false)으로 남고, 매일 재시도되어
+ * 예산을 갉아먹는 일이 없어집니다. 폐업 주유소는 last_seen_on 컷오프로 검색에서
+ * 이미 빠지므로(§7 Phase C) 표시만으로 충분합니다.
+ */
+export async function markDetailSyncedEmpty(
+  ids: string[],
+  db: Db = getDb(),
+  now: Date = new Date(),
+): Promise<number> {
+  if (ids.length === 0) return 0;
+  await db
+    .update(refuelPoint)
+    .set({ detailSyncedAt: now, updatedAt: now })
+    .where(inArray(refuelPoint.id, ids));
+  return ids.length;
 }

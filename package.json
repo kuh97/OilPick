@@ -15,6 +15,7 @@
     "db:migrate": "drizzle-kit migrate",
     "data:import-csv": "tsx --env-file=.env.local scripts/import-price-csv.ts",
     "data:download-csv": "tsx --env-file=.env.local scripts/download-opinet-csv.ts",
+    "data:backfill-details": "tsx --env-file=.env.local scripts/backfill-details.ts",
     "verify:coord": "tsx --env-file=.env.local scripts/verify/coord.mts",
     "verify:standard-data": "tsx --env-file=.env.local scripts/verify/standard-data.mts",
     "verify:price-time": "tsx --env-file=.env.local scripts/verify/price-time.mts",

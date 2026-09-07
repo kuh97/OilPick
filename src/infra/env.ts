@@ -17,6 +17,8 @@ export const env = {
   get OPINET_CERT_KEY() { return required("OPINET_CERT_KEY"); },
   get OPINET_BASE_URL() { return optional("OPINET_BASE_URL", "https://www.opinet.co.kr/api"); },
   get OPINET_CONCURRENCY() { return Number(optional("OPINET_CONCURRENCY", "8")); },
+  // 시설정보 백필(Phase E) 1회 처리량. 오피넷 일 한도 300의 안전 여유분(§7 Phase E).
+  get OPINET_BACKFILL_LIMIT() { return Number(optional("OPINET_BACKFILL_LIMIT", "280")); },
   get UPSTASH_REDIS_REST_URL() { return required("UPSTASH_REDIS_REST_URL"); },
   get UPSTASH_REDIS_REST_TOKEN() { return required("UPSTASH_REDIS_REST_TOKEN"); },
   get REDIS_KEY_PREFIX() { return optional("REDIS_KEY_PREFIX", "dev"); },
