@@ -131,9 +131,8 @@ export interface Warning {
 }
 
 export interface ExpansionInfo {
-  triggered: boolean;
+  triggered: boolean;    // 최종 목록에 T3(d_perp > T2_MAX)가 남았는가
   finalRadiusM: number;  // 최종 목록에 남은 T3의 최대 d_perp (없으면 T2_MAX)
-  skippedReason?: "QUOTA" | "DISABLED";
 }
 
 export interface SearchResult {

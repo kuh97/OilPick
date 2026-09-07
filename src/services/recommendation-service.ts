@@ -374,7 +374,6 @@ export async function search(
       expansion: {
         triggered: computeFinalRadiusM(internal) > T2_MAX,
         finalRadiusM: computeFinalRadiusM(internal),
-        skippedReason: undefined,
       },
     },
   });
@@ -434,7 +433,7 @@ export async function search(
     candidates: finalCandidates,
     referencePrice,
     refPriceSource,
-    expansion: { triggered: finalRadiusM > T2_MAX, finalRadiusM, skippedReason: undefined },
+    expansion: { triggered: finalRadiusM > T2_MAX, finalRadiusM },
     warnings,
   };
 

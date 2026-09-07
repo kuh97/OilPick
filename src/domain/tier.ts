@@ -34,8 +34,3 @@ export function classifyTierByDetour(detourDistanceM: number): Tier {
   if (detourDistanceM <= DETOUR_ESTIMATE_FACTOR * T2_MAX) return "T2";
   return "T3";
 }
-
-/** T1 + T2 수가 확장 발동 임계값(MIN_CANDIDATES) 미만인지 확인 */
-export function needsExpansion(t1Count: number, t2Count: number, minCandidates: number): boolean {
-  return t1Count + t2Count < minCandidates;
-}

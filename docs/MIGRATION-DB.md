@@ -1,12 +1,9 @@
 # 오피넷 API → DB 기반 전환 계획
 
-> **상태: Phase A~E 완료** — 2026-09-05 작성, 2026-09-07 갱신
+> **상태: 코드·문서 작업 완료, 배포 대기** — 2026-09-05 작성, 2026-09-07 갱신
 >
-> §7 Phase A(마스터 CSV 임포트)·Phase B(스키마)·Phase C(검색 경로 교체 — `collectStations` bbox
-> 조회, 예산·확장 수집·`sigungu_avg_price` 전량 삭제, §9.1·§9.2 일자 기준 신선도 표시)·
-> Phase D(일일 CSV 자동 갱신 파이프라인)·Phase E(시설정보 백필 크론) 완료.
-> §9.3(시설 필터 배너)·§9.4(셀프 필터 토글)까지 완료. 남은 건 백필 크론이 34일간
-> 완주하는 것(무인)과, §11.3 문서 갱신(ARCHITECTURE.md §5.3·§7.2·§12①)이다.
+> Phase A~E, §9.1~§9.4, §10 삭제 대상 코드, §11.3 문서 갱신(ARCHITECTURE·PRODUCT·AGENTS·
+> README) 모두 완료. 남은 건 **배포·운영**(§11)과 백필 크론의 34일 무인 완주뿐이다.
 >
 > 이 문서는 검색 경로의 오피넷 실시간 호출을 **일 1회 CSV 임포트 + DB 조회**로 바꾸는
 > 작업의 실행 문서입니다. 작업 중에 옆에 켜두고 단계별로 체크하십시오.
@@ -522,20 +519,19 @@ filter-sheet.tsx 토글 → WireFilters.selfOnly → FiltersSchema(zod)
 
 ---
 
-## 10. 삭제 대상 코드
+## 10. 삭제 대상 코드 ✅ 완료
 
-| 대상 | 위치 |
-| --- | --- |
-| 일일 예산 카운터 전체 | `src/infra/opinet/budget.ts` |
-| 예산 가드 | `station-service.isOpinetBudgetAvailable` |
-| 예산 소진 예외 | `recommendation-service.QuotaExhaustedError` + SSE·API 라우트의 처리 분기 |
-| 확장 수집 | `recommendation-service` STEP5·STEP6, `geo.normalOffsets` |
-| 확장 관련 타입 | `ExpansionInfo.skippedReason`, `WarningCode.QUOTA_EXCEEDED` |
-| 파라미터 | `params.MIN_CANDIDATES`, `params.OFFSET`, `params.SAMPLE_INTERVAL` |
-| 시군구 평균가 | `sigungu_avg_price` 테이블, `scripts/sync-sigungu-avg.ts`, `POST /api/cron/sync-sigungu`, 관련 리포지토리 3함수 |
-| 환경변수 | `OPINET_DAILY_BUDGET`, `FEATURE_EXPANSION_ENABLED` |
+| 대상 | 위치 | 처리 커밋 |
+| --- | --- | --- |
+| 일일 예산 카운터·가드·소진 예외 | `opinet/budget.ts`, `isOpinetBudgetAvailable`, `QuotaExhaustedError` | Phase C (`399d0b6`) |
+| 확장 수집 | `recommendation-service` STEP5·6, `geo.samplePolyline`·`geo.normalOffsets`, `tier.needsExpansion` | Phase C + 잔재 정리 (`a62602b`) |
+| 확장 관련 타입 | `ExpansionInfo.skippedReason`, `WarningCode.QUOTA_EXCEEDED` | `a62602b` |
+| 파라미터 | `params.MIN_CANDIDATES`, `params.OFFSET`, `params.SAMPLE_INTERVAL` | `a62602b` |
+| 시군구 평균가 | `sigungu_avg_price` 테이블(`drizzle/0002`), `sync-sigungu-avg.ts`, `POST /api/cron/sync-sigungu` — `findSigunguAvgPrice`/`findSido`/`findNational`은 이름 유지한 채 `refuel_point` 집계로 재구현 | Phase C |
+| 환경변수 | `OPINET_DAILY_BUDGET`, `FEATURE_EXPANSION_ENABLED` | Phase C + `a62602b` |
 
-`fetchRadius`(`opinet/client.ts`)는 §7 Phase E의 비상 경로 후보이므로 **남겨둡니다.**
+`fetchRadius`(`opinet/client.ts`)와 `tier.isOutOfRange`는 **남겨뒀습니다** (전자는 §7 Phase E
+비상 경로 후보, 후자는 확장과 무관한 유틸).
 
 ---
 
@@ -565,17 +561,19 @@ Phase C까지는 `collectStations`의 구현만 바뀌므로, 이전 구현을 �
 환경변수로 전환하면 즉시 되돌릴 수 있습니다. `refuel_point`는 컬럼 추가만 했으므로
 스키마 롤백이 필요 없습니다.
 
-### 11.3 문서 갱신
+### 11.3 문서 갱신 ✅ 완료 (2026-09-07)
 
-작업 완료 후 [`ARCHITECTURE.md`](ARCHITECTURE.md)의 다음 섹션을 갱신하십시오.
+[`ARCHITECTURE.md`](ARCHITECTURE.md)뿐 아니라 `PRODUCT.md`·`AGENTS.md`·`README.md`까지
+현재 상태 기준으로 재작성했습니다("예전엔 이랬다" 서술은 번호 빈 목록·검증 기록에만 남김).
 
-| 섹션 | 조치 |
+| 문서·섹션 | 조치 |
 | --- | --- |
-| §5.3.1 용량 한계 | 무효 — 해소됨으로 갱신 |
-| §5.3.2 예산 소진 시 UX | 무효 — 삭제 |
-| §7.1 마스터 구축 전략 | "폴백 C" → CSV 임포트로 대체 |
-| §7.2 `sigungu_avg_price` | 삭제 |
-| §12 ① 오피넷 일일 한도 | 결정 로그에 해소 기록 추가 |
+| ARCHITECTURE §5.1·§5.3·§5.3.1·§5.3.2·§5.4 | 오피넷 API를 데이터 원천 4종 표로, 검색 예산 0으로 |
+| ARCHITECTURE §7.1·§7.2·§7.3 | `refuel_point` DDL 전체, `P_ref` 실시간 집계, `search_event` 컬럼 정리 |
+| ARCHITECTURE §8·§9.1·§9.3·§6.1·§6.4·§11 | 캐시 축소, 흐름도, 배치 3종, 크론 라우트, 배포 |
+| PRODUCT §5.2·§5.3·§6.2·§6.3·§7.1·§7.2·§9.1·§10 | 셀프 필터, 우회 고지 배너, 회랑 수집, 죽은 파라미터·예외 정리 |
+| AGENTS·README | 데이터 전략·보안 쿼터·테스트·금지사항·`data:*` 파이프라인·환경변수 |
+| ARCHITECTURE §10 Phase 본문 / `scripts/README-phase0.md` | "최초 구축 순서" 성격이라 배너만, 본문 유지 |
 
 ---
 

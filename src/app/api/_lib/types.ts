@@ -62,7 +62,6 @@ export interface WireBaseRoute {
 export interface WireExpansion {
   triggered: boolean;
   finalRadiusM: number;
-  skippedReason?: "QUOTA" | "DISABLED";
 }
 
 export interface WireSearchResult {

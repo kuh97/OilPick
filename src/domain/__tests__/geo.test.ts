@@ -6,8 +6,6 @@ import {
   projectedToWgs84,
   pointToSegmentDistanceM,
   pointToPolylineDistanceM,
-  samplePolyline,
-  normalOffsets,
   distanceM,
 } from "../geo";
 import { wgs84, katec, projected } from "../types";
@@ -91,57 +89,5 @@ describe("pointToPolylineDistanceM", () => {
 
   it("빈 폴리라인 → Infinity", () => {
     expect(pointToPolylineDistanceM(projected(0, 0), [])).toBe(Infinity);
-  });
-});
-
-describe("samplePolyline", () => {
-  it("시작점과 끝점을 항상 포함한다", () => {
-    const poly = [
-      wgs84(37.0, 127.0),
-      wgs84(37.1, 127.1),
-      wgs84(37.2, 127.2),
-    ];
-    const samples = samplePolyline(poly, 5_000);
-    expect(samples.length).toBeGreaterThanOrEqual(2);
-
-    // 시작점
-    const start = wgs84ToProjected(poly[0]);
-    expect(distanceM(samples[0], start)).toBeLessThan(1);
-  });
-
-  it("단일 점 폴리라인 → 그 점 하나 반환", () => {
-    const samples = samplePolyline([wgs84(37.0, 127.0)], 1000);
-    expect(samples).toHaveLength(1);
-  });
-
-  it("빈 폴리라인 → 빈 배열", () => {
-    expect(samplePolyline([], 1000)).toHaveLength(0);
-  });
-
-  it("간격보다 짧은 폴리라인 → 최소 시작·끝 2개", () => {
-    const poly = [wgs84(37.0, 127.0), wgs84(37.0001, 127.0001)]; // ~15m
-    const samples = samplePolyline(poly, 10_000);
-    expect(samples.length).toBe(2);
-  });
-});
-
-describe("normalOffsets", () => {
-  it("단일 선분에서 양쪽 오프셋을 반환한다", () => {
-    const line = [projected(0, 0), projected(10, 0)];
-    const right = normalOffsets(line, 5);
-    const left = normalOffsets(line, -5);
-
-    expect(right).toHaveLength(1);
-    expect(left).toHaveLength(1);
-    // 수평 선분의 법선 = 수직. y 좌표가 ±5여야 함
-    expect(right[0].y).toBeCloseTo(5, 5);
-    expect(left[0].y).toBeCloseTo(-5, 5);
-    // 중점 x = 5
-    expect(right[0].x).toBeCloseTo(5, 5);
-  });
-
-  it("점이 1개 이하인 폴리라인 → 빈 배열", () => {
-    expect(normalOffsets([projected(0, 0)], 100)).toHaveLength(0);
-    expect(normalOffsets([], 100)).toHaveLength(0);
   });
 });

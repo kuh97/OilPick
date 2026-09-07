@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { classifyTier, classifyTierByDetour, isOutOfRange, needsExpansion } from "../tier";
+import { classifyTier, classifyTierByDetour, isOutOfRange } from "../tier";
 import { T1_MAX, T2_MAX, T3_MAX, DETOUR_ESTIMATE_FACTOR } from "../params";
 
 describe("classifyTier", () => {
@@ -32,15 +32,4 @@ describe("classifyTierByDetour (실측 우회거리 기준 재판정)", () => {
 describe("isOutOfRange", () => {
   it("T3_MAX 이하 → false", () => expect(isOutOfRange(T3_MAX)).toBe(false));
   it("T3_MAX 초과 → true", () => expect(isOutOfRange(T3_MAX + 0.001)).toBe(true));
-});
-
-describe("needsExpansion", () => {
-  it("T1+T2 합계가 minCandidates 미만 → true", () => {
-    expect(needsExpansion(1, 1, 3)).toBe(true);
-  });
-  it("T1+T2 합계가 minCandidates 이상 → false", () => {
-    expect(needsExpansion(2, 1, 3)).toBe(false);
-    expect(needsExpansion(0, 3, 3)).toBe(false);
-  });
-  it("둘 다 0 → true", () => expect(needsExpansion(0, 0, 1)).toBe(true));
 });

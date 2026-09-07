@@ -1,12 +1,11 @@
 /**
- * 좌표 변환 · 거리 계산 · 폴리라인 샘플링 · 법선 오프셋
+ * 좌표 변환 · 거리 계산 (점-선분 최단거리 d_perp)
  *
  * 모든 거리 계산은 EPSG:5179 투영좌표(미터)에서 수행합니다.
  * 위경도(도 단위) 거리 계산 금지 — AGENTS.md §5 불변식 3.
  */
 
 import proj4 from "proj4";
-import { SAMPLE_INTERVAL } from "./params";
 import type { WGS84Point, KatecPoint, ProjectedPoint } from "./types";
 import { wgs84, katec, projected } from "./types";
 
@@ -100,84 +99,4 @@ export function pointToPolylineDistanceM(
     if (d < minDist) minDist = d;
   }
   return minDist;
-}
-
-// ─── 폴리라인 샘플링 ─────────────────────────────────────────────────────────
-
-/**
- * WGS84 폴리라인을 EPSG:5179로 변환 후 SAMPLE_INTERVAL(m) 간격으로 샘플링.
- * 시작점·끝점은 항상 포함됩니다.
- *
- * @param polyline WGS84 좌표 배열
- * @param intervalM 샘플 간격 (m). 기본값 SAMPLE_INTERVAL
- */
-export function samplePolyline(
-  polyline: WGS84Point[],
-  intervalM: number = SAMPLE_INTERVAL,
-): ProjectedPoint[] {
-  if (polyline.length === 0) return [];
-
-  const pts = polyline.map(wgs84ToProjected);
-  if (pts.length === 1) return [pts[0]];
-
-  const samples: ProjectedPoint[] = [pts[0]];
-  let accumulated = 0;
-
-  for (let i = 0; i < pts.length - 1; i++) {
-    const segLen = distanceM(pts[i], pts[i + 1]);
-    accumulated += segLen;
-
-    while (accumulated >= intervalM) {
-      accumulated -= intervalM;
-      // 선분 위 보간 위치
-      const ratio = (segLen - accumulated) / segLen;
-      const sx = pts[i].x + ratio * (pts[i + 1].x - pts[i].x);
-      const sy = pts[i].y + ratio * (pts[i + 1].y - pts[i].y);
-      samples.push(projected(sx, sy));
-    }
-  }
-
-  // 끝점 추가 (중복 방지)
-  const last = pts[pts.length - 1];
-  const prev = samples[samples.length - 1];
-  if (distanceM(prev, last) > 1) {
-    samples.push(last);
-  }
-
-  return samples;
-}
-
-// ─── 법선 오프셋 (확장 수집) ─────────────────────────────────────────────────
-
-/**
- * 폴리라인의 각 선분 방향에 수직인 오프셋 지점을 반환합니다.
- * 확장 수집(STEP 6)에서 T3 구간을 덮기 위해 사용합니다.
- *
- * @param polyline 투영좌표 폴리라인
- * @param offsetM 오프셋 거리 (m). 양수=오른쪽, 음수=왼쪽
- */
-export function normalOffsets(
-  polyline: ProjectedPoint[],
-  offsetM: number,
-): ProjectedPoint[] {
-  if (polyline.length < 2) return [];
-
-  const result: ProjectedPoint[] = [];
-  for (let i = 0; i < polyline.length - 1; i++) {
-    const dx = polyline[i + 1].x - polyline[i].x;
-    const dy = polyline[i + 1].y - polyline[i].y;
-    const len = Math.sqrt(dx * dx + dy * dy);
-    if (len === 0) continue;
-
-    // 법선 벡터 (오른쪽 방향)
-    const nx = -dy / len;
-    const ny = dx / len;
-
-    // 선분 중점에서 오프셋
-    const mx = (polyline[i].x + polyline[i + 1].x) / 2;
-    const my = (polyline[i].y + polyline[i + 1].y) / 2;
-
-    result.push(projected(mx + nx * offsetM, my + ny * offsetM));
-  }
-  return result;
 }

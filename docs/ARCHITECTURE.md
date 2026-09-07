@@ -479,9 +479,8 @@ interface Warning {
 ```
 
 > `expansion`은 "우회해서 넓혀 찾았다"는 결과 배너용 신호입니다. 회랑 bbox 쿼리가 T3까지
-> 한 번에 덮으므로 별도 확장 단계는 없고, `triggered`는 최종 후보에 T3가 남았는지로만
-> 결정됩니다. (타입에는 `skippedReason?` 필드가 아직 남아 있으나 항상 비어 있습니다 —
-> 정리 예정.)
+> 한 번에 덮으므로 별도 확장 단계는 없고, `triggered`는 최종 후보에 T3(`d_perp > T2_MAX`)가
+> 남았는지로만 결정됩니다.
 
 ### 6.2 `POST /api/search` — SSE
 
@@ -1195,11 +1194,11 @@ Client → domain/deeplink.build(app, origin, station, destination)
 | ⑪   | 오피넷 응답의 가격 기준시각 | **JSON 응답엔 없음** (`TRADE_DT`/`TRADE_TM` 미포함). 가격은 유가 CSV 스냅샷이 됐고, CSV 메타행의 기준일자를 `priced_on`(날짜)으로 표시 (§5.1). 오피넷 파라미터명은 `certkey` |
 | ⑬   | Upstash 무료 티어 일일 명령 수 한도 | **10,000회/일.** 예상 사용량 665회/일 — 여유 충분. `INCRBY` 원자성 확인 |
 | ⑧   | 티맵 경유지 딥링크 지원 | **미지원 — 실기기 확인 (2026-08-28).** 커뮤니티 자료에 정리된 경유지 파라미터(`rV1Name`·`rV1X`·`rV1Y`)를 붙인 `tmap://route?...`를 실기기에서 열었으나 **경유지가 경로에 반영되지 않음** — 목적지만 안내됨. 기존 가정대로 **주유소를 목적지(`rGo*`)로 전달하는 방식 유지** ([`PRODUCT.md`](PRODUCT.md) §5.5). 표본이 실기기 1대이므로 Phase 10 매트릭스에서 iOS/Android 양쪽 재확인 |
-| ⑫   | 샘플링 커버리지·T2 후보 누락률 | **누락률 0%.** 실제 노선 3개(성남↔춘천·원주↔속초·강남↔수원)에서 `SAMPLE_INTERVAL`(8,000m) 간격과 촘촘한 간격(2,000m)의 T1+T2 결과가 완전히 일치. **`SAMPLE_INTERVAL=8,000m` 그대로 유지** (`verify:coverage`, 2026-08-28) |
+| ⑫   | 샘플링 커버리지·T2 후보 누락률 | **누락률 0%** (`verify:coverage`, 2026-08-28, 노선 3개 — 8km vs 2km 샘플 간격 T1+T2 일치). 이후 후보 수집이 회랑 bbox 쿼리로 바뀌어 T2 누락은 구조적으로 0 — 샘플링 파라미터 자체가 제거됨 |
 | ④   | 경로 API가 유턴·중앙분리대 반영 | **반영됨 — 확인.** 실제 후보로 검증한 결과 `d_perp` 대비 실제 우회거리 비율이 노선별 중앙값 0.67~2.11(통합 약 1.4)로 현재 `DETOUR_ESTIMATE_FACTOR=2.0`과 같은 자릿수. 동시에 중앙분리대 건너편·고속도로 반대 방향 충전소에서 실제 우회가 추정의 **100~425배**에 달하는 사례를 실측으로 확인 — `PRODUCT.md` §6.5 표가 이론으로 적어둔 위험이 실측으로 재현됨. **`DETOUR_ESTIMATE_FACTOR=2.0` 유지** (표본이 노선당 6곳뿐이라 재조정 근거 부족, `verify:uturn`, 2026-08-28) |
 
-**Phase 0의 넷(②③⑪⑬)이 코드 작성 전 필수였습니다.** 확장 수집은 삭제됐으므로
-`FEATURE_EXPANSION_ENABLED`·`MIN_CANDIDATES`·`OFFSET`는 더 이상 다루지 않습니다 —
+**Phase 0의 넷(②③⑪⑬)이 코드 작성 전 필수였습니다.** 확장 수집이 없어지면서
+`FEATURE_EXPANSION_ENABLED`·`MIN_CANDIDATES`·`OFFSET`·`SAMPLE_INTERVAL`도 함께 제거됐습니다 —
 회랑 bbox 쿼리가 T3_MAX까지 한 번에 덮습니다.
 
 **⑤ 부분 확인 (2026-08-28)** — 카카오맵·네이버지도 딥링크에 경유지를 넣어 실기기에서 열어본 결과 **양쪽 모두 경유지가 경로에 정상 반영**되었습니다. 두 앱의 경유지 파라미터는 **공식 문서에 명시된 것**입니다 — 카카오 `vp`(최대 5개, KakaoMaps SDK URL Scheme), 네이버 `v1lat`·`v1lng`·`v1name`(최대 5개, NAVER Cloud Platform Maps URL Scheme). **§5.5의 "주유소를 경유지로 포함한 경로를 열어준다"는 전제가 실기기로 확인되었습니다.** 다만 ⑤는 **미해결로 유지**합니다 — 확인한 것은 실기기 1대의 스킴 동작뿐이고, iOS/Android/카카오톡 인앱 브라우저 매트릭스와 SSE 폴백은 Phase 10 과제로 남아 있습니다.
@@ -1210,8 +1209,8 @@ Client → domain/deeplink.build(app, origin, station, destination)
 
 **샘플링·확장 관련 미해결 항목(`SAMPLE_INTERVAL` 재조정, `MIN_CANDIDATES`·`OFFSET` 확정)은
 소멸했습니다.** 후보 수집이 폴리라인 회랑 bbox 쿼리로 바뀌어 샘플 간격도, 후보 부족 시
-넓혀 찾는 확장 단계도 없습니다 (MIGRATION-DB.md §7 Phase C). `params.ts`에 잔재가 남아
-있으면 정리 대상입니다.
+넓혀 찾는 확장 단계도 없습니다 (MIGRATION-DB.md §7 Phase C). 해당 파라미터·함수
+(`samplePolyline`·`normalOffsets`·`needsExpansion`)는 제거됐습니다.
 
 ---
 
