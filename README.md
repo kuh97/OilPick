@@ -6,8 +6,9 @@
 경로 반경 안에 조건에 맞는 곳이 없으면 **"검색 결과 없음"으로 끝내지 않고**, 우회할 가치가 있는 주유소까지 찾아 경유 경로를 만들어 줍니다.
 
 ```
-경로 확정 → 경로상 검색 → 부족하면 근처로 확장 → 그래도 부족하면
-         → "우회해도 이득인 곳"까지 탐색 → 각 후보를 경유하는 경로를 실제로 생성
+경로 확정 → 경로 회랑(폴리라인 bbox) 안의 주유소를 15km까지 한 번에 조회
+         → T1(경로상) · T2(근처) · T3(우회해도 이득) 분류
+         → 상위 후보는 경유 경로를 실제로 생성해 우회 거리·시간 실측
          → "12.4km 우회 / +18분 / 3,252원 이득" 으로 판단 가능한 상태로 전달
 ```
 
@@ -27,11 +28,11 @@
 
 | 기능                  | 설명                                                         |
 | --------------------- | ------------------------------------------------------------ |
-| 경로 기반 주유소 탐색 | 경로를 샘플링해 T1(경로상) → T2(근처) → T3(우회) 순으로 탐색 |
+| 경로 기반 주유소 탐색 | 경로 회랑 안의 후보를 한 번에 조회해 T1(경로상)·T2(근처)·T3(우회)로 분류 |
 | 우회 비용·이득 계산   | 순절감액 = 기준가 대비 절약분 − 우회 연료비                  |
 | 경유 경로 정밀 계산   | 상위 후보는 실제 경유 경로를 호출해 우회 거리·시간을 실측    |
 | 기준 모드 3종         | 최단거리 / 최소비용 / 균형 — API 재호출 없이 즉시 전환       |
-| 필터                  | 연료(필수) · 시설(세차·경정비·편의점) · 브랜드 · 품질인증    |
+| 필터                  | 연료(필수) · 시설(세차·경정비·편의점) · 브랜드 · 품질인증 · 셀프 |
 | 외부 내비 연결        | 카카오맵 / 네이버지도(경유지 포함) · 티맵(주유소를 목적지로) |
 | 내 주변 주유소        | 현재 위치 기준 반경 5km                                      |
 
@@ -49,10 +50,10 @@
 | 상태           | Zustand (+ `persist` → `localStorage`). 로그인 없음                                  |
 | 스타일 · UI    | Tailwind CSS + shadcn/ui (Drawer · Tabs · Switch · Dialog **넷만**)                  |
 | 검색 API       | SSE 스트리밍 + 인앱 브라우저용 JSON 폴백                                             |
-| DB             | Neon (PostgreSQL) + **Drizzle ORM** — 주유소 마스터, 시군구 평균가, 익명 이벤트 로그 |
-| 캐시           | Upstash Redis (REST) — 반경검색·경로·장소 응답, 일일 호출 예산 카운터                |
+| DB             | Neon (PostgreSQL) + **Drizzle ORM** — 전국 주유소 마스터(`refuel_point`), 임포트 이력, 익명 이벤트 로그 |
+| 캐시           | Upstash Redis (REST) — 경로·장소 검색 응답, 시군구 코드 매핑                         |
 | 경로·장소·지도 | 카카오모빌리티 길찾기 · 카카오 로컬 · 카카오맵 JS SDK                                |
-| 주유소·가격    | 오피넷(한국석유공사) 무료 오픈 API                                                   |
+| 주유소·가격    | 오피넷 "과거 판매가격" CSV(전국 전수, 일 1회) + 상세정보 API(시설 백필)              |
 | 검증           | zod (서버 경계 전용)                                                                 |
 | 테스트         | Vitest + MSW + Playwright                                                            |
 | 린트 · 포맷    | ESLint + Prettier (레이어 경계 규칙 집행)                                            |
@@ -145,21 +146,27 @@ pnpm test:e2e                 # Playwright
 **코드를 쓰기 전에 실행하십시오.** 결과에 따라 알고리즘과 스키마가 달라집니다. 각 항목의 실패 시 영향은 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) §12에 있습니다.
 
 ```bash
-# Phase 0 — 코드 작성 전 필수
+# Phase 0 — 코드 작성 전 필수 (전부 완료됨, 재실행 시 참고)
 pnpm verify:coord             # ③ KATEC↔WGS84 왕복 변환 오차 (50m 이내여야 함)
 pnpm verify:standard-data     # ② 표준데이터의 좌표·시설 컬럼 + UNI_ID 조인 키
-pnpm verify:price-time        # ⑪ 반경검색 응답에 가격 기준시각이 오는가
+pnpm verify:price-time        # ⑪ 오피넷 응답에 가격 기준시각이 오는가
 pnpm verify:upstash           # ⑬ Upstash 무료 티어 일일 명령 수 한도
 
-# Phase 5 — 파라미터 확정 전 (domain + 두 클라이언트가 있어야 실행 가능)
-pnpm verify:coverage          # ⑫ 샘플링 커버리지·T2 후보 누락률
+# Phase 5 — 파라미터 실측
 pnpm verify:t3-rate           # T3 발동률·게이트 통과율 (노선 3개 × 연료 3종)
 pnpm verify:uturn             # ④ 경로 API가 유턴·중앙분리대를 반영하는지
 ```
 
-> **Phase 0에서 실제 응답을 MSW 픽스처로 함께 저장하십시오.** 검증과 테스트 자산 구축을 한 번에 끝내면 오피넷 예산을 아낍니다.
+### 데이터 파이프라인
 
-> `verify:t3-rate`와 `verify:coverage`는 오피넷을 대량 호출합니다. 실행 전 예상 호출 수를 출력하고 확인을 받도록 구현하십시오. **하루 300회 예산을 개발 검증이 잠식하면 운영에 남는 게 없습니다.** dev 예산(기본 20회) 안에서 돌리십시오.
+```bash
+pnpm data:import-csv                    # 유가 CSV → refuel_point 마스터 (1회성 재구축)
+pnpm data:download-csv [YYYYMMDD]       # 오피넷에서 CSV 다운로드 → Vercel Blob (GitHub Actions가 자동 실행)
+pnpm data:backfill-details [--status|N] # 시설 정보 백필 실행 / 현황 확인 (Vercel Cron이 자동 실행)
+```
+
+> `data:backfill-details`는 오피넷 상세 API를 호출합니다(하루 한도 300회, prod 백필과 공유).
+> 로컬에서는 `--status`(조회 전용)나 소량(`… 20`)으로만 돌리십시오.
 
 ---
 
@@ -176,16 +183,18 @@ pnpm verify:uturn             # ④ 경로 API가 유턴·중앙분리대를 반
 | `UPSTASH_REDIS_REST_URL`    | ✅   | Upstash REST 엔드포인트                                                                                                                                                                                       |
 | `UPSTASH_REDIS_REST_TOKEN`  | ✅   | Upstash REST 토큰. **서버 전용**                                                                                                                                                                              |
 | `APP_BASE_URL`              | ✅   | 배포 URL. 딥링크 폴백·OG 태그에 사용                                                                                                                                                                          |
-| `CRON_SECRET`               | ✅   | 배치 엔드포인트(`/api/cron/*`) 인증 토큰                                                                                                                                                                      |
+| `CRON_SECRET`               | ✅   | 크론 엔드포인트(`/api/cron/*`) 인증 토큰                                                                                                                                                                      |
+| `BLOB_READ_WRITE_TOKEN`     | ✅   | Vercel Blob 토큰. 유가 CSV 보관·임포트에 사용                                                                                                                                                                 |
 | `REDIS_KEY_PREFIX`          | ✅   | Redis 키 접두사. `dev` / `prod` 로 환경 분리                                                                                                                                                                  |
-| `OPINET_CONCURRENCY`        | —    | 오피넷 동시 호출 수 (기본 `8`). 유가 CSV 임포트(`data:import-csv`)의 지오코딩 단계에서만 씀                                                                                                                   |
+| `OPINET_CONCURRENCY`        | —    | 오피넷 동시 호출 수 (기본 `8`). CSV 임포트 지오코딩 / 시설 백필에서 사용                                                                                                                                       |
+| `OPINET_BACKFILL_LIMIT`     | —    | 시설 백필 1회 처리량 (기본 `280`)                                                                                                                                                                             |
 | `CACHE_BYPASS`              | —    | 디버깅용 캐시 우회. 기본 `false`. 운영에서 켜지 마십시오                                                                                                                                                      |
 
 ### 키 발급
 
 | 키     | 발급처                                                                         | 주의                                                                                                                                        |
 | ------ | ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| 오피넷 | [opinet.co.kr 오픈 API](https://www.opinet.co.kr/user/custapi/openApiIntro.do) | **일일 호출 한도 확인됨: 300회.** 상업적 이용은 사전 협의 필요 (052-216-2514)                                                               |
+| 오피넷 | [opinet.co.kr 오픈 API](https://www.opinet.co.kr/user/custapi/openApiIntro.do) | **일일 호출 한도 300회** — 검색은 오피넷을 쓰지 않고, 이 한도는 시설 정보 백필 크론이 소비. 상업적 이용은 사전 협의 필요 (052-216-2514) |
 | 카카오 | [developers.kakao.com](https://developers.kakao.com)                           | 2026-07-21부터 무료 쿼터는 **계정에서 첫 번째로 활성화한 앱 하나**에만 제공. **앱을 새로 만들지 마십시오** — dev·prod가 같은 앱 키를 씁니다 |
 
 ---
@@ -205,10 +214,10 @@ pnpm verify:uturn             # ④ 경로 API가 유턴·중앙분리대를 반
 Phase 0   사전 검증 + 픽스처 저장          ← 코드보다 먼저
 Phase 1   초기화 + 규칙 집행 장치(린트·CI)  ← 울타리를 먼저 친다
 Phase 2   domain 순수 계산 + 단위 테스트   ★ 제품 신뢰도의 근간
-Phase 3   infra — 오피넷 (KATEC·예산·캐시)
+Phase 3   infra — 오피넷 (KATEC·클라이언트)
 Phase 4   infra — 카카오 (경로·장소)
 Phase 5   실측 → 파라미터 확정            ★ 파이프라인보다 먼저
-Phase 6   DB + 마스터 구축                  시설 필터 N+1 제거
+Phase 6   DB + 마스터 구축
 Phase 7   services 파이프라인 (STEP 1~11)
 Phase 8   API 계층 (SSE + JSON 폴백)
 Phase 9   프론트 핵심 흐름
@@ -221,6 +230,9 @@ Phase 12  예외 전수 + 배포
 
 **모든 Phase의 공통 완료 기준: 코드 + 해당 테스트 + 문서 갱신.** 셋 중 하나라도 빠지면 그 단계는 끝난 게 아닙니다.
 
+> 이후 **유가 CSV 데이터 전환**(Phase A~E)이 검색 데이터 경로를 오피넷 실시간 호출에서
+> 일 1회 CSV 임포트 + DB 조회로 바꿨습니다. 상세는 [`docs/MIGRATION-DB.md`](docs/MIGRATION-DB.md).
+
 ---
 
 ## 문서
@@ -230,6 +242,8 @@ Phase 12  예외 전수 + 배포
 | [`AGENTS.md`](AGENTS.md)                       | 코드를 쓰기 전에. 규칙·금지사항·불변식                                 |
 | [`docs/PRODUCT.md`](docs/PRODUCT.md)           | 무엇을 만드는지 알아야 할 때. 기능·도메인 규칙·계산식·파라미터         |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | 어떻게 만드는지 알아야 할 때. 구조·모듈·API Contract·DB·외부 연동·배포 |
+| [`docs/MIGRATION-DB.md`](docs/MIGRATION-DB.md) | 검색 데이터 경로(유가 CSV 임포트·시설 백필)의 정본                     |
+| [`docs/DESIGN.md`](docs/DESIGN.md)             | 색·타이포·간격·컴포넌트 사이즈 토큰                                   |
 
 같은 정보를 여러 문서에 중복해서 쓰지 않습니다. 찾는 정보가 없으면 [`AGENTS.md`](AGENTS.md) §11을 따르십시오.
 
@@ -239,12 +253,11 @@ Phase 12  예외 전수 + 배포
 
 개발 판단에 직접 영향을 주는 것만 옮깁니다. **전체 목록과 근거는 [`docs/PRODUCT.md`](docs/PRODUCT.md) §5.2·§6.3과 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) §5에 있습니다.**
 
-- **오피넷 가격은 실시간이 아닙니다** — 하루 6회 갱신. 화면에 기준시각을 상시 표시해야 합니다
-- **오피넷 반경 검색은 최대 5km** — 넓은 밴드를 덮으려면 여러 지점에서 반복 검색
-- **24시간 영업·셀프 여부는 공개 데이터에 없습니다** — 해당 필터를 제공하지 않습니다
+- **가격은 실시간이 아닙니다** — 유가 CSV 하루 1회 스냅샷. 화면에 기준일자를 상시 표시합니다
+- **24시간 영업 필터는 공개 데이터에 없습니다** — 셀프·시설·품질인증은 지원합니다
 - **티맵은 딥링크로 경유지를 전달할 수 없습니다** — 주유소를 목적지로 넘기는 폴백
 - **오피넷 상업적 이용은 한국석유공사 사전 협의가 필요합니다** — 광고를 붙이기 전에 문의
+- **시설 정보는 백필 진행 중입니다** — 상세 API로 하루 ≤280곳씩 채우는 중(~34일). 시설 필터를 걸면 확인된 곳만 노출됩니다
 
-> ⚠️ **Phase 0에서 끝내야 하는 확인 항목이 4개 남아 있습니다** — 표준데이터 조인 키(②) / 좌표 변환 정확도(③) / 가격 기준시각 취득 경로(⑪) / Upstash 명령 수 한도(⑬). 전체 목록과 실패 시 영향은 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) §12에 있습니다.
->
-> 오피넷 일일 한도(①)와 Vercel 함수 실행 시간(⑥)은 **해결되었습니다.**
+> Phase 0 필수 확인(②③⑪⑬)은 전부 완료됐습니다. 오피넷 일일 한도(①)·Vercel 함수 실행 시간(⑥)도
+> 해결되었습니다. 전체 목록은 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) §12.
