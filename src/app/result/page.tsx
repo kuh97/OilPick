@@ -119,8 +119,16 @@ export default function ResultPage() {
   }, [result, partial, vehicle, referencePrice, mode]);
 
   const hasActiveFilters =
-    filters.facilities.length > 0 || filters.brands.length > 0 || filters.kpetroOnly;
-  const defaultFilters: WireFilters = { facilities: [], brands: [], kpetroOnly: false };
+    filters.facilities.length > 0 ||
+    filters.brands.length > 0 ||
+    filters.kpetroOnly ||
+    filters.selfOnly;
+  const defaultFilters: WireFilters = {
+    facilities: [],
+    brands: [],
+    kpetroOnly: false,
+    selfOnly: false,
+  };
 
   if (!origin || !destination) {
     return (

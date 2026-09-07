@@ -31,7 +31,7 @@ function bboxRow(overrides: Partial<BboxRefuelPointResult> = {}): BboxRefuelPoin
   };
 }
 
-const noFilters = { facilities: [], brands: [], kpetroOnly: false };
+const noFilters = { facilities: [], brands: [], kpetroOnly: false, selfOnly: false };
 
 describe("collectStations — bbox 계산", () => {
   it("기준 지점들 + marginM으로 bbox를 만들어 findRefuelPointsInBbox에 넘긴다", async () => {
@@ -123,7 +123,7 @@ describe("collectStations — 필터 적용", () => {
       referencePoints: [ORIGIN],
       marginM: 15_000,
       fuel: "GASOLINE",
-      filters: { facilities: ["CAR_WASH"], brands: [], kpetroOnly: false },
+      filters: { facilities: ["CAR_WASH"], brands: [], kpetroOnly: false, selfOnly: false },
       now: NOW,
       findRefuelPointsInBbox: findInBbox,
     });
@@ -138,7 +138,7 @@ describe("collectStations — 필터 적용", () => {
       referencePoints: [ORIGIN],
       marginM: 15_000,
       fuel: "GASOLINE",
-      filters: { facilities: [], brands: ["SKE"], kpetroOnly: false },
+      filters: { facilities: [], brands: ["SKE"], kpetroOnly: false, selfOnly: false },
       now: NOW,
       findRefuelPointsInBbox: findInBbox,
     });
@@ -153,12 +153,31 @@ describe("collectStations — 필터 적용", () => {
       referencePoints: [ORIGIN],
       marginM: 15_000,
       fuel: "GASOLINE",
-      filters: { facilities: [], brands: [], kpetroOnly: true },
+      filters: { facilities: [], brands: [], kpetroOnly: true, selfOnly: false },
       now: NOW,
       findRefuelPointsInBbox: findInBbox,
     });
 
     expect(result.stations).toHaveLength(0);
+  });
+
+  it("selfOnly=true면 셀프가 아닌 곳과 셀프여부 미상인 곳을 제외한다", async () => {
+    const findInBbox = vi.fn().mockResolvedValue([
+      bboxRow({ station: refuelPoint({ id: "A1", isSelf: true }) }),
+      bboxRow({ station: refuelPoint({ id: "A2", isSelf: false }) }),
+      bboxRow({ station: refuelPoint({ id: "A3", isSelf: undefined }) }),
+    ]);
+
+    const result = await collectStations({
+      referencePoints: [ORIGIN],
+      marginM: 15_000,
+      fuel: "GASOLINE",
+      filters: { facilities: [], brands: [], kpetroOnly: false, selfOnly: true },
+      now: NOW,
+      findRefuelPointsInBbox: findInBbox,
+    });
+
+    expect(result.stations.map((s) => s.station.id)).toEqual(["A1"]);
   });
 
   it("필터를 모두 만족하면 포함한다", async () => {
@@ -176,7 +195,7 @@ describe("collectStations — 필터 적용", () => {
       referencePoints: [ORIGIN],
       marginM: 15_000,
       fuel: "GASOLINE",
-      filters: { facilities: ["CAR_WASH"], brands: ["SKE"], kpetroOnly: true },
+      filters: { facilities: ["CAR_WASH"], brands: ["SKE"], kpetroOnly: true, selfOnly: false },
       now: NOW,
       findRefuelPointsInBbox: findInBbox,
     });

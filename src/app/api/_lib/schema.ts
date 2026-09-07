@@ -28,6 +28,7 @@ export const FiltersSchema = z.object({
   facilities: z.array(FacilitySchema),
   brands: z.array(z.string()),
   kpetroOnly: z.boolean(),
+  selfOnly: z.boolean(),
 });
 
 export const SearchRequestSchema = z.object({

@@ -463,6 +463,7 @@ interface Filters {
   facilities: Facility[];
   brands: string[]; // 오피넷 POLL_DIV_CD. "알뜰" 선택 시 RTO·RTX 둘 다 포함
   kpetroOnly: boolean;
+  selfOnly: boolean; // refuel_point.is_self=true만. 미상(null)은 제외 (MIGRATION-DB.md §9.4)
 }
 
 interface Candidate {
@@ -524,7 +525,7 @@ interface Warning {
   "origin": { "lat": 37.42, "lng": 127.12, "name": "성남시청" },
   "destination": { "lat": 37.88, "lng": 127.73, "name": "춘천역" },
   "fuel": "LPG",
-  "filters": { "facilities": ["CAR_WASH"], "brands": [], "kpetroOnly": false },
+  "filters": { "facilities": ["CAR_WASH"], "brands": [], "kpetroOnly": false, "selfOnly": false },
   "vehicle": { "efficiency": 8.5, "refuelAmount": 45, "timeValue": 200 },
   "mode": "balanced"
 }

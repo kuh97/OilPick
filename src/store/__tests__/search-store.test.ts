@@ -10,7 +10,7 @@ beforeEach(() => {
     origin: null,
     destination: null,
     fuel: "GASOLINE",
-    filters: { facilities: [], brands: [], kpetroOnly: false },
+    filters: { facilities: [], brands: [], kpetroOnly: false, selfOnly: false },
     vehicle: { efficiency: DEFAULT_EFFICIENCY.GASOLINE, refuelAmount: DEFAULT_REFUEL_AMOUNT, timeValue: V_TIME },
     mode: "balanced",
     isLoading: false,

@@ -28,7 +28,7 @@ export async function GET(request: Request) {
     referencePoints: [originProjected],
     marginM: SEARCH_RADIUS,
     fuel,
-    filters: { facilities: [], brands: [], kpetroOnly: false },
+    filters: { facilities: [], brands: [], kpetroOnly: false, selfOnly: false },
     now,
   });
 

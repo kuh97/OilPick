@@ -8,7 +8,7 @@ const BODY: SearchStreamInput = {
   origin: { lat: 37.42, lng: 127.12 },
   destination: { lat: 37.88, lng: 127.73 },
   fuel: "GASOLINE",
-  filters: { facilities: [], brands: [], kpetroOnly: false },
+  filters: { facilities: [], brands: [], kpetroOnly: false, selfOnly: false },
   vehicle: { efficiency: 10, refuelAmount: 45, timeValue: 200 },
   mode: "balanced",
 };

@@ -14,7 +14,7 @@ function validBody() {
     origin: { lat: 37.42, lng: 127.12, name: "성남시청" },
     destination: { lat: 37.88, lng: 127.73, name: "춘천역" },
     fuel: "LPG",
-    filters: { facilities: [], brands: [], kpetroOnly: false },
+    filters: { facilities: [], brands: [], kpetroOnly: false, selfOnly: false },
     vehicle: { efficiency: 8.5, refuelAmount: 45, timeValue: 200 },
     mode: "balanced",
   };

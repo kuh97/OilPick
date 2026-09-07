@@ -84,6 +84,7 @@ export interface RefuelPoint {
     cvs: boolean;
   };
   isKpetro: boolean;
+  isSelf?: boolean;         // 유가 CSV 셀프여부. undefined=미상(상세 API로만 채워진 행 등)
 }
 
 // ─── 후보 (검색 결과 계산 중간) ──────────────────────────────────────────────
@@ -170,6 +171,7 @@ export interface SearchInput {
     facilities: Facility[];
     brands: BrandCode[];
     kpetroOnly: boolean;
+    selfOnly: boolean;
   };
   mode: Mode;
 }

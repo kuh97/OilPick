@@ -37,7 +37,7 @@ export interface RecentSearch {
 
 const MAX_RECENT_SEARCHES = 3;
 
-const DEFAULT_FILTERS: WireFilters = { facilities: [], brands: [], kpetroOnly: false };
+const DEFAULT_FILTERS: WireFilters = { facilities: [], brands: [], kpetroOnly: false, selfOnly: false };
 
 function defaultVehicleFor(fuel: Fuel): WireVehicle {
   return {

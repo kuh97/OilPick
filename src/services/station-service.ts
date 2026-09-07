@@ -15,6 +15,7 @@ export interface CollectStationsFilters {
   facilities: Facility[];
   brands: BrandCode[];
   kpetroOnly: boolean;
+  selfOnly: boolean;
 }
 
 export interface CollectedStation {
@@ -42,6 +43,8 @@ export interface CollectStationsOptions {
 
 function matchesFilters(station: RefuelPoint, filters: CollectStationsFilters): boolean {
   if (filters.kpetroOnly && !station.isKpetro) return false;
+  // 셀프여부 미상(undefined)은 "셀프만" 필터에서 제외한다 — 가서 아니면 낭패이므로.
+  if (filters.selfOnly && station.isSelf !== true) return false;
   if (filters.brands.length > 0 && !filters.brands.includes(station.brandCode)) return false;
   for (const facility of filters.facilities) {
     if (facility === "CAR_WASH" && !station.facilities.carWash) return false;

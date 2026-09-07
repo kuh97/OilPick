@@ -34,6 +34,7 @@ const EMPTY_FILTERS: WireFilters = {
   facilities: [],
   brands: [],
   kpetroOnly: false,
+  selfOnly: false,
 };
 
 /** 오피넷 POLL_DIV_CD ↔ 표시명 — PRODUCT.md §5.2. RTO·RTX는 "알뜰" 하나로 묶는다. */
@@ -137,18 +138,29 @@ export function FilterSheet({
             </div>
           </section>
 
-          <section className="flex items-center justify-between rounded-xl border border-border bg-card px-3.5 py-2.5">
-            <span className="text-sm font-semibold">품질인증 주유소만</span>
-            <Switch
-              checked={draft.kpetroOnly}
-              onCheckedChange={(checked) =>
-                setDraft((d) => ({ ...d, kpetroOnly: Boolean(checked) }))
-              }
-            />
+          <section className="flex flex-col divide-y divide-border overflow-hidden rounded-xl border border-border">
+            <label className="flex items-center justify-between bg-card px-3.5 py-2.5 text-sm">
+              <span className="font-semibold">셀프 주유소만</span>
+              <Switch
+                checked={draft.selfOnly}
+                onCheckedChange={(checked) =>
+                  setDraft((d) => ({ ...d, selfOnly: Boolean(checked) }))
+                }
+              />
+            </label>
+            <label className="flex items-center justify-between bg-card px-3.5 py-2.5 text-sm">
+              <span className="font-semibold">품질인증 주유소만</span>
+              <Switch
+                checked={draft.kpetroOnly}
+                onCheckedChange={(checked) =>
+                  setDraft((d) => ({ ...d, kpetroOnly: Boolean(checked) }))
+                }
+              />
+            </label>
           </section>
 
           <p className="text-xs text-muted-foreground">
-            운영시간·셀프 여부는 공공데이터에서 제공되지 않아 지원하지 않습니다.
+            운영시간 필터는 공공데이터에서 제공되지 않아 지원하지 않습니다.
           </p>
         </div>
 

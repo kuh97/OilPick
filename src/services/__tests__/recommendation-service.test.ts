@@ -58,7 +58,7 @@ function baseInput(overrides: Partial<SearchInput> = {}): SearchInput {
     origin: wgs84(37.0, 127.0),
     destination: wgs84(37.0, 127.3),
     vehicle: VEHICLE,
-    filters: { facilities: [], brands: [], kpetroOnly: false },
+    filters: { facilities: [], brands: [], kpetroOnly: false, selfOnly: false },
     mode: "balanced",
     ...overrides,
   };

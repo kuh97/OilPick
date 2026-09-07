@@ -5,8 +5,8 @@
 > §7 Phase A(마스터 CSV 임포트)·Phase B(스키마)·Phase C(검색 경로 교체 — `collectStations` bbox
 > 조회, 예산·확장 수집·`sigungu_avg_price` 전량 삭제, §9.1·§9.2 일자 기준 신선도 표시)·
 > Phase D(일일 CSV 자동 갱신 파이프라인)·Phase E(시설정보 백필 크론) 완료.
-> 남은 건 백필 크론이 34일간 완주하는 것(무인)과, §9.3(시설 필터 배너)·§9.4(셀프 필터 토글)
-> UI 작업, §11.3 문서 갱신(ARCHITECTURE.md §5.3·§7.2·§12①)이다.
+> §9.4(셀프 필터 토글)까지 완료. 남은 건 백필 크론이 34일간 완주하는 것(무인)과,
+> §9.3(시설 필터 배너) UI 작업, §11.3 문서 갱신(ARCHITECTURE.md §5.3·§7.2·§12①)이다.
 >
 > 이 문서는 검색 경로의 오피넷 실시간 호출을 **일 1회 CSV 임포트 + DB 조회**로 바꾸는
 > 작업의 실행 문서입니다. 작업 중에 옆에 켜두고 단계별로 체크하십시오.
@@ -489,10 +489,24 @@ CSV의 실제 `priced_on`으로 교체해 추정을 없앴고, 표시 형식도 
 
 > **즉석 상세조회는 넣지 않습니다** (§11 결정 ⑤). 초반 커버리지 부족은 감수합니다.
 
-### 9.4 셀프여부 필터 신규 추가
+### 9.4 셀프여부 필터 신규 추가 ✅ (2026-09-07 구현)
 
 CSV에 100% 있고(셀프 6,268 / 일반 3,969) 실제 가격 차이가 나는 축입니다.
-`filter-sheet.tsx`에 토글을 추가합니다.
+
+`filters.selfOnly: boolean`을 추가했습니다. 파이프라인:
+
+```
+filter-sheet.tsx 토글 → WireFilters.selfOnly → FiltersSchema(zod)
+  → SearchInput.filters.selfOnly → station-service.matchesFilters
+      → station.isSelf !== true 이면 제외 (미상 undefined도 제외)
+```
+
+- `RefuelPoint.isSelf?: boolean` 추가, `fromRefuelPointRow`가 `is_self` 컬럼을 매핑
+  (null → undefined). 후보 확보 후 in-memory 필터라 DB 쿼리(`findRefuelPointsInBbox`)는
+  건드리지 않았습니다 — 브랜드·시설·품질인증 필터와 동일한 위치.
+- 문서 갱신: `PRODUCT.md` §2.2·§5.2(제공 필터로 이동, 안내 문구 수정),
+  `ARCHITECTURE.md` §6.1 `Filters` 인터페이스.
+- 필터 시트 하단 안내는 "운영시간 필터는 …"으로 축소.
 
 ---
 

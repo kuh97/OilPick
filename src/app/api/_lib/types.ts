@@ -24,6 +24,7 @@ export interface WireFilters {
   facilities: Facility[];
   brands: string[];
   kpetroOnly: boolean;
+  selfOnly: boolean;
 }
 
 export interface WireWarning {

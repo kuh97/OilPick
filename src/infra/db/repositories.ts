@@ -108,6 +108,7 @@ export function fromRefuelPointRow(row: RefuelPointRow): RefuelPoint {
       cvs: row.hasCvs,
     },
     isKpetro: row.isKpetro,
+    isSelf: row.isSelf ?? undefined,
   };
 }
 

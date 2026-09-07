@@ -279,6 +279,7 @@ export async function search(
     facilities: input.filters.facilities,
     brands: input.filters.brands,
     kpetroOnly: input.filters.kpetroOnly,
+    selfOnly: input.filters.selfOnly,
   };
 
   // STEP3 — 회랑(경로 bbox) 수집. T1~T3를 한 번에 가져오므로 확장 수집이 필요 없다
