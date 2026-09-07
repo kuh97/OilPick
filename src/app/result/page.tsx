@@ -6,7 +6,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { LoadingProgress } from "@/components/result/loading-progress";
@@ -26,6 +26,23 @@ function WarningBanner({ warning }: { warning: WireWarning }) {
     <Alert variant="warning">
       <AlertTriangle aria-hidden />
       <AlertDescription className="text-warning-foreground">{warning.message}</AlertDescription>
+    </Alert>
+  );
+}
+
+/**
+ * 시설 필터가 켜졌을 때의 커버리지 고지 — docs/MIGRATION-DB.md §9.3.
+ * 시설 정보는 상세 API 백필(§7 Phase E, 무인 ~34일)로 채워지는 중이라, 필터를 걸면
+ * 아직 확인 안 된 주유소가 통째로 빠진다. 결과가 적은 게 데이터 커버리지 때문임을
+ * 알린다. 백필이 끝나면 이 배너와 호출부를 함께 제거한다.
+ */
+function FacilityCoverageBanner() {
+  return (
+    <Alert variant="info">
+      <Info aria-hidden />
+      <AlertDescription className="text-info-foreground">
+        시설 정보가 확인된 주유소만 표시돼요. 데이터 보강이 진행 중이라 실제로는 더 많을 수 있어요.
+      </AlertDescription>
     </Alert>
   );
 }
@@ -197,6 +214,7 @@ export default function ResultPage() {
           {(result?.warnings ?? streamWarnings).map((w, i) => (
             <WarningBanner key={`${w.code}-${i}`} warning={w} />
           ))}
+          {filters.facilities.length > 0 && <FacilityCoverageBanner />}
 
           <div className="flex items-center justify-between gap-2">
             <ModeTabs value={mode} onChange={setMode} />

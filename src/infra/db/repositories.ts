@@ -569,6 +569,25 @@ export async function countStationsNeedingDetailBackfill(db: Db = getDb()): Prom
 }
 
 /**
+ * 백필 진행 현황 — `pnpm data:backfill-details --status`가 읽는다 (오피넷 호출 없음).
+ * 대상은 주유소(energy_type <> 'LPG')만. `done + remaining = total`.
+ */
+export async function getDetailBackfillProgress(
+  db: Db = getDb(),
+): Promise<{ done: number; remaining: number; total: number }> {
+  const [row] = await db
+    .select({
+      done: count(refuelPoint.detailSyncedAt),
+      total: count(),
+    })
+    .from(refuelPoint)
+    .where(ne(refuelPoint.energyType, "LPG"));
+  const done = Number(row?.done ?? 0);
+  const total = Number(row?.total ?? 0);
+  return { done, remaining: total - done, total };
+}
+
+/**
  * 상세 API로 얻은 시설정보 한 행을 refuel_point에 반영.
  * SET 절은 상세 API 소유 6개 컬럼 + updated_at 뿐입니다 — CSV 소유 컬럼은 절대 넣지
  * 않습니다(§6 컬럼 소유권 규칙). 대상 행은 이미 존재하므로 UPDATE입니다.

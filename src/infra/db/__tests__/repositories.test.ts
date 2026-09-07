@@ -12,6 +12,7 @@ import {
   findNationalAvgPrice,
   findStationsNeedingDetailBackfill,
   countStationsNeedingDetailBackfill,
+  getDetailBackfillProgress,
   updateDetailFields,
   markDetailSyncedEmpty,
   type RefuelPointRow,
@@ -525,6 +526,26 @@ describe("countStationsNeedingDetailBackfill — DB 접근", () => {
 
     const result = await countStationsNeedingDetailBackfill({ select } as unknown as Db);
     expect(result).toBe(0);
+  });
+});
+
+describe("getDetailBackfillProgress — DB 접근", () => {
+  it("done/total로 remaining을 계산해 반환한다", async () => {
+    const where = vi.fn().mockResolvedValue([{ done: 1227, total: 10306 }]);
+    const from = vi.fn(() => ({ where }));
+    const select = vi.fn(() => ({ from }));
+
+    const result = await getDetailBackfillProgress({ select } as unknown as Db);
+    expect(result).toEqual({ done: 1227, remaining: 9079, total: 10306 });
+  });
+
+  it("행이 없으면 전부 0", async () => {
+    const where = vi.fn().mockResolvedValue([]);
+    const from = vi.fn(() => ({ where }));
+    const select = vi.fn(() => ({ from }));
+
+    const result = await getDetailBackfillProgress({ select } as unknown as Db);
+    expect(result).toEqual({ done: 0, remaining: 0, total: 0 });
   });
 });
 
