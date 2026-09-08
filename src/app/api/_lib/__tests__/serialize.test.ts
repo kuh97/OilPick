@@ -47,6 +47,16 @@ describe("serializeBaseRoute", () => {
     });
     expect(wire.polyline[0]).not.toHaveProperty("_brand");
   });
+
+  it("tollWon(기본 경로 자체의 통행료)을 그대로 전달한다", () => {
+    const route: BaseRoute = {
+      distanceM: 1000,
+      durationS: 60,
+      tollWon: 1000,
+      polyline: [wgs84(37.1, 127.1)],
+    };
+    expect(serializeBaseRoute(route).tollWon).toBe(1000);
+  });
 });
 
 describe("serializeCandidate", () => {

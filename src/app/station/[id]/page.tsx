@@ -130,7 +130,12 @@ export function StationDetailView({ id }: { id: string }) {
   const distanceM = detour?.distanceM ?? candidate.detour.distanceM;
   const durationS = detour?.durationS ?? candidate.detour.durationS;
   const netSavingValue = detour?.netSaving ?? candidate.netSaving;
-  const tollWon = detour?.tollWon ?? candidate.detour.tollWon;
+  // 총 통행료 = 기본 경로 통행료 + 이 우회로 추가되는 분. 델타만 보여주면 기본 경로가
+  // 이미 유료도로면 통행료가 없는 것처럼 보인다(2026-09-08). 둘 다 알 때만 합산.
+  const additionalTollWon = detour?.tollWon ?? candidate.detour.tollWon;
+  const baseTollWon = result.baseRoute.tollWon;
+  const totalTollWon =
+    baseTollWon != null && additionalTollWon != null ? baseTollWon + additionalTollWon : undefined;
   const precise = detour != null;
 
   const rank =
@@ -207,11 +212,14 @@ export function StationDetailView({ id }: { id: string }) {
             {!precise && "약 "}
             {distanceMToKm(distanceM)}km / {durationSToMin(durationS)}분
           </dd>
-          {tollWon != null && tollWon > 0 && (
+          {totalTollWon != null && totalTollWon > 0 && (
             <>
-              {/* 정보 표시 전용 — 순이득 계산엔 반영하지 않는다 (2026-09-08). */}
-              <dt className="text-muted-foreground">추가 통행료</dt>
-              <dd className="text-muted-foreground">+{tollWon.toLocaleString()}원</dd>
+              {/* 정보 표시 전용 — 순이득엔 미반영 */}
+              <dt className="text-muted-foreground">통행료</dt>
+              <dd className="text-muted-foreground">
+                {totalTollWon.toLocaleString()}원
+                {additionalTollWon! > 0 && ` (우회로 +${additionalTollWon!.toLocaleString()}원)`}
+              </dd>
             </>
           )}
           <dt className="text-muted-foreground">순이득</dt>

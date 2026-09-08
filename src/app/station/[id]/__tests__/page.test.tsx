@@ -129,19 +129,50 @@ describe("StationDetailView — 정상 흐름 (AGENTS.md §6 불변식)", () => 
     expect(screen.getByText(/티맵은 주유소까지만 안내됩니다/)).toBeTruthy();
   });
 
-  it("추가 통행료가 있으면 정보성으로 표시한다 (순이득과 별개)", () => {
+  it("기본 경로 통행료 + 우회 추가 통행료를 합쳐서 보여준다", () => {
     useSearchStore.setState({
-      result: result({ candidates: [candidate({ detour: { precise: true, distanceM: 12400, durationS: 1080, tollWon: 2900 } })] }),
+      result: result({
+        baseRoute: { distanceM: 92000, durationS: 5640, tollWon: 1000, polyline: [] },
+        candidates: [candidate({ detour: { precise: true, distanceM: 12400, durationS: 1080, tollWon: 2900 } })],
+      }),
     });
     renderPage();
-    expect(screen.getByText("추가 통행료")).toBeTruthy();
-    expect(screen.getByText("+2,900원")).toBeTruthy();
+    expect(screen.getByText("통행료")).toBeTruthy();
+    expect(screen.getByText("3,900원 (우회로 +2,900원)")).toBeTruthy();
   });
 
-  it("추가 통행료가 0원이거나 모르면 표시하지 않는다", () => {
-    useSearchStore.setState({ result: result({ candidates: [candidate()] }) }); // tollWon 없음
+  it("우회로 인한 추가 통행료가 0원이면 기본 경로 통행료만 보여준다", () => {
+    useSearchStore.setState({
+      result: result({
+        baseRoute: { distanceM: 92000, durationS: 5640, tollWon: 1000, polyline: [] },
+        candidates: [candidate({ detour: { precise: true, distanceM: 12400, durationS: 1080, tollWon: 0 } })],
+      }),
+    });
     renderPage();
-    expect(screen.queryByText("추가 통행료")).toBeNull();
+    expect(screen.getByText("통행료")).toBeTruthy();
+    expect(screen.getByText("1,000원")).toBeTruthy();
+  });
+
+  it("기본 경로 통행료를 몰라서(구버전 캐시 등) 합계를 확정할 수 없으면 표시하지 않는다", () => {
+    useSearchStore.setState({
+      result: result({
+        baseRoute: { distanceM: 92000, durationS: 5640, polyline: [] }, // tollWon 없음
+        candidates: [candidate({ detour: { precise: true, distanceM: 12400, durationS: 1080, tollWon: 2900 } })],
+      }),
+    });
+    renderPage();
+    expect(screen.queryByText("통행료")).toBeNull();
+  });
+
+  it("기본 경로·추가분 둘 다 0원으로 확인되면 표시하지 않는다", () => {
+    useSearchStore.setState({
+      result: result({
+        baseRoute: { distanceM: 92000, durationS: 5640, tollWon: 0, polyline: [] },
+        candidates: [candidate({ detour: { precise: true, distanceM: 12400, durationS: 1080, tollWon: 0 } })],
+      }),
+    });
+    renderPage();
+    expect(screen.queryByText("통행료")).toBeNull();
   });
 
   it("마운트 시 정밀 재계산(fetchDetour)을 호출한다", () => {

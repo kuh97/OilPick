@@ -20,6 +20,7 @@ export function serializeBaseRoute(route: BaseRoute): WireBaseRoute {
   return {
     distanceM: route.distanceM,
     durationS: route.durationS,
+    tollWon: route.tollWon,
     polyline: route.polyline.map(serializePoint),
   };
 }

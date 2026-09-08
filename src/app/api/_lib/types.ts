@@ -57,6 +57,8 @@ export interface WireCandidate {
 export interface WireBaseRoute {
   distanceM: number;
   durationS: number;
+  /** 이 경로(추천 코스) 자체의 통행료(원). 어느 후보를 골라도 내는 값 — 후보별 detour.tollWon(추가분)과는 별개. */
+  tollWon?: number;
   polyline: WirePoint[];
 }
 
