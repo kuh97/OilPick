@@ -22,6 +22,7 @@
     "verify:upstash": "tsx --env-file=.env.local scripts/verify/upstash.mts",
     "verify:coverage": "tsx --env-file=.env.local scripts/verify/coverage.mts",
     "verify:t3-rate": "tsx --env-file=.env.local scripts/verify/t3-rate.mts",
+    "verify:detour": "tsx --env-file=.env.local scripts/verify/detour.mts",
     "verify:uturn": "tsx --env-file=.env.local scripts/verify/uturn.mts"
   },
   "dependencies": {

@@ -129,7 +129,8 @@ oilpick/
 │       ├── upstash.mts                 # verify:upstash        (⑬)  Phase 0
 │       ├── coverage.mts                # verify:coverage       (⑫)  Phase 5
 │       ├── t3-rate.mts                 # verify:t3-rate              Phase 5
-│       └── uturn.mts                   # verify:uturn          (④)  Phase 5
+│       ├── uturn.mts                   # verify:uturn          (④)  Phase 5
+│       └── detour.mts                  # verify:detour         (⑭)  Phase 10
 └── tests/
     ├── fixtures/                       # ★ 실 응답 (MSW용)
     │   ├── opinet-radius.json              # aroundAll.do — 비상 폴백 경로 테스트용
@@ -997,6 +998,7 @@ Client → domain/deeplink.build(app, origin, station, destination)
 | `verify:coverage` (⑫) | 회랑 bbox 수집이 전수 스캔 대비 후보를 누락하지 않는가 |
 | `verify:t3-rate`      | **T3 발동률·게이트 통과율**                          |
 | `verify:uturn` (④)    | `DETOUR_ESTIMATE_FACTOR` + 경로 API의 유턴 반영 여부 |
+| `verify:detour` (⑭)   | `DETOUR_TIME_CAP_RATIO` + 실측 `ΔT` 분포·`ΔD=0` 비율 (Phase 10에 추가) |
 
 > **`verify:coverage`·`verify:t3-rate`·`verify:uturn` 셋은 회랑 bbox 전환(§7 Phase C) 뒤
 > 한동안 제거된 `SAMPLE_INTERVAL`·`OFFSET`·`MIN_CANDIDATES`를 계속 import해서 모듈 로드
@@ -1214,6 +1216,7 @@ Client → domain/deeplink.build(app, origin, station, destination)
 | ⑨   | 경로 API `duration`의 실시간 교통 반영        | 러시아워/새벽 동일 경로 비교                | 시간 계산 신뢰도 저하                                                                    | 낮음        |
 | ⑩   | 연료별 평균 연비 통계                         | 공식 통계 확인                              | 기본값 보정 ([`PRODUCT.md`](PRODUCT.md) §9.2)                                            | 낮음        |
 | ⑭   | **실측 `ΔT` 분포 — 다노선·다연료**            | `verify:detour` (노선·연료를 바꿔가며)      | `DETOUR_TIME_CAP_RATIO`(0.5)가 정당한 후보를 자르거나 39분짜리를 통과시킴                 | Phase 10 이후 |
+| ⑮   | **`SHORT_ROUTE_DETOUR_TIME_CAP_S`(20분) 적정성** | 다양한 짧은 경로 × 연료로 재측정            | 너무 짧으면 수진역 LPG류 정당한 근거리 우회를 막고, 너무 길면 사실상 별도 여정을 통과시킴 | Phase 11 이후 |
 
 ### 해결된 항목
 
@@ -1235,6 +1238,18 @@ Client → domain/deeplink.build(app, origin, station, destination)
 ([`PRODUCT.md`](PRODUCT.md) §6.5·§11.3). `DETOUR_TIME_CAP_RATIO=0.5`는 실측값이 아니라
 **거리 cap(`DETOUR_CAP_RATIO`)과의 대칭**으로 정한 값입니다 — ④의 교훈대로, 이 값을 코드에서
 인용할 때는 그것이 아직 가정임을 명시하십시오.
+
+**⑮ 현재 근거 (2026-09-08, Phase 11)** — 사용자가 실제로 검색한 짧은 경로 2건
+(단대오거리역→모란역 3.4km, 남한산성입구역→을지대학교 2km — 후자는 2026-08-31에
+`D_base < MIN_ROUTE_DISTANCE`면 A6 cap을 **완전히 끄는** 예외를 만들게 한 바로 그
+경로다)에서, 그 예외의 근거("T3_MAX·NetSaving>0 게이트가 이미 범위를 제한한다")가
+틀렸음을 확인했다 — 두 경로 모두 순절감액>0(추정 기준)이라는 이유만으로 실측 30~54분
+우회가 목록에 그대로 남아 있었다(단대오거리 사례는 그마저 실측하면 음수인 것도 있었다).
+`SHORT_ROUTE_DETOUR_TIME_CAP_S=20분`으로 두 경로 모두 재검증: 단대오거리는
+1.4~18.1분대 8개로, 을지대학교는 10.7~13.6분대 2개로 정리됐다 — 원래 예외를 만들게 한
+"정당한 근거리 우회"(수진역 LPG류, 1km 안팎)는 살아남는 값이다. **표본이 노선 2개뿐이고
+"20분"이라는 값 자체는 실측 분포가 아니라 판단(사용자 확인)으로 정했다** — 여러 짧은
+노선·연료로 재측정해 적정성을 교차 확인해야 한다.
 
 **Phase 0의 넷(②③⑪⑬)이 코드 작성 전 필수였습니다.** 확장 수집이 없어지면서
 `FEATURE_EXPANSION_ENABLED`·`MIN_CANDIDATES`·`OFFSET`·`SAMPLE_INTERVAL`도 함께 제거됐습니다 —

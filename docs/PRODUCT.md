@@ -905,7 +905,9 @@ for each s in targets:
 ```
 1. 정밀값이 있으면 정밀값으로, 없으면 추정값으로 NetSaving·점수 재계산
 2. 정밀 계산된 후보는 실측 우회거리 ΔD로 티어 배지 재판정 (§6.4 — geoTier는 유지)
-3. 우회가 D_base × DETOUR_CAP_RATIO(50%)를 넘는 후보 제거 (단, D_base < MIN_ROUTE_DISTANCE면 이 단계 생략 — §10.1 A6)
+3. 우회가 D_base × DETOUR_CAP_RATIO(50%) 또는 T_base × DETOUR_TIME_CAP_RATIO(50%)를
+   넘는 후보 제거. D_base < MIN_ROUTE_DISTANCE면 이 비율 대신 절대 시간 상한
+   SHORT_ROUTE_DETOUR_TIME_CAP_S(20분)를 적용 (§10.1 A6)
 4. 정렬: ① 실측군(precise)이 추정군보다 항상 위 → ② 현재 모드 점수 오름차순
 5. 상위 MAX_RESULTS(15)개로 자름
 6. 추천 이유 템플릿 적용 (§5.4)
@@ -1028,7 +1030,9 @@ Score_balanced(s) = TotalCost(s) + (ΔT(s)/60) × V_TIME     [원]
 | `DETOUR_ESTIMATE_FACTOR` | 2.0    | —     | `ΔD̂ = 계수 × d_perp`                    | **Phase 5 실측으로 유지 결정** (중앙값 0.67~2.11, 표본 부족으로 강한 확정은 아님, §6.5) |
 | `V_TIME`                 | 200    | 원/분 | 균형 모드 시간 가치                     |                                                             |
 | `OUTLIER_SIGMA`          | 3      | σ     | 이상 가격 제외 기준                     |                                                             |
-| `DETOUR_CAP_RATIO`       | 0.5    | —     | 우회가 `D_base`의 이 비율을 넘으면 제외 | **`D_base < MIN_ROUTE_DISTANCE`면 미적용** (Phase 9 실측 — §10.1 A6) |
+| `DETOUR_CAP_RATIO`       | 0.5    | —     | 우회 **거리**가 `D_base`의 이 비율을 넘으면 제외 | **`D_base < MIN_ROUTE_DISTANCE`면 대신 `SHORT_ROUTE_DETOUR_TIME_CAP_S` 적용** (Phase 9·11 — §10.1 A6) |
+| `DETOUR_TIME_CAP_RATIO`  | 0.5    | —     | 우회 **시간**이 `T_base`의 이 비율을 넘으면 제외 | 거리 cap과 같은 이유·같은 예외. Phase 10 실측으로 추가 (§10.1 A6) |
+| `SHORT_ROUTE_DETOUR_TIME_CAP_S` | 1,200(20분) | s | `D_base < MIN_ROUTE_DISTANCE`일 때 비율 cap 대신 쓰는 절대 시간 상한 | Phase 11 실측 — 완전 미적용 시 8분 경로에 54분 우회가 통과 (§10.1 A6) |
 | `MIN_ROUTE_DISTANCE`     | 20,000 | m     | 이보다 짧으면 안내 후 진행              |                                                             |
 | `MIN_OD_GAP`             | 500    | m     | 출발지·목적지 최소 간격                 |                                                             |
 | `PLACE_QUERY_MIN_LEN`    | 2      | 자    | 자동완성 최소 검색어 길이               |                                                             |
@@ -1062,7 +1066,7 @@ Score_balanced(s) = TotalCost(s) + (ΔT(s)/60) × V_TIME     [원]
 | A3  | 가격 0원 / null                                     | 후보에서 제외                                                                                     |
 | A4  | 이상 저가·고가                                      | `pool` 중앙값 ±`OUTLIER_SIGMA`σ 벗어나면 제외 + 로그                                              |
 | A5  | 우회 거리·시간 음수                                 | 0으로 클램프. "우회 없음" 표시                                                                    |
-| A6  | 우회가 `D_base × DETOUR_CAP_RATIO` 초과             | 후보에서 제외 (경로가 사실상 달라짐). **단 `D_base < MIN_ROUTE_DISTANCE`면 이 cap을 적용하지 않음** — 짧은 경로에서는 비율이 곧 1~2km로 수렴해 정당한 우회까지 막는다(Phase 9 실측). `T3_MAX`·`NetSaving>0` 게이트가 대신 범위를 제한 |
+| A6  | 우회가 `D_base × DETOUR_CAP_RATIO`(거리) **또는** `T_base × DETOUR_TIME_CAP_RATIO`(시간) 초과 | 후보에서 제외 (경로가 사실상 달라짐). **거리만 보면 안 됨** — 실측 후보의 60%가 `ΔD = 0`이라, 경로 99m 옆인데 실제로는 26.9km·39분을 우회해야 하는 주유소가 그대로 1위권에 남았다(Phase 10 실측, §6.5). **`D_base < MIN_ROUTE_DISTANCE`면 이 두 비율 대신 절대 시간 상한 `SHORT_ROUTE_DETOUR_TIME_CAP_S`(20분)를 적용** — 비율은 짧은 경로에서 1~2km로 수렴해 정당한 우회까지 막지만(Phase 9 실측), **완전히 끄면** `T3_MAX`·`NetSaving>0` 게이트가 *추정*(`2×d_perp`) 기준이라 실측 우회를 못 거른다 — 8분짜리 경로(남한산성입구역→을지대학교)에 54분 우회가, 10분짜리 경로(단대오거리역→모란역)에 45분 우회가 순절감액>0(추정)이라는 이유만으로 그대로 남았다(Phase 11 실측, 사용자 보고로 발견) |
 | A7  | 정밀 계산 후 `NetSaving` 음수 전환                  | 제거하지 않고 회색 처리                                                                           |
 | A8  | 개별 경유 경로 API 실패                             | 해당 후보만 추정치 유지(`precise: false`). 전체 실패 아님. 정렬 1차 키가 `precise`라 **실측군 아래로 내려간다** (§7.2 STEP 11) |
 | A11 | 전체 시간 초과                                      | 확보한 후보로 응답 + "계산이 완료되지 않았습니다" 고지                                            |

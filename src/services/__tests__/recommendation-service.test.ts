@@ -420,6 +420,30 @@ describe("search — 짧은 경로에서도 우회 후보를 보여준다 (사�
     expect(t3!.detour.distanceM).toBe(10_000); // 50% cap(1,000m)을 훨씬 넘지만 살아있어야 함
     expect(result.warnings).toContainEqual(expect.objectContaining({ code: "SHORT_ROUTE" }));
   });
+
+  // Phase 11 실측 — 바로 위 테스트가 처음 이 예외를 만들게 한 그 경로인데, 오늘
+  // 실측하면 8분짜리 기본 경로에 54분 우회가 순절감액>0(추정 기준)이라는 이유만으로
+  // 그대로 남아 있었다. "비율 cap을 끄면 무한정 찾아주지 않는다"는 원래 근거가
+  // 틀렸다는 뜻 — 절대 시간 상한(SHORT_ROUTE_DETOUR_TIME_CAP_S, 20분)으로 막는다.
+  it("짧은 경로여도 우회 시간이 SHORT_ROUTE_DETOUR_TIME_CAP_S(20분)를 넘으면 제외한다", async () => {
+    getRouteMock.mockImplementation(async (opts) => {
+      if (opts.waypoint) {
+        return { distanceM: 40_000, durationS: 3_780, polyline: BASE_ROUTE.polyline }; // 우회 54분
+      }
+      return { distanceM: 2_000, durationS: 300, polyline: BASE_ROUTE.polyline };
+    });
+    collectStationsMock.mockResolvedValue({
+      stations: [
+        collected({ id: "A1", location: wgs84(37.0, 127.1) }), // T1
+        collected({ id: "A2", location: wgs84(37.0, 127.2), price: 1750 }), // T1
+        collected({ id: "A3", location: wgs84(37.05, 127.15), price: 1500 }), // T3, 저렴 → 추정 게이트는 통과
+      ],
+    });
+
+    const result = await search(baseInput(), undefined, FAKE_DEPS);
+
+    expect(result.candidates.find((c) => c.station.id === "A3")).toBeUndefined();
+  });
 });
 
 describe("search — onProgress 유무와 무관하게 동일한 결과", () => {

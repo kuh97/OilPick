@@ -15,6 +15,12 @@ export const P_REF_MIN_BASE = 2;  // 개 — 중앙값 사용 최소 T1+T2 수 (
 // ─── 우회 추정 (§6.4) ────────────────────────────────────────────────────────
 export const DETOUR_ESTIMATE_FACTOR = 2.0;  // ΔD̂ = factor × d_perp (Phase 5 실측으로 유지 — 중앙값 0.67~2.11, PRODUCT.md §9.1)
 export const DETOUR_CAP_RATIO = 0.5;        // 우회가 D_base 이 비율 초과 시 제외
+export const DETOUR_TIME_CAP_RATIO = 0.5;   // 우회 시간이 T_base 이 비율 초과 시 제외 (Phase 10 실측 — §9.1)
+// D_base < MIN_ROUTE_DISTANCE일 때 비율 cap 대신 쓰는 절대 시간 상한 — 비율 cap은
+// 짧은 경로에서 수 분으로 수렴해 정당한 우회까지 막지만(Phase 9), 완전히 끄면
+// 순절감액>0(추정 기준)만으로 30~50분짜리 우회가 그대로 통과한다(Phase 11 실측 —
+// PRODUCT.md §10.1 A6).
+export const SHORT_ROUTE_DETOUR_TIME_CAP_S = 20 * 60;  // 20분
 export const AVG_SPEED = 50;               // km/h — 우회 시간 ↔ 거리 환산용
 
 // ─── 정밀 계산 (§7.2 STEP 10) ───────────────────────────────────────────────

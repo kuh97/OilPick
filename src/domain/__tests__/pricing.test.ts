@@ -15,7 +15,14 @@ import {
   durationSToMin,
   distanceMToKm,
 } from "../pricing";
-import { DETOUR_ESTIMATE_FACTOR, AVG_SPEED, MIN_ROUTE_DISTANCE, DETOUR_CAP_RATIO } from "../params";
+import {
+  DETOUR_ESTIMATE_FACTOR,
+  AVG_SPEED,
+  MIN_ROUTE_DISTANCE,
+  DETOUR_CAP_RATIO,
+  DETOUR_TIME_CAP_RATIO,
+  SHORT_ROUTE_DETOUR_TIME_CAP_S,
+} from "../params";
 
 // ─── 골든 테스트 (PRODUCT.md §5.3 예시) ───────────────────────────────────────
 // P_ref=1800, P_s=1700, Q=45L, ΔD=2000m, E=12km/L
@@ -181,28 +188,55 @@ describe("exceedsDetourCap", () => {
   // MIN_ROUTE_DISTANCE 이상인 기본 경로에서만 cap이 적용되므로, cap 자체를 검증하는
   // 테스트는 그 이상의 base를 쓴다(짧은 경로 예외는 아래 별도 테스트에서 다룸).
   const LONG_BASE = MIN_ROUTE_DISTANCE; // 20,000m
+  const LONG_BASE_S = 3600;             // 1시간
+  const cap = (detourDistanceM: number, detourDurationS = 0, baseDistanceM = LONG_BASE) =>
+    exceedsDetourCap({ detourDistanceM, detourDurationS, baseDistanceM, baseDurationS: LONG_BASE_S });
 
   it("우회가 기본경로 × CAP_RATIO 초과 → true", () => {
     // DETOUR_CAP_RATIO = 0.5
-    expect(exceedsDetourCap(LONG_BASE * 0.6, LONG_BASE)).toBe(true);
+    expect(cap(LONG_BASE * 0.6)).toBe(true);
   });
 
   it("우회가 기본경로 × CAP_RATIO 이하 → false", () => {
-    expect(exceedsDetourCap(LONG_BASE * DETOUR_CAP_RATIO - 1, LONG_BASE)).toBe(false);
-    expect(exceedsDetourCap(LONG_BASE * DETOUR_CAP_RATIO, LONG_BASE)).toBe(false);
+    expect(cap(LONG_BASE * DETOUR_CAP_RATIO - 1)).toBe(false);
+    expect(cap(LONG_BASE * DETOUR_CAP_RATIO)).toBe(false);
   });
 
-  it("기본 경로가 MIN_ROUTE_DISTANCE 미만이면 cap을 적용하지 않는다 (실측: 2km 경로 + 1km 넘는 정당한 우회)", () => {
-    const shortBase = MIN_ROUTE_DISTANCE - 1;
-    // 비율로는 명백히 초과(50% cap이면 몇백 m대여야 함)해도 짧은 경로에서는 걸리지 않는다.
-    expect(exceedsDetourCap(shortBase * DETOUR_CAP_RATIO + 1, shortBase)).toBe(false);
-    expect(exceedsDetourCap(10_000, 2_000)).toBe(false); // 사용자 실측 사례와 같은 규모
+  // 경유지를 넣으면 경로가 재탐색되어 거리는 그대로인데 시간만 늘어나는 경우가 실측의
+  // 60%다 — 거리만 보면 "경로 99m 옆인데 실제 39분 우회"인 후보를 못 거른다.
+  it("ΔD가 cap 이내여도 ΔT가 T_base × TIME_CAP_RATIO를 넘으면 → true", () => {
+    expect(cap(0, LONG_BASE_S * DETOUR_TIME_CAP_RATIO + 1)).toBe(true);
+  });
+
+  it("ΔT가 경계값이면 → false", () => {
+    expect(cap(0, LONG_BASE_S * DETOUR_TIME_CAP_RATIO)).toBe(false);
+  });
+
+  // 짧은 경로(D_base < MIN_ROUTE_DISTANCE)는 비율 cap 대신 SHORT_ROUTE_DETOUR_TIME_CAP_S
+  // (20분) 절대 상한을 쓴다 — 비율 cap을 그대로 적용하면 정당한 우회까지 막히지만
+  // (Phase 9, 수진역 LPG 사례), 완전히 끄면 순절감액>0(추정 기준)만으로 30~50분짜리
+  // 우회가 통과한다(Phase 11 실측 — 단대오거리역→모란역, 남한산성입구역→을지대학교).
+  const shortBase = MIN_ROUTE_DISTANCE - 1;
+  const shortCap = (detourDurationS: number) => cap(0, detourDurationS, shortBase);
+
+  it("짧은 경로 — 거리 비율로는 명백히 초과해도(50% cap이면 몇백 m대) 거리만으로는 걸리지 않는다", () => {
+    expect(cap(shortBase * DETOUR_CAP_RATIO + 1, 0, shortBase)).toBe(false);
+    expect(cap(10_000, 0, 2_000)).toBe(false); // 수진역 LPG와 같은 규모의 정당한 우회
+  });
+
+  it("짧은 경로 — 우회 시간이 SHORT_ROUTE_DETOUR_TIME_CAP_S(20분) 이하면 → false", () => {
+    expect(shortCap(SHORT_ROUTE_DETOUR_TIME_CAP_S - 1)).toBe(false);
+    expect(shortCap(SHORT_ROUTE_DETOUR_TIME_CAP_S)).toBe(false);
+  });
+
+  it("짧은 경로 — 우회 시간이 SHORT_ROUTE_DETOUR_TIME_CAP_S(20분)를 넘으면 → true (Phase 11 실측: 8분짜리 경로에 54분 우회가 그대로 남던 문제)", () => {
+    expect(shortCap(SHORT_ROUTE_DETOUR_TIME_CAP_S + 1)).toBe(true);
+    expect(cap(0, 3600, 2_000)).toBe(true); // 60분 우회 — 예전엔 통과했다
   });
 
   it("기본 경로가 MIN_ROUTE_DISTANCE 이상이면 기존처럼 cap을 적용한다", () => {
-    const longBase = MIN_ROUTE_DISTANCE;
-    expect(exceedsDetourCap(longBase * DETOUR_CAP_RATIO + 1, longBase)).toBe(true);
-    expect(exceedsDetourCap(longBase * DETOUR_CAP_RATIO, longBase)).toBe(false);
+    expect(cap(LONG_BASE * DETOUR_CAP_RATIO + 1)).toBe(true);
+    expect(cap(LONG_BASE * DETOUR_CAP_RATIO)).toBe(false);
   });
 });
 

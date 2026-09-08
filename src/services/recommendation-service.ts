@@ -451,7 +451,15 @@ export async function search(
   });
 
   // STEP11 — 최종 정리
-  internal = internal.filter((ic) => !exceedsDetourCap(ic.detourDistanceM, baseRoute.distanceM)); // A6
+  internal = internal.filter(
+    (ic) =>
+      !exceedsDetourCap({
+        detourDistanceM: ic.detourDistanceM,
+        detourDurationS: ic.detourDurationS,
+        baseDistanceM: baseRoute.distanceM,
+        baseDurationS: baseRoute.durationS,
+      }),
+  ); // A6
 
   const finalRadiusM = computeFinalRadiusM(internal);
   let finalCandidates = finalizeCandidates(

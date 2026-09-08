@@ -13,6 +13,8 @@ import {
   OUTLIER_SIGMA,
   P_REF_MIN_BASE,
   DETOUR_CAP_RATIO,
+  DETOUR_TIME_CAP_RATIO,
+  SHORT_ROUTE_DETOUR_TIME_CAP_S,
   MIN_ROUTE_DISTANCE,
 } from "./params";
 import type { Mode, RefPriceSource, Scores } from "./types";
@@ -139,20 +141,38 @@ export function passesT3Gate(args: {
 }
 
 /**
- * 우회 거리가 기본 경로 대비 DETOUR_CAP_RATIO 초과 여부.
- * 초과 시 후보 제거 (정밀 계산 이후에만 적용).
+ * 우회가 기본 경로 대비 상한(거리 DETOUR_CAP_RATIO · 시간 DETOUR_TIME_CAP_RATIO)을
+ * 넘는지. 초과 시 후보 제거 (정밀 계산 이후에만 적용).
  *
- * `baseDistanceM`이 `MIN_ROUTE_DISTANCE` 미만이면 이 비율 cap을 적용하지 않는다.
- * 이 규칙은 원래 장거리 여행에서 "우회가 절반을 넘으면 경로가 사실상 달라진
- * 것"을 막으려고 만들었는데, 짧은 경로에 그대로 적용하면 cap이 1~2km로
- * 수렴해 실제로 우회할 가치가 있는 후보까지 전부 제외된다(Phase 9 실측 —
- * 2km 경로에서 cap이 1km가 되어 수진역 LPG 같은 T3 후보가 전부 사라짐).
- * 짧은 경로에서는 T3_MAX(우회 탐색 상한)와 NetSaving>0 게이트만으로
- * "어느 정도 범위"를 이미 제한하므로 이 cap이 없어도 무한정 찾아주지 않는다.
+ * **거리와 시간을 모두 봅니다.** 거리만 보면 재탐색으로 ΔD=0이 된 후보(실측 60%)를
+ * 절대 거르지 못합니다 — 경로 99m 옆인데 실제로는 26.9km·39분을 우회해야 하는
+ * 주유소가 그대로 1위권에 남았습니다 (Phase 10 실측, PRODUCT.md §10.1 A6).
+ *
+ * **`baseDistanceM`이 `MIN_ROUTE_DISTANCE` 미만이면 비율 cap 대신 절대 시간 상한
+ * (`SHORT_ROUTE_DETOUR_TIME_CAP_S`)을 쓴다.** 원래(Phase 9)는 짧은 경로에서 이
+ * cap을 아예 껐다 — 장거리 여행 전제로 만든 비율 cap이 2km 경로에서 1km로 수렴해
+ * 수진역 LPG 같은 정당한 T3 후보까지 걸러냈기 때문이다. 그때 근거는 "T3_MAX·
+ * NetSaving>0 게이트가 이미 범위를 제한하니 cap 없이도 무한정 찾아주진 않는다"였는데,
+ * **이 근거가 틀렸다는 게 Phase 11 실측으로 드러났다**: 그 게이트들은 *추정*
+ * (`2×d_perp`) 기준이라, 실측 우회가 추정을 100배 넘게 벗어나는 사례(§6.5)를 전혀
+ * 못 거른다. 실제로 8분짜리 기본 경로(남한산성입구역→을지대학교, 최초로 이 예외를
+ * 만들게 한 바로 그 경로)에 54분 우회가, 10분짜리 경로(단대오거리역→모란역)에
+ * 45분 우회가 순절감액>0이라는 이유만으로 목록에 그대로 남았다 — 그마저 실측하면
+ * 손해인 경우도 있었다. cap을 완전히 끄는 대신 절대 시간 상한을 두면, "1km 남짓
+ * 우회하는 정당한 근거리 후보는 살리되(수진역 사례), 30~50분짜리 사실상 별도
+ * 여정은 거른다"는 원래 취지 둘 다를 만족한다.
  */
-export function exceedsDetourCap(detourDistanceM: number, baseDistanceM: number): boolean {
-  if (baseDistanceM < MIN_ROUTE_DISTANCE) return false;
-  return detourDistanceM > baseDistanceM * DETOUR_CAP_RATIO;
+export function exceedsDetourCap(args: {
+  detourDistanceM: number;
+  detourDurationS: number;
+  baseDistanceM: number;
+  baseDurationS: number;
+}): boolean {
+  if (args.baseDistanceM < MIN_ROUTE_DISTANCE) {
+    return args.detourDurationS > SHORT_ROUTE_DETOUR_TIME_CAP_S;
+  }
+  if (args.detourDistanceM > args.baseDistanceM * DETOUR_CAP_RATIO) return true;
+  return args.detourDurationS > args.baseDurationS * DETOUR_TIME_CAP_RATIO;
 }
 
 // ─── P_ref 계산 ──────────────────────────────────────────────────────────────
