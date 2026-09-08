@@ -80,6 +80,18 @@ describe("POST /api/search — Accept: application/json 폴백", () => {
     expect(body.baseRoute.polyline).toEqual([{ lat: 37.42, lng: 127.12 }]);
   });
 
+  it("avoidHighway를 생략하면 false로 기본값이 채워져 search()에 전달된다", async () => {
+    searchMock.mockResolvedValue(fakeResult());
+    await POST(request(validBody(), "application/json"));
+    expect(searchMock.mock.calls.at(-1)![0].avoidHighway).toBe(false);
+  });
+
+  it("avoidHighway: true를 그대로 search()에 전달한다", async () => {
+    searchMock.mockResolvedValue(fakeResult());
+    await POST(request({ ...validBody(), avoidHighway: true }, "application/json"));
+    expect(searchMock.mock.calls.at(-1)![0].avoidHighway).toBe(true);
+  });
+
   it("에러는 500을 반환한다", async () => {
     searchMock.mockRejectedValue(new Error("boom"));
     const res = await POST(request(validBody(), "application/json"));

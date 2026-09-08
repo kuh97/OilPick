@@ -10,6 +10,7 @@ const INPUT: FetchDetourInput = {
   vehicle: { efficiency: 8.5, refuelAmount: 45, timeValue: 200 },
   priceStation: 1650,
   referencePrice: 1210,
+  avoidHighway: false,
 };
 
 afterEach(() => {

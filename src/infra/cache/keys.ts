@@ -38,15 +38,20 @@ export function gridSnapWgs84(point: WGS84Point, gridM: number = STATION_GRID_M)
  * @param originGrid "lat_lng" 스냅 문자열
  * @param destGrid   "lat_lng" 스냅 문자열
  * @param viaGrid    경유지 스냅 (없으면 생략)
+ * @param avoidHighway avoid=motorway로 조회한 경로인지 — 켜고 끈 결과는 완전히 다른
+ *   경로라 같은 origin/destination/waypoint라도 키를 반드시 분리해야 한다. 빠뜨리면
+ *   회피를 켠 사용자가 끈 사용자의(또는 그 반대) 캐시된 경로를 그대로 받는다.
  */
 export function routeKey(
   prefix: string,
   originGrid: string,
   destGrid: string,
   viaGrid?: string,
+  avoidHighway?: boolean,
 ): string {
   const via = viaGrid ? `:${viaGrid}` : "";
-  return `${prefix}:route:${originGrid}:${destGrid}${via}`;
+  const avoid = avoidHighway ? ":avoid" : "";
+  return `${prefix}:route:${originGrid}:${destGrid}${via}${avoid}`;
 }
 
 /**

@@ -8,6 +8,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowUpDown, Clock, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { PlaceAutocompleteInput } from "@/components/place-autocomplete";
 import { FuelSelect } from "@/components/fuel-select";
 import { HomeMap, type HomeMapField } from "@/components/home-map";
@@ -29,10 +30,12 @@ export default function HomePage() {
   const origin = useSearchStore((s) => s.origin);
   const destination = useSearchStore((s) => s.destination);
   const fuel = useSearchStore((s) => s.fuel);
+  const avoidHighway = useSearchStore((s) => s.avoidHighway);
   const recentSearches = useSearchStore((s) => s.recentSearches);
   const setOrigin = useSearchStore((s) => s.setOrigin);
   const setDestination = useSearchStore((s) => s.setDestination);
   const setFuel = useSearchStore((s) => s.setFuel);
+  const setAvoidHighway = useSearchStore((s) => s.setAvoidHighway);
 
   const [activeField, setActiveField] = useState<HomeMapField>("origin");
   // "다시입력"을 누르면 입력창에 남아있는 편집 중 텍스트(아직 좌표로 확정 안 된 상태 —
@@ -160,6 +163,16 @@ export default function HomePage() {
         )}
 
         <FuelSelect value={fuel} onChange={setFuel} />
+
+        <label className="flex items-center justify-between rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm">
+          <span className="flex flex-col">
+            고속도로·자동차전용도로 회피
+            <span className="text-xs text-muted-foreground">
+              통행료가 있는 구간을 피해요. 시간이 더 걸릴 수 있어요
+            </span>
+          </span>
+          <Switch checked={avoidHighway} onCheckedChange={setAvoidHighway} />
+        </label>
       </div>
 
       <Button

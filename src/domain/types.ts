@@ -182,4 +182,10 @@ export interface SearchInput {
     selfOnly: boolean;
   };
   mode: Mode;
+  /**
+   * 고속도로·자동차전용도로 회피 (카카오 avoid=motorway). 후보 필터가 아니라
+   * 경로 자체를 바꾸는 검색 조건이라 filters와 분리했다 — 바뀌면 baseRoute부터
+   * 다시 조회해야 한다 (PRODUCT.md §5.1).
+   */
+  avoidHighway: boolean;
 }

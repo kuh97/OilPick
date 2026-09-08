@@ -99,6 +99,21 @@ describe("POST /api/detour — 정상 흐름", () => {
     expect(body.tollWon).toBeUndefined();
   });
 
+  it("avoidHighway를 기본 경로·경유 경로 양쪽 getRoute 호출에 그대로 전달한다", async () => {
+    findRefuelPointsByIdsMock.mockResolvedValue([station()]);
+    getRouteMock
+      .mockResolvedValueOnce({ distanceM: 92000, durationS: 5640, polyline: [] })
+      .mockResolvedValueOnce({ distanceM: 104400, durationS: 6720, polyline: [] });
+
+    await POST(request(validBody({ avoidHighway: true })));
+
+    const lastTwoCalls = getRouteMock.mock.calls.slice(-2);
+    expect(lastTwoCalls).toHaveLength(2);
+    for (const [opts] of lastTwoCalls) {
+      expect(opts.avoidHighway).toBe(true);
+    }
+  });
+
   it("경유 경로 조회가 실패하면 502를 반환한다", async () => {
     findRefuelPointsByIdsMock.mockResolvedValue([station()]);
     getRouteMock.mockRejectedValue(new Error("kakao 500"));

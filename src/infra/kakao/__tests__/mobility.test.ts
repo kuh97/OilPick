@@ -33,6 +33,30 @@ describe("fetchDirections — 경유지 없음 (기본 경로)", () => {
     await fetchDirections({ origin: ORIGIN, destination: DESTINATION });
     expect(new URL(capturedUrl).searchParams.has("waypoints")).toBe(false);
   });
+
+  it("avoidHighway: true면 avoid=motorway를 붙인다", async () => {
+    let capturedUrl = "";
+    server.use(
+      http.get(KAKAO_MOBILITY_URL, ({ request }) => {
+        capturedUrl = request.url;
+        return HttpResponse.json(directionsFixture);
+      }),
+    );
+    await fetchDirections({ origin: ORIGIN, destination: DESTINATION, avoidHighway: true });
+    expect(new URL(capturedUrl).searchParams.get("avoid")).toBe("motorway");
+  });
+
+  it("avoidHighway를 생략하거나 false면 avoid 파라미터가 없다", async () => {
+    let capturedUrl = "";
+    server.use(
+      http.get(KAKAO_MOBILITY_URL, ({ request }) => {
+        capturedUrl = request.url;
+        return HttpResponse.json(directionsFixture);
+      }),
+    );
+    await fetchDirections({ origin: ORIGIN, destination: DESTINATION, avoidHighway: false });
+    expect(new URL(capturedUrl).searchParams.has("avoid")).toBe(false);
+  });
 });
 
 describe("fetchDirections — 경유지 1개 (경유 경로)", () => {

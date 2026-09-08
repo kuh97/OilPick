@@ -11,6 +11,7 @@ const BODY: SearchStreamInput = {
   filters: { facilities: [], brands: [], kpetroOnly: false, selfOnly: false },
   vehicle: { efficiency: 10, refuelAmount: 45, timeValue: 200 },
   mode: "balanced",
+  avoidHighway: false,
 };
 
 function sseStreamResponse(frames: string[]): Response {

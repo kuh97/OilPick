@@ -38,6 +38,8 @@ export const SearchRequestSchema = z.object({
   filters: FiltersSchema,
   vehicle: VehicleSchema,
   mode: ModeSchema,
+  /** 고속도로·자동차전용도로 회피 — 경로 자체가 바뀌는 검색 조건 (PRODUCT.md §5.1) */
+  avoidHighway: z.boolean().default(false),
 });
 export type SearchRequest = z.infer<typeof SearchRequestSchema>;
 
@@ -54,6 +56,9 @@ export const DetourRequestSchema = z.object({
   vehicle: VehicleSchema,
   priceStation: z.number().positive(),
   referencePrice: z.number(),
+  // 검색 때 쓴 값과 같아야 기본 경로와 비교가 맞는다 — 다르면 톨비·거리·시간 델타가
+  // 전부 틀어진다.
+  avoidHighway: z.boolean().default(false),
 });
 export type DetourRequest = z.infer<typeof DetourRequestSchema>;
 

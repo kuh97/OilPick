@@ -296,6 +296,7 @@ export async function search(
     origin: input.origin,
     destination: input.destination,
     fuel: input.vehicle.fuel,
+    avoidHighway: input.avoidHighway,
     redis,
     prefix,
   });
@@ -433,6 +434,7 @@ export async function search(
         destination: input.destination,
         waypoint: ic.station.location,
         fuel: input.vehicle.fuel,
+        avoidHighway: input.avoidHighway,
         retries: 0,
         redis,
         prefix,

@@ -98,6 +98,41 @@ describe("getRoute — 경유지(waypoint)", () => {
   });
 });
 
+describe("getRoute — avoidHighway (고속도로·자동차전용도로 회피)", () => {
+  it("avoidHighway 유무로 서로 다른 캐시 키를 쓴다 — 안 그러면 회피 켠 사람이 끈 사람의 경로를 받는다", async () => {
+    const redis = fakeRedis();
+    await getRoute({ origin: ORIGIN, destination: DESTINATION, avoidHighway: true, redis });
+    await getRoute({ origin: ORIGIN, destination: DESTINATION, avoidHighway: false, redis });
+    expect(redis.store.size).toBe(2);
+  });
+
+  it("카카오 요청에 avoid=motorway를 그대로 전달한다", async () => {
+    let capturedUrl = "";
+    server.use(
+      http.get("https://apis-navi.kakaomobility.com/v1/directions", ({ request }) => {
+        capturedUrl = request.url;
+        return HttpResponse.json(directionsFixture);
+      }),
+    );
+    const redis = fakeRedis();
+    await getRoute({ origin: ORIGIN, destination: DESTINATION, avoidHighway: true, redis });
+    expect(new URL(capturedUrl).searchParams.get("avoid")).toBe("motorway");
+  });
+
+  it("같은 avoidHighway 값이면 캐시를 재사용한다", async () => {
+    const redis = fakeRedis();
+    await getRoute({ origin: ORIGIN, destination: DESTINATION, avoidHighway: true, redis });
+
+    server.use(
+      http.get("https://apis-navi.kakaomobility.com/v1/directions", () => {
+        throw new Error("호출되면 안 됨 — 캐시 히트 기대");
+      }),
+    );
+    const route = await getRoute({ origin: ORIGIN, destination: DESTINATION, avoidHighway: true, redis });
+    expect(route.distanceM).toBe(directionsFixture.routes[0].summary.distance);
+  });
+});
+
 describe("getRoute — 경유지 캐시 키 충돌 (회귀)", () => {
   // 실측 버그(2026-08-31): 경유지에도 반경검색용 2km 격자를 그대로 쓰는 바람에
   // 같은 격자 안의 서로 다른 주유소가 캐시를 공유해 남의 경유 경로를 받았다.

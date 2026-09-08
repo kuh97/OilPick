@@ -33,8 +33,8 @@ export async function POST(request: Request) {
 
   try {
     const [baseRoute, viaRoute] = await Promise.all([
-      getRoute({ origin, destination }),
-      getRoute({ origin, destination, waypoint: station.location, retries: 0 }),
+      getRoute({ origin, destination, avoidHighway: body.avoidHighway }),
+      getRoute({ origin, destination, waypoint: station.location, avoidHighway: body.avoidHighway, retries: 0 }),
     ]);
 
     const distanceM = Math.max(0, viaRoute.distanceM - baseRoute.distanceM);

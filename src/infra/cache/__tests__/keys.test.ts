@@ -18,6 +18,24 @@ describe("routeKey", () => {
     const k2 = routeKey("dev", "A", "B", "C");
     expect(k1).not.toBe(k2);
   });
+
+  // avoidHighway를 켜고 끈 결과는 완전히 다른 경로다 — 키가 같으면 회피를 켠 사용자가
+  // 끈 사용자의(또는 그 반대) 캐시된 경로를 그대로 받는다.
+  it("avoidHighway 유무에 따라 다른 키 (기본 경로)", () => {
+    const withAvoid = routeKey("dev", "A", "B", undefined, true);
+    const withoutAvoid = routeKey("dev", "A", "B", undefined, false);
+    expect(withAvoid).not.toBe(withoutAvoid);
+  });
+
+  it("avoidHighway 유무에 따라 다른 키 (경유 경로)", () => {
+    const withAvoid = routeKey("dev", "A", "B", "C", true);
+    const withoutAvoid = routeKey("dev", "A", "B", "C", false);
+    expect(withAvoid).not.toBe(withoutAvoid);
+  });
+
+  it("avoidHighway를 생략하면 false와 같은 키다 (하위 호환)", () => {
+    expect(routeKey("dev", "A", "B")).toBe(routeKey("dev", "A", "B", undefined, false));
+  });
 });
 
 describe("gridSnapWgs84 — 2km 격자 스냅 (route/placeKey, Phase 11 이벤트 로깅 공용)", () => {

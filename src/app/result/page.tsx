@@ -52,6 +52,7 @@ export default function ResultPage() {
   const destination = useSearchStore((s) => s.destination);
   const fuel = useSearchStore((s) => s.fuel);
   const filters = useSearchStore((s) => s.filters);
+  const avoidHighway = useSearchStore((s) => s.avoidHighway);
   const vehicle = useSearchStore((s) => s.vehicle);
   const maxDetourMinutes = useSearchStore((s) => s.maxDetourMinutes);
   const mode = useSearchStore((s) => s.mode);
@@ -110,24 +111,27 @@ export default function ResultPage() {
       filters,
       vehicle: useSearchStore.getState().vehicle,
       mode: useSearchStore.getState().mode,
+      avoidHighway,
     };
     void search(body);
   }
 
-  // 출발지·목적지·연료·필터가 바뀌면 다시 검색한다. vehicle·mode는 클라이언트 재계산만
-  // 하므로 의도적으로 의존성에서 뺐다(§10 Phase 9 완료 기준 — API 재호출 0회).
+  // 출발지·목적지·연료·필터·회피 설정이 바뀌면 다시 검색한다. vehicle·mode는 클라이언트
+  // 재계산만 하므로 의도적으로 의존성에서 뺐다(§10 Phase 9 완료 기준 — API 재호출 0회).
+  // avoidHighway는 filters와 같은 부류다 — 후보를 거르는 게 아니라 baseRoute 자체가
+  // 달라지는 검색 조건이라 재검색 없이는 대응할 수 없다.
   //
   // "마지막으로 검색한 조건"은 컴포넌트 로컬(useRef)이 아니라 스토어에 둔다 — 상세보기
   // 갔다가 뒤로가기하면 이 페이지 컴포넌트가 리마운트되어 로컬 ref는 초기화되지만,
   // 스토어의 result·lastSearchKey는 그대로 남아있으므로 같은 조건이면 재검색을 건너뛴다.
   useEffect(() => {
     if (!origin || !destination) return;
-    const key = JSON.stringify({ origin, destination, fuel, filters });
+    const key = JSON.stringify({ origin, destination, fuel, filters, avoidHighway });
     if (useSearchStore.getState().lastSearchKey === key) return;
     useSearchStore.getState().setLastSearchKey(key);
     runSearch({ origin, destination });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [origin, destination, fuel, filters]);
+  }, [origin, destination, fuel, filters, avoidHighway]);
 
   const referencePrice = result?.referencePrice ?? partial?.referencePrice ?? null;
   const expansion = result?.expansion ?? partial?.expansion ?? null;
@@ -187,7 +191,7 @@ export default function ResultPage() {
           </Button>
           <Button
             onClick={() => {
-              const key = JSON.stringify({ origin, destination, fuel, filters });
+              const key = JSON.stringify({ origin, destination, fuel, filters, avoidHighway });
               useSearchStore.getState().setLastSearchKey(key);
               runSearch({ origin, destination });
             }}

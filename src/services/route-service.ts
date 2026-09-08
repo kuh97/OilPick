@@ -61,6 +61,8 @@ export interface GetRouteOptions {
   /** 경유지 — 있으면 경유 경로(R_s), 없으면 기본 경로(R₀) */
   waypoint?: WGS84Point;
   fuel?: Fuel;
+  /** true면 고속도로·자동차전용도로를 피해 경로를 재탐색한다 (avoid=motorway). */
+  avoidHighway?: boolean;
   /** 기본 1(§5.4). STEP10 정밀 계산은 0을 넘기십시오 */
   retries?: number;
   redis?: RedisLike;
@@ -79,7 +81,7 @@ export async function getRoute(opts: GetRouteOptions): Promise<BaseRoute> {
   const originGrid = gridSnapWgs84(opts.origin);
   const destGrid = gridSnapWgs84(opts.destination);
   const viaGrid = opts.waypoint ? gridSnapWgs84(opts.waypoint, ROUTE_VIA_GRID_M) : undefined;
-  const key = routeKey(prefix, originGrid, destGrid, viaGrid);
+  const key = routeKey(prefix, originGrid, destGrid, viaGrid, opts.avoidHighway);
 
   const cached = await redis.get(key);
   if (cached) return deserialize(cached);
@@ -89,6 +91,7 @@ export async function getRoute(opts: GetRouteOptions): Promise<BaseRoute> {
     destination: opts.destination,
     waypoint: opts.waypoint,
     fuel: opts.fuel,
+    avoidHighway: opts.avoidHighway,
     retries: opts.retries,
   });
 

@@ -27,6 +27,8 @@ export interface FetchDetourInput {
   vehicle: WireVehicle;
   priceStation: number;
   referencePrice: number;
+  /** 검색 때 쓴 값과 같아야 한다 — 기본 경로와 비교 대상이 어긋나면 안 됨. */
+  avoidHighway: boolean;
 }
 
 export function useDetour() {

@@ -64,6 +64,12 @@ interface SearchState {
    */
   maxDetourMinutes: number;
   mode: Mode;
+  /**
+   * 고속도로·자동차전용도로 회피 — persist(홈 화면 설정, `fuel`과 같은 부류). `filters`와
+   * 마찬가지로 바뀌면 재검색해야 한다 — 후보를 거르는 게 아니라 경로 자체(baseRoute)를
+   * 바꾸는 검색 조건이기 때문이다 (PRODUCT.md §5.1).
+   */
+  avoidHighway: boolean;
 
   // ─── 검색 진행 상태 (휘발성) ───────────────────────────────────────────
   isLoading: boolean;
@@ -96,6 +102,7 @@ interface SearchState {
   setVehicle: (vehicle: Partial<WireVehicle>) => void;
   setMaxDetourMinutes: (minutes: number) => void;
   setMode: (mode: Mode) => void;
+  setAvoidHighway: (avoid: boolean) => void;
 
   startSearch: () => void;
   setProgressStep: (step: ProgressStep, radiusM?: number) => void;
@@ -152,6 +159,7 @@ export const useSearchStore = create<SearchState>()(
       vehicle: defaultVehicleFor("GASOLINE"),
       maxDetourMinutes: DEFAULT_MAX_DETOUR_MINUTES,
       mode: "balanced",
+      avoidHighway: false,
 
       isLoading: false,
       progressStep: null,
@@ -173,6 +181,7 @@ export const useSearchStore = create<SearchState>()(
       setVehicle: (vehicle) => set({ vehicle: { ...get().vehicle, ...vehicle } }),
       setMaxDetourMinutes: (minutes) => set({ maxDetourMinutes: minutes }),
       setMode: (mode) => set({ mode }),
+      setAvoidHighway: (avoid) => set({ avoidHighway: avoid }),
 
       startSearch: () =>
         set({
@@ -232,6 +241,7 @@ export const useSearchStore = create<SearchState>()(
         maxDetourMinutes: state.maxDetourMinutes,
         recentSearches: state.recentSearches,
         fuel: state.fuel,
+        avoidHighway: state.avoidHighway,
       }),
     },
   ),

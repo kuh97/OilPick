@@ -14,6 +14,7 @@ beforeEach(() => {
     vehicle: { efficiency: DEFAULT_EFFICIENCY.GASOLINE, refuelAmount: DEFAULT_REFUEL_AMOUNT, timeValue: V_TIME },
     maxDetourMinutes: DEFAULT_MAX_DETOUR_MINUTES,
     mode: "balanced",
+    avoidHighway: false,
     isLoading: false,
     progressStep: null,
     progressStepsSeen: [],
@@ -52,6 +53,13 @@ describe("search-store — 입력", () => {
     const state = useSearchStore.getState();
     expect(state.maxDetourMinutes).toBe(35);
     expect(state.vehicle.efficiency).toBe(DEFAULT_EFFICIENCY.GASOLINE);
+  });
+
+  it("setAvoidHighway는 다른 필드에 영향을 주지 않는다", () => {
+    useSearchStore.getState().setAvoidHighway(true);
+    const state = useSearchStore.getState();
+    expect(state.avoidHighway).toBe(true);
+    expect(state.fuel).toBe("GASOLINE");
   });
 });
 

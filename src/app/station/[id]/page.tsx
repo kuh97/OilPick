@@ -73,6 +73,7 @@ export function StationDetailView({ id }: { id: string }) {
   const result = useSearchStore((s) => s.result);
   const vehicle = useSearchStore((s) => s.vehicle);
   const mode = useSearchStore((s) => s.mode);
+  const avoidHighway = useSearchStore((s) => s.avoidHighway);
 
   const { fetchDetour } = useDetour();
   const [detour, setDetour] = useState<DetourResult | null>(null);
@@ -100,6 +101,7 @@ export function StationDetailView({ id }: { id: string }) {
         vehicle,
         priceStation: candidate!.price,
         referencePrice: result?.referencePrice ?? candidate!.price,
+        avoidHighway,
       });
       if (!cancelled && res) setDetour(res);
     }

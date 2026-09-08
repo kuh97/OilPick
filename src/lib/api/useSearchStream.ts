@@ -45,6 +45,7 @@ export interface SearchStreamInput {
   filters: WireFilters;
   vehicle: WireVehicle;
   mode: Mode;
+  avoidHighway: boolean;
 }
 
 function isAbortError(err: unknown): boolean {

@@ -60,6 +60,7 @@ function baseInput(overrides: Partial<SearchInput> = {}): SearchInput {
     vehicle: VEHICLE,
     filters: { facilities: [], brands: [], kpetroOnly: false, selfOnly: false },
     mode: "balanced",
+    avoidHighway: false,
     ...overrides,
   };
 }
@@ -303,6 +304,28 @@ describe("search — 정밀 계산 대상 선정 (STEP10)", () => {
     const result = await search(baseInput({ mode: "minCost" }), undefined, FAKE_DEPS);
 
     expect(result.candidates[0].detour.precise).toBe(true);
+  });
+});
+
+describe("search — avoidHighway (고속도로·자동차전용도로 회피)", () => {
+  it("기본 경로·정밀 계산 양쪽 모두에 avoidHighway를 그대로 전달한다", async () => {
+    collectStationsMock.mockResolvedValue({ stations: mixedCandidates() });
+
+    await search(baseInput({ avoidHighway: true }), undefined, FAKE_DEPS);
+
+    for (const [opts] of getRouteMock.mock.calls) {
+      expect(opts.avoidHighway).toBe(true);
+    }
+  });
+
+  it("avoidHighway: false면 모든 getRoute 호출에 false를 전달한다", async () => {
+    collectStationsMock.mockResolvedValue({ stations: mixedCandidates() });
+
+    await search(baseInput({ avoidHighway: false }), undefined, FAKE_DEPS);
+
+    for (const [opts] of getRouteMock.mock.calls) {
+      expect(opts.avoidHighway).toBe(false);
+    }
   });
 });
 

@@ -20,6 +20,8 @@ export interface FetchDirectionsOptions {
   /** 경유지. 이 서비스는 최대 1개만 씁니다 — ARCHITECTURE.md §5.2 */
   waypoint?: WGS84Point;
   fuel?: Fuel;
+  /** true면 avoid=motorway — 고속도로·자동차전용도로를 피해 경로를 재탐색한다. */
+  avoidHighway?: boolean;
   restApiKey?: string;
   /** 기본 1. 경유 경로 호출 시 0을 넘기십시오 (§5.4) */
   retries?: number;
@@ -43,6 +45,7 @@ export async function fetchDirections(opts: FetchDirectionsOptions): Promise<Bas
   });
   if (opts.waypoint) params.set("waypoints", toKakaoCoord(opts.waypoint));
   if (opts.fuel) params.set("car_fuel", opts.fuel);
+  if (opts.avoidHighway) params.set("avoid", "motorway");
 
   const url = `${env.KAKAO_MOBILITY_BASE_URL}/v1/directions?${params}`;
   const res = await fetchWithRetry(
