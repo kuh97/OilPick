@@ -106,6 +106,13 @@ export interface DetourInfo {
   precise: boolean;
   distanceM: number;  // ΔD (m, 정수, ≥0 clamp 후)
   durationS: number;  // ΔT (s, 정수, ≥0 clamp 후)
+  /**
+   * 이 우회로 추가되는 통행료(원, ≥0 clamp) — 경유 경로 fare.toll − 기본 경로
+   * fare.toll. precise===false(실측 안 함)거나 toll 정보가 없으면 undefined.
+   * 순수 정보 표시용이다 — netSaving·점수·정렬 어디에도 반영하지 않는다
+   * (2026-09-08, 사용자 판단: "100% 정확한 것도 아니라서 순이득엔 안 섞는 게 낫다").
+   */
+  tollWon?: number;
 }
 
 export interface Scores {
@@ -119,6 +126,8 @@ export interface Scores {
 export interface BaseRoute {
   distanceM: number;   // D_base (m)
   durationS: number;   // T_base (s)
+  /** 통행료(원) — 카카오 summary.fare.toll. optional인 이유는 DetourInfo.tollWon 참고. */
+  tollWon?: number;
   polyline: WGS84Point[];
 }
 

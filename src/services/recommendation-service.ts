@@ -79,6 +79,8 @@ interface InternalCandidate {
   tier: Tier;
   detourDistanceM: number;
   detourDurationS: number;
+  /** 이 우회로 추가되는 통행료(원). 실측(STEP10) 전에는 알 수 없어 undefined. */
+  tollWon?: number;
   precise: boolean;
 }
 
@@ -186,7 +188,12 @@ function finalizeCandidates(
       price: w.ic.price,
       dPerp: w.ic.dPerp,
       tier: w.ic.tier,
-      detour: { precise: w.ic.precise, distanceM: w.ic.detourDistanceM, durationS: w.ic.detourDurationS },
+      detour: {
+        precise: w.ic.precise,
+        distanceM: w.ic.detourDistanceM,
+        durationS: w.ic.detourDurationS,
+        tollWon: w.ic.tollWon,
+      },
       netSaving: w.netSavingWon,
       totalCost: w.totalCostWon,
       scores: w.scores,
@@ -444,6 +451,11 @@ export async function search(
       ...ic,
       detourDistanceM,
       detourDurationS: Math.max(0, preciseRoute.durationS - baseRoute.durationS),
+      // 정보 표시 전용 (netSaving 미반영) — 위 DetourInfo.tollWon 주석 참고.
+      tollWon:
+        preciseRoute.tollWon != null && baseRoute.tollWon != null
+          ? Math.max(0, preciseRoute.tollWon - baseRoute.tollWon)
+          : undefined,
       // 실측 우회거리로 배지 재판정 (geoTier는 유지 — §6.4)
       tier: classifyTierByDetour(detourDistanceM),
       precise: true,

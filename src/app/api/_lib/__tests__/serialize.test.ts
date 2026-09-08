@@ -81,6 +81,11 @@ describe("serializeCandidate", () => {
     expect(wire.estimatedCost).toBe(76500);
   });
 
+  it("detour.tollWon(정보 표시 전용)을 그대로 전달한다", () => {
+    const wire = serializeCandidate(candidate({ detour: { precise: true, distanceM: 1000, durationS: 90, tollWon: 2900 } }));
+    expect(wire.detour.tollWon).toBe(2900);
+  });
+
   it("priceUpdatedAt이 없으면 null, 있으면 ISO 문자열이다", () => {
     expect(serializeCandidate(candidate()).priceUpdatedAt).toBeNull();
 

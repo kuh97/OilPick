@@ -37,6 +37,7 @@ export function mapDirectionsRoute(route: KakaoRoute): BaseRoute {
   return {
     distanceM: route.summary.distance,
     durationS: route.summary.duration,
+    tollWon: route.summary.fare?.toll ?? 0,
     polyline: extractPolyline(route),
   };
 }

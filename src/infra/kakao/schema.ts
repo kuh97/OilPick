@@ -27,12 +27,20 @@ export const KakaoSectionSchema = z.object({
   roads: z.array(KakaoRoadSchema),
 });
 
+// 통행료. 응답엔 항상 오지만, 안 오는 변형이 있어도 fetchDirections가 죽지 않도록
+// optional로 둔다 — mapper.ts에서 ?? 0으로 안전하게 기본값을 준다.
+export const KakaoFareSchema = z.object({
+  taxi: z.number(),
+  toll: z.number(),
+});
+
 export const KakaoRouteSummarySchema = z.object({
   origin: KakaoRoutePointSchema,
   destination: KakaoRoutePointSchema,
   waypoints: z.array(KakaoRoutePointSchema),
   distance: z.number(), // m
   duration: z.number(), // 초
+  fare: KakaoFareSchema.optional(),
 });
 
 export const KakaoRouteSchema = z.object({
@@ -104,6 +112,7 @@ export const KakaoAddressSearchResponseSchema = z.object({
   documents: z.array(KakaoAddressSearchDocumentSchema),
 });
 
+export type KakaoFare = z.infer<typeof KakaoFareSchema>;
 export type KakaoRoutePoint = z.infer<typeof KakaoRoutePointSchema>;
 export type KakaoRoute = z.infer<typeof KakaoRouteSchema>;
 export type KakaoDirectionsResponse = z.infer<typeof KakaoDirectionsResponseSchema>;

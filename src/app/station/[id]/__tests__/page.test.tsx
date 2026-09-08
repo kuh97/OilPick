@@ -129,6 +129,21 @@ describe("StationDetailView — 정상 흐름 (AGENTS.md §6 불변식)", () => 
     expect(screen.getByText(/티맵은 주유소까지만 안내됩니다/)).toBeTruthy();
   });
 
+  it("추가 통행료가 있으면 정보성으로 표시한다 (순이득과 별개)", () => {
+    useSearchStore.setState({
+      result: result({ candidates: [candidate({ detour: { precise: true, distanceM: 12400, durationS: 1080, tollWon: 2900 } })] }),
+    });
+    renderPage();
+    expect(screen.getByText("추가 통행료")).toBeTruthy();
+    expect(screen.getByText("+2,900원")).toBeTruthy();
+  });
+
+  it("추가 통행료가 0원이거나 모르면 표시하지 않는다", () => {
+    useSearchStore.setState({ result: result({ candidates: [candidate()] }) }); // tollWon 없음
+    renderPage();
+    expect(screen.queryByText("추가 통행료")).toBeNull();
+  });
+
   it("마운트 시 정밀 재계산(fetchDetour)을 호출한다", () => {
     renderPage();
     expect(fetchDetourMock).toHaveBeenCalledTimes(1);

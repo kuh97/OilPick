@@ -77,6 +77,28 @@ describe("POST /api/detour — 정상 흐름", () => {
     expect(body.polyline).toEqual([{ lat: 37.5, lng: 127.3 }]);
   });
 
+  it("기본·경유 경로에 통행료가 있으면 차액을 tollWon으로 반환한다 (netSaving엔 미반영)", async () => {
+    findRefuelPointsByIdsMock.mockResolvedValue([station()]);
+    getRouteMock
+      .mockResolvedValueOnce({ distanceM: 92000, durationS: 5640, tollWon: 1000, polyline: [] }) // base
+      .mockResolvedValueOnce({ distanceM: 104400, durationS: 6720, tollWon: 3900, polyline: [] }); // via
+
+    const res = await POST(request(validBody()));
+    const body = await res.json();
+    expect(body.tollWon).toBe(2900);
+  });
+
+  it("통행료 정보가 없으면 tollWon을 아예 내려주지 않는다 (0원으로 단정하지 않음)", async () => {
+    findRefuelPointsByIdsMock.mockResolvedValue([station()]);
+    getRouteMock
+      .mockResolvedValueOnce({ distanceM: 92000, durationS: 5640, polyline: [] })
+      .mockResolvedValueOnce({ distanceM: 104400, durationS: 6720, polyline: [] });
+
+    const res = await POST(request(validBody()));
+    const body = await res.json();
+    expect(body.tollWon).toBeUndefined();
+  });
+
   it("경유 경로 조회가 실패하면 502를 반환한다", async () => {
     findRefuelPointsByIdsMock.mockResolvedValue([station()]);
     getRouteMock.mockRejectedValue(new Error("kakao 500"));

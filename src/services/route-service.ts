@@ -31,6 +31,7 @@ export interface RedisLike {
 interface CachedBaseRoute {
   distanceM: number;
   durationS: number;
+  tollWon?: number;
   polyline: Array<{ lat: number; lng: number }>;
 }
 
@@ -38,6 +39,7 @@ function serialize(route: BaseRoute): string {
   const payload: CachedBaseRoute = {
     distanceM: route.distanceM,
     durationS: route.durationS,
+    tollWon: route.tollWon,
     polyline: route.polyline.map((p) => ({ lat: p.lat, lng: p.lng })),
   };
   return JSON.stringify(payload);
@@ -48,6 +50,7 @@ function deserialize(raw: string): BaseRoute {
   return {
     distanceM: cached.distanceM,
     durationS: cached.durationS,
+    tollWon: cached.tollWon,
     polyline: cached.polyline.map((p) => wgs84(p.lat, p.lng)),
   };
 }

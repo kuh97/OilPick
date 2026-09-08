@@ -38,6 +38,17 @@ describe("mapDirectionsRoute", () => {
     const empty = mapDirectionsRoute({ ...route, sections: [] });
     expect(empty.polyline).toEqual([]);
   });
+
+  it("summary.fare.toll을 tollWon으로 옮긴다", () => {
+    const baseRoute = mapDirectionsRoute(route);
+    expect(baseRoute.tollWon).toBe(route.summary.fare?.toll);
+  });
+
+  it("fare가 없으면 tollWon은 0으로 기본값을 둔다", () => {
+    const withoutFare = { ...route, summary: { ...route.summary, fare: undefined } };
+    const baseRoute = mapDirectionsRoute(withoutFare);
+    expect(baseRoute.tollWon).toBe(0);
+  });
 });
 
 describe("mapPlaceDocument", () => {

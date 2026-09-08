@@ -128,6 +128,7 @@ export function StationDetailView({ id }: { id: string }) {
   const distanceM = detour?.distanceM ?? candidate.detour.distanceM;
   const durationS = detour?.durationS ?? candidate.detour.durationS;
   const netSavingValue = detour?.netSaving ?? candidate.netSaving;
+  const tollWon = detour?.tollWon ?? candidate.detour.tollWon;
   const precise = detour != null;
 
   const rank =
@@ -204,6 +205,13 @@ export function StationDetailView({ id }: { id: string }) {
             {!precise && "약 "}
             {distanceMToKm(distanceM)}km / {durationSToMin(durationS)}분
           </dd>
+          {tollWon != null && tollWon > 0 && (
+            <>
+              {/* 정보 표시 전용 — 순이득 계산엔 반영하지 않는다 (2026-09-08). */}
+              <dt className="text-muted-foreground">추가 통행료</dt>
+              <dd className="text-muted-foreground">+{tollWon.toLocaleString()}원</dd>
+            </>
+          )}
           <dt className="text-muted-foreground">순이득</dt>
           <dd className={netSavingValue > 0 ? "font-medium text-success-foreground" : "text-muted-foreground"}>
             {netSavingValue > 0

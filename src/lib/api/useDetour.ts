@@ -14,6 +14,8 @@ export interface DetourResult {
   durationS: number;
   precise: boolean;
   netSaving: number;
+  /** 이 우회로 추가되는 통행료(원, 정보 표시 전용). 모르면 undefined. */
+  tollWon?: number;
   /** 경유 경로 폴리라인 — 지도에 "경유 경로(강조)"를 그리는 용도 (§5.4) */
   polyline: WirePoint[];
 }

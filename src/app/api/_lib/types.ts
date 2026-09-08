@@ -46,7 +46,8 @@ export interface WireCandidate {
   kpetro: boolean;
   tier: Tier;
   perpDistanceM: number;
-  detour: { precise: boolean; distanceM: number; durationS: number };
+  /** tollWon: 이 우회로 추가되는 통행료(원, 정보 표시 전용). 모르면 undefined. */
+  detour: { precise: boolean; distanceM: number; durationS: number; tollWon?: number };
   netSaving: number;
   estimatedCost: number;
   scores: { balanced: number; minCost: number; minDistance: number };

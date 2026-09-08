@@ -39,6 +39,11 @@ export async function POST(request: Request) {
 
     const distanceM = Math.max(0, viaRoute.distanceM - baseRoute.distanceM);
     const durationS = Math.max(0, viaRoute.durationS - baseRoute.durationS);
+    // 정보 표시 전용 (netSaving 미반영) — domain/types.ts DetourInfo.tollWon 참고.
+    const tollWon =
+      viaRoute.tollWon != null && baseRoute.tollWon != null
+        ? Math.max(0, viaRoute.tollWon - baseRoute.tollWon)
+        : undefined;
 
     const saving = netSaving({
       priceRefWon: body.referencePrice,
@@ -56,6 +61,7 @@ export async function POST(request: Request) {
       durationS,
       precise: true,
       netSaving: saving,
+      tollWon,
       polyline: serializeBaseRoute(viaRoute).polyline,
     });
   } catch {

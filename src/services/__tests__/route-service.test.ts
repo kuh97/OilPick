@@ -70,6 +70,13 @@ describe("getRoute — 캐시 히트", () => {
     const route = await getRoute({ origin: ORIGIN, destination: DESTINATION, redis });
     expect(route.polyline[0]._brand).toBe("WGS84");
   });
+
+  it("tollWon도 캐시에 왕복한다 — 직렬화 화이트리스트에서 빠뜨리기 쉽다", async () => {
+    const redis = fakeRedis();
+    await getRoute({ origin: ORIGIN, destination: DESTINATION, redis });
+    const route = await getRoute({ origin: ORIGIN, destination: DESTINATION, redis });
+    expect(route.tollWon).toBe(directionsFixture.routes[0].summary.fare?.toll);
+  });
 });
 
 describe("getRoute — 경유지(waypoint)", () => {

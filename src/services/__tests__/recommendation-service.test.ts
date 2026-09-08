@@ -306,6 +306,47 @@ describe("search — 정밀 계산 대상 선정 (STEP10)", () => {
   });
 });
 
+describe("search — 통행료 정보 표시 (2026-09-08, netSaving엔 미반영)", () => {
+  it("경유 경로가 기본 경로보다 통행료가 비싸면 그 차액을 detour.tollWon으로 준다", async () => {
+    collectStationsMock.mockResolvedValue({ stations: mixedCandidates() });
+    getRouteMock.mockImplementation(async (opts) => {
+      if (!opts.waypoint) return { ...BASE_ROUTE, tollWon: 1_000 };
+      return { distanceM: BASE_ROUTE.distanceM + 1_000, durationS: BASE_ROUTE.durationS + 120, tollWon: 3_900, polyline: BASE_ROUTE.polyline };
+    });
+
+    const result = await search(baseInput(), undefined, FAKE_DEPS);
+
+    for (const c of result.candidates.filter((c) => c.detour.precise)) {
+      expect(c.detour.tollWon).toBe(2_900); // 3,900 - 1,000
+    }
+  });
+
+  it("경유 경로가 기본 경로보다 통행료가 싸거나 같으면 0으로 clamp한다 (음수 미표시)", async () => {
+    collectStationsMock.mockResolvedValue({ stations: mixedCandidates() });
+    getRouteMock.mockImplementation(async (opts) => {
+      if (!opts.waypoint) return { ...BASE_ROUTE, tollWon: 5_900 };
+      return { distanceM: BASE_ROUTE.distanceM + 1_000, durationS: BASE_ROUTE.durationS + 120, tollWon: 0, polyline: BASE_ROUTE.polyline };
+    });
+
+    const result = await search(baseInput(), undefined, FAKE_DEPS);
+
+    for (const c of result.candidates.filter((c) => c.detour.precise)) {
+      expect(c.detour.tollWon).toBe(0);
+    }
+  });
+
+  it("fare 정보가 없으면(구버전 캐시 등) tollWon은 undefined다 — 0원으로 단정하지 않는다", async () => {
+    // beforeEach 기본 mock은 tollWon을 아예 안 준다.
+    collectStationsMock.mockResolvedValue({ stations: mixedCandidates() });
+
+    const result = await search(baseInput(), undefined, FAKE_DEPS);
+
+    for (const c of result.candidates.filter((c) => c.detour.precise)) {
+      expect(c.detour.tollWon).toBeUndefined();
+    }
+  });
+});
+
 describe("search — T3 게이트 (STEP8)", () => {
   it("NetSaving>0인 T3 후보는 살아남고, expansion.triggered·finalRadiusM에 그 d_perp가 반영된다", async () => {
     collectStationsMock.mockResolvedValue({

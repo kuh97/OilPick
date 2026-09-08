@@ -35,6 +35,25 @@ describe("KakaoDirectionsResponseSchema — 픽스처 파싱", () => {
   it("routes가 없으면 파싱 실패", () => {
     expect(KakaoDirectionsResponseSchema.safeParse({ trans_id: "x" }).success).toBe(false);
   });
+
+  it("summary.fare(taxi·toll)를 파싱한다 — 픽스처엔 통행료가 있다", () => {
+    const result = KakaoDirectionsResponseSchema.parse(directionsFixture);
+    expect(result.routes[0].summary.fare).toEqual({ taxi: 95500, toll: 5900 });
+  });
+
+  it("summary.fare가 없어도 파싱에 실패하지 않는다 (optional)", () => {
+    const withoutFare = {
+      ...directionsFixture,
+      routes: [
+        {
+          ...directionsFixture.routes[0],
+          summary: { ...directionsFixture.routes[0].summary, fare: undefined },
+        },
+      ],
+    };
+    const result = KakaoDirectionsResponseSchema.safeParse(withoutFare);
+    expect(result.success).toBe(true);
+  });
 });
 
 describe("KakaoLocalSearchResponseSchema — 픽스처 파싱", () => {
