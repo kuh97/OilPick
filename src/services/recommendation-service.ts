@@ -22,6 +22,7 @@ import {
   totalCost,
   computeScores,
   passesT3Gate,
+  passesT1PriorityFilter,
   exceedsDetourCap,
   scoreByMode,
 } from "@/domain/pricing";
@@ -370,6 +371,19 @@ export async function search(
         efficiencyKmPerL: input.vehicle.efficiencyKmPerL,
       });
     });
+  }
+
+  // STEP8.5 — T1 우선순위 필터: T1 있으면 T2·T3는 확실히 싼 예외만 (PRODUCT.md §6.6)
+  {
+    const t1Prices = internal.filter((ic) => ic.geoTier === "T1").map((ic) => ic.price);
+    const cheapestT1Price = t1Prices.length > 0 ? Math.min(...t1Prices) : null;
+    internal = internal.filter((ic) =>
+      passesT1PriorityFilter({
+        geoTier: ic.geoTier,
+        priceStationWon: ic.price,
+        cheapestT1PriceWon: cheapestT1Price,
+      }),
+    );
   }
 
   const hasFacilityFilter = filters.facilities.length > 0;

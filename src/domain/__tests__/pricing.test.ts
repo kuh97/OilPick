@@ -4,6 +4,7 @@ import {
   totalCost,
   computeScores,
   passesT3Gate,
+  passesT1PriorityFilter,
   exceedsDetourCap,
   median,
   removeOutliers,
@@ -180,6 +181,58 @@ describe("passesT3Gate", () => {
       dPerpM: 10_000,
       efficiencyKmPerL: 12,
     })).toBe(false);
+  });
+
+  // Phase 12 실측 — 남사대로주유소(GS칼텍스). d_perp 3,664m, 가격 1,825원(P_ref 1,845원),
+  // 45L·12km/L 기준. DETOUR_ESTIMATE_FACTOR(2.0)로 게이트를 걸면 순절감액이 음수가
+  // 되어 영구 제외되지만, 실측 ΔD는 705m뿐이라(비율 0.19) 실제로는 순이득 +793원짜리
+  // 후보였다. 게이트는 T3_GATE_DETOUR_FACTOR(1.0, d_perp 그대로)를 써서 이런 경우를
+  // 살린다 — 낙관적으로 통과시킨 뒤 정밀 계산·A6 캡이 진짜 나쁜 후보를 걸러낸다.
+  it("d_perp 그대로(factor 1.0) 계산했을 때만 양수인 경계 사례 → true (실측 사례)", () => {
+    const args = {
+      priceRefWon: 1845,
+      priceStationWon: 1825,
+      refuelAmountL: 45,
+      dPerpM: 3_664,
+      efficiencyKmPerL: 12,
+    };
+    // 검증: DETOUR_ESTIMATE_FACTOR(2.0)였다면 음수였을 사례라는 것부터 확인
+    const wouldFailAt2x = netSaving({
+      priceRefWon: args.priceRefWon,
+      priceStationWon: args.priceStationWon,
+      refuelAmountL: args.refuelAmountL,
+      detourDistanceM: args.dPerpM * DETOUR_ESTIMATE_FACTOR,
+      efficiencyKmPerL: args.efficiencyKmPerL,
+    });
+    expect(wouldFailAt2x).toBeLessThan(0);
+
+    expect(passesT3Gate(args)).toBe(true);
+  });
+});
+
+// ─── passesT1PriorityFilter ──────────────────────────────────────────────────
+describe("passesT1PriorityFilter", () => {
+  it("T1은 가격과 무관하게 항상 통과", () => {
+    expect(passesT1PriorityFilter({ geoTier: "T1", priceStationWon: 99_999, cheapestT1PriceWon: 1500 })).toBe(true);
+  });
+
+  it("T1 후보가 없으면(null) T2·T3도 항상 통과 — 필터 미적용", () => {
+    expect(passesT1PriorityFilter({ geoTier: "T2", priceStationWon: 1900, cheapestT1PriceWon: null })).toBe(true);
+    expect(passesT1PriorityFilter({ geoTier: "T3", priceStationWon: 1900, cheapestT1PriceWon: null })).toBe(true);
+  });
+
+  it("T1 최저가보다 T1_PRIORITY_GAP_WON(100원/L) 이상 싸면 T2·T3도 통과", () => {
+    expect(passesT1PriorityFilter({ geoTier: "T2", priceStationWon: 1700, cheapestT1PriceWon: 1800 })).toBe(true); // 100원 차
+    expect(passesT1PriorityFilter({ geoTier: "T3", priceStationWon: 1699, cheapestT1PriceWon: 1800 })).toBe(true); // 101원 차
+  });
+
+  it("T1 최저가보다 100원 미만 싸면 T2·T3는 제외 — 20~30원 정도로는 안 돌아간다", () => {
+    expect(passesT1PriorityFilter({ geoTier: "T2", priceStationWon: 1770, cheapestT1PriceWon: 1800 })).toBe(false); // 30원 차
+    expect(passesT1PriorityFilter({ geoTier: "T3", priceStationWon: 1701, cheapestT1PriceWon: 1800 })).toBe(false); // 99원 차
+  });
+
+  it("T2·T3가 T1보다 더 비싸도 false (음수 차이)", () => {
+    expect(passesT1PriorityFilter({ geoTier: "T2", priceStationWon: 1850, cheapestT1PriceWon: 1800 })).toBe(false);
   });
 });
 

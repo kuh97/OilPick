@@ -12,8 +12,16 @@ export const T3_MAX = 15_000;    // m — 우회 탐색 상한 (회랑 bbox 마�
 // ─── 기준가 (§6.5) ─────────────────────────────────────────────────────────
 export const P_REF_MIN_BASE = 2;  // 개 — 중앙값 사용 최소 T1+T2 수 (미만이면 시군구 가중평균)
 
+// ─── T1 우선순위 (§6.6, Phase 13) ────────────────────────────────────────────
+// T1 있으면 T2·T3는 원칙적으로 제외 — T1 최저가보다 이 값(원/L) 이상 싸야 예외.
+// 실측 아닌 사용자 판단값(2026-09-08).
+export const T1_PRIORITY_GAP_WON = 100; // 원/L
+
 // ─── 우회 추정 (§6.4) ────────────────────────────────────────────────────────
 export const DETOUR_ESTIMATE_FACTOR = 2.0;  // ΔD̂ = factor × d_perp (Phase 5 실측으로 유지 — 중앙값 0.67~2.11, PRODUCT.md §9.1)
+// T3 게이트 전용 계수 — DETOUR_ESTIMATE_FACTOR(점수·정렬용, 보수적)보다 낙관적으로 둔다.
+// 게이트에서 잘못 걸리면 복구 불가하지만, 잘못 통과해도 나중에 걸러진다 (§6.5, Phase 12).
+export const T3_GATE_DETOUR_FACTOR = 1.0;
 export const DETOUR_CAP_RATIO = 0.5;        // 우회가 D_base 이 비율 초과 시 제외
 export const DETOUR_TIME_CAP_RATIO = 0.5;   // 우회 시간이 T_base 이 비율 초과 시 제외 (Phase 10 실측 — §9.1)
 // D_base < MIN_ROUTE_DISTANCE일 때 비율 cap 대신 쓰는 절대 시간 상한 — 비율 cap은

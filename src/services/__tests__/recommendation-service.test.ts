@@ -376,7 +376,7 @@ describe("search — T3 게이트 (STEP8)", () => {
       stations: [
         collected({ id: "A1", location: wgs84(37.0, 127.1) }), // T1
         collected({ id: "A2", location: wgs84(37.0, 127.2), price: 1750 }), // T1
-        collected({ id: "A3", location: wgs84(37.05, 127.15), price: 1700 }), // T3, 저렴 → 게이트 통과
+        collected({ id: "A3", location: wgs84(37.05, 127.15), price: 1550 }), // T3, 저렴 → 게이트·T1우선필터 통과
       ],
     });
 
@@ -418,6 +418,48 @@ describe("search — T3 게이트 (STEP8)", () => {
   });
 });
 
+describe("search — T1 우선순위 필터 (STEP8.5, PRODUCT.md §6.6)", () => {
+  it("T1이 있으면 T1_PRIORITY_GAP_WON(100원)보다 덜 싼 T2·T3는 제외한다 — 20~30원으로는 안 돌아간다", async () => {
+    collectStationsMock.mockResolvedValue({
+      stations: [
+        collected({ id: "A1", location: wgs84(37.0, 127.1), price: 1800 }), // T1, 최저가
+        collected({ id: "A2", location: wgs84(37.0, 127.05), price: 1850 }), // T1
+        collected({ id: "A3", location: wgs84(37.018, 127.06), price: 1770 }), // T2, T1보다 30원만 쌈 → 제외
+      ],
+    });
+
+    const result = await search(baseInput(), undefined, FAKE_DEPS);
+
+    expect(result.candidates.find((c) => c.station.id === "A3")).toBeUndefined();
+    expect(result.candidates.map((c) => c.station.id)).toEqual(expect.arrayContaining(["A1", "A2"]));
+  });
+
+  it("T1 최저가보다 100원 이상 싸면 T2·T3라도 예외적으로 남는다", async () => {
+    collectStationsMock.mockResolvedValue({
+      stations: [
+        collected({ id: "A1", location: wgs84(37.0, 127.1), price: 1800 }), // T1, 최저가
+        collected({ id: "A2", location: wgs84(37.018, 127.06), price: 1699 }), // T2, 101원 싸다 → 예외로 살아남음
+      ],
+    });
+
+    const result = await search(baseInput(), undefined, FAKE_DEPS);
+
+    expect(result.candidates.find((c) => c.station.id === "A2")).toBeDefined();
+  });
+
+  it("T1이 아예 없으면 필터를 적용하지 않는다 — T2가 T1보다 조금만 싸도(비교 대상 자체가 없음) 그대로 보여준다", async () => {
+    collectStationsMock.mockResolvedValue({
+      stations: [
+        collected({ id: "A1", location: wgs84(37.018, 127.06), price: 1899 }), // T2뿐, T1 없음
+      ],
+    });
+
+    const result = await search(baseInput(), undefined, FAKE_DEPS);
+
+    expect(result.candidates.find((c) => c.station.id === "A1")).toBeDefined();
+  });
+});
+
 describe("search — 실측 우회거리로 상위 후보 배지 재판정 (STEP10)", () => {
   it("d_perp는 0(경로상)이지만 실측 우회가 6km를 넘으면 배지가 '우회'로 바뀐다", async () => {
     // 기본 mock: 경유 경로 = 기본 + 6,800m (F×T2_MAX=6,000m 초과 → T3)
@@ -446,7 +488,7 @@ describe("search — 실측 우회거리로 상위 후보 배지 재판정 (STEP
       stations: [
         collected({ id: "A1", location: wgs84(37.0, 127.1) }), // T1
         collected({ id: "A2", location: wgs84(37.0, 127.2), price: 1750 }), // T1
-        collected({ id: "A3", location: wgs84(37.05, 127.15), price: 1700 }), // T3, 저렴 → 게이트 통과
+        collected({ id: "A3", location: wgs84(37.05, 127.15), price: 1550 }), // T3, 저렴 → 게이트·T1우선필터 통과
       ],
     });
 

@@ -8,6 +8,8 @@
 
 import {
   DETOUR_ESTIMATE_FACTOR,
+  T3_GATE_DETOUR_FACTOR,
+  T1_PRIORITY_GAP_WON,
   AVG_SPEED,
   V_TIME,
   OUTLIER_SIGMA,
@@ -17,7 +19,7 @@ import {
   SHORT_ROUTE_DETOUR_TIME_CAP_S,
   MIN_ROUTE_DISTANCE,
 } from "./params";
-import type { Mode, RefPriceSource, Scores } from "./types";
+import type { Mode, RefPriceSource, Scores, Tier } from "./types";
 
 // ─── 우회 추정 ───────────────────────────────────────────────────────────────
 
@@ -119,8 +121,9 @@ export function computeScores(args: {
 // ─── T3 게이트 ───────────────────────────────────────────────────────────────
 
 /**
- * T3 후보가 목록 진입 게이트를 통과하는지 확인.
- * ΔD̂(추정) 기준으로 1회만 적용합니다 — AGENTS.md §5 불변식 6.
+ * T3 후보가 목록 진입 게이트를 통과하는지 확인 — 추정치 기준 1회만 적용 (AGENTS.md §5 불변식 6).
+ * `DETOUR_ESTIMATE_FACTOR`(점수·정렬용, 2.0)가 아니라 `T3_GATE_DETOUR_FACTOR`(1.0)를
+ * 쓴다 — 여기서 잘못 걸리면 복구 불가지만, 잘못 통과해도 나중에 걸러진다 (§6.5·§10.1).
  */
 export function passesT3Gate(args: {
   priceRefWon: number;
@@ -129,7 +132,7 @@ export function passesT3Gate(args: {
   dPerpM: number;
   efficiencyKmPerL: number;
 }): boolean {
-  const estimatedDetour = estimateDetourDistanceM(args.dPerpM);
+  const estimatedDetour = args.dPerpM * T3_GATE_DETOUR_FACTOR;
   const saving = netSaving({
     priceRefWon: args.priceRefWon,
     priceStationWon: args.priceStationWon,
@@ -138,6 +141,23 @@ export function passesT3Gate(args: {
     efficiencyKmPerL: args.efficiencyKmPerL,
   });
   return saving > 0;
+}
+
+// ─── T1 우선순위 필터 ────────────────────────────────────────────────────────
+
+/**
+ * T1(경로상) 우선순위 필터 — PRODUCT.md §6.6. T1이 있으면 T2·T3는 T1 최저가보다
+ * `T1_PRIORITY_GAP_WON` 이상 싸야 예외로 통과. `cheapestT1PriceWon`이 `null`(T1 없음)
+ * 이면 미적용 — 이때는 AGENTS.md §5 불변식 7이 그대로 유지된다.
+ */
+export function passesT1PriorityFilter(args: {
+  geoTier: Tier;
+  priceStationWon: number;
+  cheapestT1PriceWon: number | null;
+}): boolean {
+  if (args.geoTier === "T1") return true;
+  if (args.cheapestT1PriceWon == null) return true;
+  return args.cheapestT1PriceWon - args.priceStationWon >= T1_PRIORITY_GAP_WON;
 }
 
 /**

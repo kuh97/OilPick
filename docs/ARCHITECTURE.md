@@ -829,6 +829,9 @@ recommendation-service
   │
   ├─▶ domain/pricing (T3 게이트)                          ── STEP 8
   │
+  ├─▶ domain/pricing (T1 우선순위 필터)                    ── STEP 8.5
+  │      T1 있으면 T2·T3는 T1 최저가보다 T1_PRIORITY_GAP_WON 이상 싼 예외만 (§6.6)
+  │
   ├─▶ 정밀 계산 대상 선정 (모드별 상위 합집합 → MAX_PRECISE) ── STEP 10a
   │      이후 파이프라인은 이 집합만 다룬다 — partial과 result의 구성원이 같아진다
   │      ※ 최종 후보에 T3(d_perp > T2_MAX)가 남으면 progress(EXPAND) 방출
@@ -1225,6 +1228,7 @@ Client → domain/deeplink.build(app, origin, station, destination)
 | ⑩   | 연료별 평균 연비 통계                         | 공식 통계 확인                              | 기본값 보정 ([`PRODUCT.md`](PRODUCT.md) §9.2)                                            | 낮음        |
 | ⑭   | **실측 `ΔT` 분포 — 다노선·다연료**            | `verify:detour` (노선·연료를 바꿔가며)      | `DETOUR_TIME_CAP_RATIO`(0.5)가 정당한 후보를 자르거나 39분짜리를 통과시킴                 | Phase 10 이후 |
 | ⑮   | **`SHORT_ROUTE_DETOUR_TIME_CAP_S`(20분) 적정성** | 다양한 짧은 경로 × 연료로 재측정            | 너무 짧으면 수진역 LPG류 정당한 근거리 우회를 막고, 너무 길면 사실상 별도 여정을 통과시킴 | Phase 11 이후 |
+| ⑯   | **`T1_PRIORITY_GAP_WON`(100원/L) 적정성** | 실사용 데이터(search_event) 쌓이면 실제 클릭·이탈률과 대조 | 실측이 아니라 사용자 판단값이다 — 너무 낮으면 예전처럼 소액에 우회 노출, 너무 높으면 진짜 좋은 딜도 숨김 | 실사용 데이터 확보 후 |
 
 ### 해결된 항목
 
