@@ -154,7 +154,15 @@ function finalizeCandidates(
   const priceRank = new Map<string, number>();
   byPrice.forEach((w, i) => priceRank.set(w.ic.station.id, i + 1));
 
+  // 실측군을 추정군보다 항상 위에 둔다 — AGENTS.md §5 불변식 4.
+  //
+  // 이 한 줄이 없으면 정밀 계산이 스스로를 파괴한다. 실측은 추정보다 우회를 크게
+  // 잡는 쪽으로만 움직이므로(Phase 10 실측 — 추정 0.1분 → 실측 3~10분), 실측치와
+  // 추정치를 같은 표에서 정렬하면 **실측된 후보가 반드시 진다.** 실제로 화면에
+  // 보이던 15개가 전부 미검증 추정치였고, 정밀 계산한 6개는 17~112위로 밀려나 있었다.
   const sorted = [...withScores].sort((a, b) => {
+    const byPrecise = Number(b.ic.precise) - Number(a.ic.precise);
+    if (byPrecise !== 0) return byPrecise;
     if (priceRefWon == null) return a.ic.price - b.ic.price;
     return scoreByMode(a.scores, mode) - scoreByMode(b.scores, mode);
   });
@@ -191,15 +199,24 @@ function finalizeCandidates(
 /**
  * STEP 10 정밀 계산 대상 선정 — PRODUCT.md §7.2 STEP 10.
  *
+ * **이 함수가 곧 최종 목록의 구성원을 정합니다.** `MAX_PRECISE === MAX_RESULTS`이고
+ * 화면에 올리는 후보는 전부 실측하므로(§7.3), 여기서 뽑히지 못한 후보는 화면에
+ * 오르지 않습니다. 예전에는 모드별 top3 합집합(최대 9개)을 만든 뒤 6개로 잘랐지만,
+ * 그러면 예산을 다 쓰지 못하고 남는 데다 실측 6 : 추정 144라는 비대칭이 순위를
+ * 통째로 뒤집었습니다.
+ *
+ * 1. 세 모드 각각의 추정 순위 상위 `ceil(MAX_PRECISE / 3)`개를 뽑아 합집합을 만든다
+ *    — 사용자가 탭을 전환해도 실측된 후보가 상위에 있게 하기 위함(재호출 0회).
+ * 2. 예산이 남으면 현재 모드 점수 순으로 채운다.
+ * 3. 현재 모드 → balanced → id 사전순으로 정렬해 `MAX_PRECISE`개로 자른다.
+ *
  * 점수는 STEP 9(상위 finalizeCandidates)와 **완전히 같은 입력**으로 계산해야 합니다.
  * STEP 10이 말하는 "추정 순위"는 STEP 9가 만든 순위이고, 거기서 추정치인 것은
  * ΔD̂·ΔT̂뿐입니다 — 차량 파라미터가 아닙니다(§8 점수식).
  *
  * refuelAmountL을 0으로 두면 지배항인 주유비 Q×P_s(45L×1,700원 ≈ 76,500원)가
  * 점수에서 통째로 사라져, 남은 우회 연료비(≈ 1,700원)만으로 세 모드가 전부
- * "우회거리 순"으로 무너집니다. 그러면 모드별 top3 합집합이 항상 같은 3개가 되고,
- * minCost에서는 선정 순위와 최종 표시 순위가 정반대로 뒤집어 사용자가 1위로 보는
- * 후보가 오히려 추정치(§6.4 — 실제와 최대 12배 어긋날 수 있음)로 남습니다.
+ * "우회거리 순"으로 무너집니다.
  */
 function selectPreciseTargets(
   internal: InternalCandidate[],
@@ -218,12 +235,24 @@ function selectPreciseTargets(
     }),
   }));
 
+  const perMode = Math.ceil(MAX_PRECISE / MODES.length);
   const selected = new Set<string>();
   for (const m of MODES) {
-    const top3 = [...withScores]
+    const top = [...withScores]
       .sort((a, b) => scoreByMode(a.scores, m) - scoreByMode(b.scores, m))
-      .slice(0, 3);
-    for (const w of top3) selected.add(w.ic.station.id);
+      .slice(0, perMode);
+    for (const w of top) selected.add(w.ic.station.id);
+  }
+
+  // 모드 간 겹침으로 예산이 남으면 현재 모드 순으로 채운다.
+  if (selected.size < MAX_PRECISE) {
+    const byCurrent = [...withScores].sort(
+      (a, b) => scoreByMode(a.scores, mode) - scoreByMode(b.scores, mode),
+    );
+    for (const w of byCurrent) {
+      if (selected.size >= MAX_PRECISE) break;
+      selected.add(w.ic.station.id);
+    }
   }
 
   const currentModeScore = new Map(withScores.map((w) => [w.ic.station.id, w.scores]));
@@ -344,10 +373,19 @@ export async function search(
     return Math.max(...t3.map((ic) => ic.dPerp));
   }
 
+  // STEP10a — 정밀 계산 대상 선정을 STEP9보다 먼저 한다.
+  //
+  // 화면에 올리는 후보는 전부 실측하므로(MAX_PRECISE === MAX_RESULTS) 여기서 뽑힌
+  // 집합이 곧 최종 목록이다. 이후 파이프라인은 이 집합만 다룬다 — partial과 result의
+  // **구성원이 같아지고 순위·수치만 갱신**되므로, 로딩 중 보던 카드가 통째로 다른
+  // 목록으로 바뀌는 일이 없어진다 (PRODUCT.md §7.2 STEP 11).
+  const preciseTargets = selectPreciseTargets(internal, input.mode, input.vehicle);
+  internal = preciseTargets;
+
   // 회랑 수집이 T1~T3를 한 번에 가져와 STEP5·6(확장 게이트·수집)이 없어졌지만,
   // "충분히 못 찾아 넓혀 찾았다"는 로딩 중 안내(AGENTS.md §6 제거 금지)는 결과가
-  // 나오기 전에도 떠야 한다. T3 게이트 직후 최종 반경이 이미 정해졌으므로,
-  // 정밀 계산(STEP10, 실제 카카오 API 호출이 있어 시간이 걸림)이 시작되기 전에
+  // 나오기 전에도 떠야 한다. 대상 선정이 끝난 시점에 최종 반경이 이미 정해졌으므로,
+  // 정밀 계산(STEP10b, 실제 카카오 API 호출이 있어 시간이 걸림)이 시작되기 전에
   // 이 시점에서 알린다 — 가짜 지연이 아니라 이미 일어난 일을 알리는 것뿐이다.
   const finalRadiusForProgress = computeFinalRadiusM(internal);
   if (finalRadiusForProgress > T2_MAX) {
@@ -378,10 +416,8 @@ export async function search(
     },
   });
 
-  // STEP10 — 정밀 계산
+  // STEP10b — 정밀 계산
   onProgress?.({ type: "progress", step: "PRECISE" });
-  const preciseTargets = selectPreciseTargets(internal, input.mode, input.vehicle);
-  const preciseIds = new Set(preciseTargets.map((ic) => ic.station.id));
 
   const preciseResults = await Promise.allSettled(
     preciseTargets.map((ic) =>
@@ -397,11 +433,11 @@ export async function search(
     ),
   );
 
-  internal = internal.map((ic) => {
-    if (!preciseIds.has(ic.station.id)) return ic;
-    const idx = preciseTargets.findIndex((t) => t.station.id === ic.station.id);
+  // internal === preciseTargets 이므로 인덱스가 preciseResults와 그대로 대응한다.
+  internal = internal.map((ic, idx) => {
     const result = preciseResults[idx];
-    if (result.status !== "fulfilled") return ic; // A8 — 추정치 유지
+    // A8 — 이 후보만 추정치 유지. 정렬 1차 키가 precise라 실측군 아래로 내려간다.
+    if (result.status !== "fulfilled") return ic;
     const preciseRoute = result.value;
     const detourDistanceM = Math.max(0, preciseRoute.distanceM - baseRoute.distanceM);
     return {

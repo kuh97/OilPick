@@ -85,6 +85,18 @@ function mixedCandidates() {
   ];
 }
 
+/**
+ * MAX_PRECISE(15)보다 많은 후보 — 예산 상한과 "실측군 우선" 정렬을 검증할 때 쓴다.
+ * NEAR는 경로 위(가깝지만 비쌈), FAR는 경로에서 벗어남(멀지만 쌈)이라 모드별 선호가 갈린다.
+ */
+function manyCandidates(n: number) {
+  return Array.from({ length: n }, (_, i) =>
+    i % 2 === 0
+      ? collected({ id: `NEAR${i}`, location: wgs84(37.0, 127.01 + i * 0.006), price: 1890 - i })
+      : collected({ id: `FAR${i}`, location: wgs84(37.02, 127.01 + i * 0.006), price: 1700 - i }),
+  );
+}
+
 /** getRoute가 실제로 경유지로 불러간 주유소 id */
 function preciseStationIds(pool: Array<{ station: RefuelPoint }>): string[] {
   const waypoints = getRouteMock.mock.calls
@@ -186,16 +198,93 @@ describe("search — 경로 API 호출 예산 (ARCHITECTURE.md §5.3)", () => {
 });
 
 describe("search — 정밀 계산 대상 선정 (STEP10)", () => {
-  it("모드마다 다른 후보를 뽑아 합집합이 MAX_PRECISE까지 채워진다", async () => {
-    const pool = mixedCandidates();
+  it("후보가 MAX_PRECISE 이하면 전부 실측한다", async () => {
+    const pool = mixedCandidates(); // 12개
     collectStationsMock.mockResolvedValue({ stations: pool });
 
     await search(baseInput(), undefined, FAKE_DEPS);
 
     const ids = preciseStationIds(pool);
-    expect(ids).toHaveLength(MAX_PRECISE);
+    expect(ids).toHaveLength(pool.length);
     expect(ids.some((id) => id.startsWith("NEAR"))).toBe(true);
     expect(ids.some((id) => id.startsWith("FAR"))).toBe(true);
+  });
+
+  it("후보가 MAX_PRECISE보다 많으면 정확히 MAX_PRECISE개만 실측한다", async () => {
+    const pool = manyCandidates(40);
+    collectStationsMock.mockResolvedValue({ stations: pool });
+
+    await search(baseInput(), undefined, FAKE_DEPS);
+
+    expect(preciseStationIds(pool)).toHaveLength(MAX_PRECISE);
+  });
+
+  it("모드마다 다른 후보를 뽑아 합집합을 만든다 — 탭을 바꿔도 실측된 후보가 있다", async () => {
+    const pool = manyCandidates(40);
+    collectStationsMock.mockResolvedValue({ stations: pool });
+
+    await search(baseInput(), undefined, FAKE_DEPS);
+    const ids = preciseStationIds(pool);
+
+    // minDistance가 선호하는 "가깝지만 비싼" 후보와 balanced·minCost가 선호하는
+    // "싸지만 먼" 후보가 모두 실측 대상에 들어가야 한다.
+    expect(ids.some((id) => id.startsWith("NEAR"))).toBe(true);
+    expect(ids.some((id) => id.startsWith("FAR"))).toBe(true);
+  });
+
+  // 이 테스트가 이번 개선의 핵심이다. 실측은 추정보다 우회를 크게 잡는 쪽으로만
+  // 움직이므로, 실측군과 추정군을 같은 표에서 정렬하면 실측된 후보가 반드시 진다.
+  it("실측된 후보가 추정치 후보보다 항상 위에 온다", async () => {
+    const pool = manyCandidates(40);
+    collectStationsMock.mockResolvedValue({ stations: pool });
+
+    const result = await search(baseInput(), undefined, FAKE_DEPS);
+
+    const firstEstimated = result.candidates.findIndex((c) => !c.detour.precise);
+    const lastPrecise = result.candidates.map((c) => c.detour.precise).lastIndexOf(true);
+    if (firstEstimated !== -1) expect(firstEstimated).toBeGreaterThan(lastPrecise);
+  });
+
+  it("화면에 올라가는 후보는 전부 실측값을 쓴다 (MAX_PRECISE === MAX_RESULTS)", async () => {
+    collectStationsMock.mockResolvedValue({ stations: manyCandidates(40) });
+
+    const result = await search(baseInput(), undefined, FAKE_DEPS);
+
+    expect(result.candidates.length).toBeGreaterThan(0);
+    for (const c of result.candidates) expect(c.detour.precise).toBe(true);
+  });
+
+  // partial → result에서 목록이 통째로 바뀌면 로딩 중 보던 카드가 전부 사라진다.
+  it("partial과 result의 구성원이 같다 — 순위·수치만 갱신된다", async () => {
+    collectStationsMock.mockResolvedValue({ stations: manyCandidates(40) });
+
+    const events: ProgressEvent[] = [];
+    const result = await search(baseInput(), (e) => events.push(e), FAKE_DEPS);
+
+    const partial = events.find((e) => e.type === "partial");
+    expect(partial).toBeDefined();
+    const partialIds = new Set(
+      (partial as Extract<ProgressEvent, { type: "partial" }>).data.candidates.map((c) => c.station.id),
+    );
+    for (const c of result.candidates) expect(partialIds.has(c.station.id)).toBe(true);
+  });
+
+  it("A8 — 경유 경로가 실패한 후보는 추정치를 유지하고 실측군 아래로 간다", async () => {
+    const pool = mixedCandidates();
+    collectStationsMock.mockResolvedValue({ stations: pool });
+    getRouteMock.mockImplementation(async (opts) => {
+      if (!opts.waypoint) return BASE_ROUTE;
+      if (opts.waypoint.lat === 37.05) throw new Error("경유 경로 실패");
+      return { distanceM: BASE_ROUTE.distanceM + 1_000, durationS: BASE_ROUTE.durationS + 120, polyline: BASE_ROUTE.polyline };
+    });
+
+    const result = await search(baseInput(), undefined, FAKE_DEPS);
+
+    const estimated = result.candidates.filter((c) => !c.detour.precise);
+    expect(estimated.length).toBeGreaterThan(0);
+    const firstEstimated = result.candidates.findIndex((c) => !c.detour.precise);
+    const lastPrecise = result.candidates.map((c) => c.detour.precise).lastIndexOf(true);
+    expect(firstEstimated).toBeGreaterThan(lastPrecise);
   });
 
   it("최종 목록 상위 후보는 추정치가 아니라 정밀 계산값을 쓴다", async () => {

@@ -15,10 +15,10 @@ export const P_REF_MIN_BASE = 2;  // 개 — 중앙값 사용 최소 T1+T2 수 (
 // ─── 우회 추정 (§6.4) ────────────────────────────────────────────────────────
 export const DETOUR_ESTIMATE_FACTOR = 2.0;  // ΔD̂ = factor × d_perp (Phase 5 실측으로 유지 — 중앙값 0.67~2.11, PRODUCT.md §9.1)
 export const DETOUR_CAP_RATIO = 0.5;        // 우회가 D_base 이 비율 초과 시 제외
-export const AVG_SPEED = 50;               // km/h — 추정 우회 시간 계산용
+export const AVG_SPEED = 50;               // km/h — 우회 시간 ↔ 거리 환산용
 
 // ─── 정밀 계산 (§7.2 STEP 10) ───────────────────────────────────────────────
-export const MAX_PRECISE = 6;   // 개 — 정밀 계산(경유 경로) 개수
+export const MAX_PRECISE = 15;  // 개 — 정밀 계산(경유 경로) 개수. MAX_RESULTS와 같게 유지 (§7.2 STEP 10)
 export const MAX_RESULTS = 15;  // 개 — 화면 최대 후보 수
 
 // ─── 가격 이상치 (§8.2 A4) ──────────────────────────────────────────────────

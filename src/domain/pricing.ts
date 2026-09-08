@@ -35,6 +35,23 @@ export function estimateDetourDurationS(detourDistanceM: number): number {
   return (detourDistanceM / 1000 / AVG_SPEED) * 3600;
 }
 
+/**
+ * 실질 우회 거리 (m) — ΔD와 ΔT 중 **나쁜 쪽**을 거리 단위로 통일한 값.
+ * `max(ΔD, ΔT × AVG_SPEED)`
+ *
+ * 경유지를 넣으면 카카오가 경로를 재탐색하므로 "거리는 같거나 짧은데 시간만 +10분"인
+ * 경우가 흔합니다 (Phase 10 실측 — 추정 상위 40곳 중 **ΔD=0이 60%**, 그 중 다수가
+ * ΔT 4~17분). `max(0, …)` 클램프(불변식 5)가 이 신호를 0으로 눌러버리기 때문에,
+ * ΔD만 보는 판정(배지 재판정·최단거리 점수)은 "우회 없음"이라고 거짓말을 합니다.
+ *
+ * 시간을 AVG_SPEED로 거리 환산해 둘 중 큰 값을 쓰면, 기존 거리 기준 임계값
+ * (F × T1_MAX 등)을 그대로 재사용하면서 시간 신호를 잃지 않습니다 — 새 임계값을
+ * 표본 부족 상태로 추정할 필요가 없습니다 (PRODUCT.md §6.5).
+ */
+export function effectiveDetourDistanceM(detourDistanceM: number, detourDurationS: number): number {
+  return Math.max(detourDistanceM, (detourDurationS / 3600) * AVG_SPEED * 1000);
+}
+
 // ─── 핵심 계산 ───────────────────────────────────────────────────────────────
 
 /**
@@ -89,7 +106,9 @@ export function computeScores(args: {
   const tc = totalCost({ priceStationWon, refuelAmountL, detourDistanceM, efficiencyKmPerL });
 
   return {
-    minDistance: Math.round(detourDistanceM),
+    // "돌아가기 싫다"는 의도를 ΔD만으로 표현하면 실측 ΔD=0이 60%라 정렬이 무너진다
+    // — 실질 우회 거리(ΔD와 ΔT 중 나쁜 쪽)를 쓴다 (PRODUCT.md §8).
+    minDistance: Math.round(effectiveDetourDistanceM(detourDistanceM, detourDurationS)),
     minCost: tc,
     balanced: Math.round(tc + (detourDurationS / 60) * timeValuePerMin),
   };

@@ -10,6 +10,7 @@ import {
   computeReferencePrice,
   estimateDetourDistanceM,
   estimateDetourDurationS,
+  effectiveDetourDistanceM,
   scoreByMode,
   durationSToMin,
   distanceMToKm,
@@ -104,8 +105,51 @@ describe("computeScores", () => {
     });
     const tc = 1700 * 45;
     expect(scores.minCost).toBe(tc);
-    expect(scores.minDistance).toBe(0);
     expect(scores.balanced).toBe(Math.round(tc + (600 / 60) * 200));
+  });
+
+  // ΔD=0인데 ΔT>0인 후보가 실측의 60%다(Phase 10) — minDistance가 ΔD만 보면
+  // 그 60%가 전부 0점 동점이 되어 "최단거리" 정렬이 무의미해진다.
+  it("minDistance = 실질 우회 거리 — ΔD=0이어도 ΔT가 있으면 0이 아니다", () => {
+    const scores = computeScores({
+      priceStationWon: 1700,
+      refuelAmountL: 45,
+      detourDistanceM: 0,
+      detourDurationS: 600, // 10분 → AVG_SPEED 환산 8,333m
+      efficiencyKmPerL: 12,
+      timeValuePerMin: 200,
+    });
+    expect(scores.minDistance).toBe(Math.round((600 / 3600) * AVG_SPEED * 1000));
+  });
+
+  it("minDistance = ΔD와 ΔT 환산값 중 큰 쪽", () => {
+    const far = computeScores({
+      priceStationWon: 1700, refuelAmountL: 45,
+      detourDistanceM: 20_000, detourDurationS: 60, // 60s → 833m
+      efficiencyKmPerL: 12, timeValuePerMin: 200,
+    });
+    expect(far.minDistance).toBe(20_000);
+  });
+
+  it("우회가 전혀 없으면 minDistance = 0", () => {
+    const none = computeScores({
+      priceStationWon: 1700, refuelAmountL: 45,
+      detourDistanceM: 0, detourDurationS: 0,
+      efficiencyKmPerL: 12, timeValuePerMin: 200,
+    });
+    expect(none.minDistance).toBe(0);
+  });
+});
+
+// ─── effectiveDetourDistanceM ────────────────────────────────────────────────
+describe("effectiveDetourDistanceM", () => {
+  it("ΔT를 AVG_SPEED로 거리 환산해 ΔD와 비교, 큰 쪽을 반환", () => {
+    expect(effectiveDetourDistanceM(0, 3600)).toBe(AVG_SPEED * 1000); // 1시간 = 50km
+    expect(effectiveDetourDistanceM(100_000, 3600)).toBe(100_000);
+  });
+
+  it("둘 다 0이면 0", () => {
+    expect(effectiveDetourDistanceM(0, 0)).toBe(0);
   });
 });
 
