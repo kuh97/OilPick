@@ -1,6 +1,6 @@
 import { describe, expect, it, beforeEach } from "vitest";
 import { useSearchStore } from "../search-store";
-import { DEFAULT_EFFICIENCY, DEFAULT_REFUEL_AMOUNT, V_TIME } from "@/domain/params";
+import { DEFAULT_EFFICIENCY, DEFAULT_REFUEL_AMOUNT, V_TIME, DEFAULT_MAX_DETOUR_MINUTES } from "@/domain/params";
 
 const ORIGIN = { lat: 37.42, lng: 127.12, name: "성남시청" };
 const DESTINATION = { lat: 37.88, lng: 127.73, name: "춘천역" };
@@ -12,6 +12,7 @@ beforeEach(() => {
     fuel: "GASOLINE",
     filters: { facilities: [], brands: [], kpetroOnly: false, selfOnly: false },
     vehicle: { efficiency: DEFAULT_EFFICIENCY.GASOLINE, refuelAmount: DEFAULT_REFUEL_AMOUNT, timeValue: V_TIME },
+    maxDetourMinutes: DEFAULT_MAX_DETOUR_MINUTES,
     mode: "balanced",
     isLoading: false,
     progressStep: null,
@@ -42,6 +43,15 @@ describe("search-store — 입력", () => {
     expect(vehicle.efficiency).toBe(9.5);
     expect(vehicle.refuelAmount).toBe(DEFAULT_REFUEL_AMOUNT);
     expect(vehicle.timeValue).toBe(V_TIME);
+  });
+
+  // maxDetourMinutes는 filters와 달리 vehicle에 안 묶는다 — API 계약(vehicle)과
+  // 무관한 순수 클라이언트 표시 필터이기 때문 (PRODUCT.md §5.2, 2026-09-08).
+  it("setMaxDetourMinutes는 다른 필드에 영향을 주지 않는다", () => {
+    useSearchStore.getState().setMaxDetourMinutes(35);
+    const state = useSearchStore.getState();
+    expect(state.maxDetourMinutes).toBe(35);
+    expect(state.vehicle.efficiency).toBe(DEFAULT_EFFICIENCY.GASOLINE);
   });
 });
 

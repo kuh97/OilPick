@@ -17,7 +17,7 @@ import { CalcAssumptionsFooter } from "@/components/result/calc-assumptions-foot
 import { FilterSheet } from "@/components/result/filter-sheet";
 import { useSearchStore, type ProgressStep } from "@/store/search-store";
 import { useSearchStream, type SearchStreamInput } from "@/lib/api/useSearchStream";
-import { recomputeAndSort } from "@/lib/recompute-candidates";
+import { recomputeAndSort, filterByMaxDetourMinutes } from "@/lib/recompute-candidates";
 import { distanceMToKm, durationSToMin } from "@/domain/pricing";
 import type { WireFilters, WireWarning } from "@/app/api/_lib/types";
 
@@ -53,9 +53,11 @@ export default function ResultPage() {
   const fuel = useSearchStore((s) => s.fuel);
   const filters = useSearchStore((s) => s.filters);
   const vehicle = useSearchStore((s) => s.vehicle);
+  const maxDetourMinutes = useSearchStore((s) => s.maxDetourMinutes);
   const mode = useSearchStore((s) => s.mode);
   const setFilters = useSearchStore((s) => s.setFilters);
   const setVehicle = useSearchStore((s) => s.setVehicle);
+  const setMaxDetourMinutes = useSearchStore((s) => s.setMaxDetourMinutes);
   const setMode = useSearchStore((s) => s.setMode);
 
   const isLoading = useSearchStore((s) => s.isLoading);
@@ -130,16 +132,31 @@ export default function ResultPage() {
   const referencePrice = result?.referencePrice ?? partial?.referencePrice ?? null;
   const expansion = result?.expansion ?? partial?.expansion ?? null;
 
-  const displayCandidates = useMemo(() => {
+  // "최대 우회 시간"은 서버 필터(facilities·brands 등)와 달리 재요청 없이 이미 받은
+  // 후보 목록을 다시 거르기만 한다(PRODUCT.md §5.2) — sorted를 따로 남겨둬야 "이 설정
+  // 때문에 0건이 됐다"를 구분하고, 필요한 최소 완화값을 계산할 수 있다.
+  const sortedCandidates = useMemo(() => {
     const rawCandidates = result?.candidates ?? partial?.candidates ?? [];
     return recomputeAndSort(rawCandidates, vehicle, referencePrice, mode);
   }, [result, partial, vehicle, referencePrice, mode]);
+
+  const displayCandidates = useMemo(
+    () => filterByMaxDetourMinutes(sortedCandidates, maxDetourMinutes),
+    [sortedCandidates, maxDetourMinutes],
+  );
 
   const hasActiveFilters =
     filters.facilities.length > 0 ||
     filters.brands.length > 0 ||
     filters.kpetroOnly ||
     filters.selfOnly;
+
+  // 필터 때문이 아니라 "최대 우회 시간" 설정 때문에 0건이 됐는지 — sorted엔 있는데
+  // display엔 없으면 이 설정이 원인이다 (A2, 어떤 필터가 원인인지 특정해야 함).
+  const hiddenByMaxDetour = sortedCandidates.length > 0 && displayCandidates.length === 0;
+  const minutesNeededForOneResult = hiddenByMaxDetour
+    ? Math.ceil(sortedCandidates[0].detour.durationS / 60)
+    : null;
   const defaultFilters: WireFilters = {
     facilities: [],
     brands: [],
@@ -230,6 +247,18 @@ export default function ResultPage() {
                     필터 초기화하고 다시 찾기
                   </Button>
                 </>
+              ) : hiddenByMaxDetour ? (
+                <>
+                  <p className="text-sm text-muted-foreground">
+                    최대 우회 시간({maxDetourMinutes}분) 안에 드는 주유소가 없습니다.
+                  </p>
+                  <Button
+                    variant="outline"
+                    onClick={() => setMaxDetourMinutes(minutesNeededForOneResult!)}
+                  >
+                    최대 우회 시간을 {minutesNeededForOneResult}분으로 늘리기
+                  </Button>
+                </>
               ) : (
                 <>
                   <p className="text-sm text-muted-foreground">이 경로에서는 조건에 맞는 주유소를 찾지 못했습니다.</p>
@@ -259,6 +288,8 @@ export default function ResultPage() {
               refPriceSource={result.refPriceSource}
               vehicle={vehicle}
               onChangeVehicle={setVehicle}
+              maxDetourMinutes={maxDetourMinutes}
+              onChangeMaxDetourMinutes={setMaxDetourMinutes}
             />
           )}
         </>

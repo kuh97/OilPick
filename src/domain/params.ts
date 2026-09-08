@@ -50,3 +50,9 @@ export const DEFAULT_EFFICIENCY: Record<"GASOLINE" | "DIESEL" | "LPG", number> =
 
 export const DEFAULT_REFUEL_AMOUNT = 45;  // L — 일반 승용차 탱크 80% 수준
 export const V_TIME = 200;                // 원/분 — 균형 모드 시간 가치 (시급 12,000원 기준)
+
+// ─── 필터 기본값 (§5.2) — 사용자가 수정 가능 ─────────────────────────────────
+// SHORT_ROUTE_DETOUR_TIME_CAP_S(위)와 값은 같지만 역할이 다르다 — 저건 "이 이상은
+// 아예 같은 여정이 아니다"라는 기술적 하한(서버, 조정 불가), 이건 "나는 이 이상은
+// 안 돌아간다"는 사용자 취향(클라이언트, 조정 가능) — Phase 11.
+export const DEFAULT_MAX_DETOUR_MINUTES = 20;

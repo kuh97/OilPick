@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { recomputeCandidate, recomputeAndSort } from "../recompute-candidates";
+import { recomputeCandidate, recomputeAndSort, filterByMaxDetourMinutes } from "../recompute-candidates";
 import type { WireCandidate } from "@/app/api/_lib/types";
 
 function candidate(overrides: Partial<WireCandidate> = {}): WireCandidate {
@@ -63,5 +63,64 @@ describe("recomputeAndSort", () => {
 
     const sorted = recomputeAndSort([expensive, cheap], { efficiency: 10, refuelAmount: 45, timeValue: 200 }, null, "balanced");
     expect(sorted.map((c) => c.id)).toEqual(["cheap", "expensive"]);
+  });
+});
+
+// 서버(recommendation-service.finalizeCandidates)와 같은 규칙이어야 한다 —
+// 여기서만 빠뜨리면 모드 탭을 누르는 순간 추정치가 다시 실측치를 이긴다.
+describe("recomputeAndSort — 실측군 우선 (AGENTS.md §5 불변식 4)", () => {
+  const measuredButPricey = candidate({
+    id: "MEASURED",
+    price: 1800,
+    detour: { precise: true, distanceM: 3000, durationS: 600 },
+  });
+  const estimatedAndCheap = candidate({
+    id: "ESTIMATED",
+    price: 1600,
+    detour: { precise: false, distanceM: 0, durationS: 0 },
+  });
+  const vehicle = { efficiency: 12, refuelAmount: 45, timeValue: 200 };
+
+  it("점수가 나빠도 실측 후보가 추정 후보보다 위에 온다", () => {
+    for (const mode of ["balanced", "minCost", "minDistance"] as const) {
+      const sorted = recomputeAndSort([estimatedAndCheap, measuredButPricey], vehicle, 1900, mode);
+      expect(sorted.map((c) => c.id)).toEqual(["MEASURED", "ESTIMATED"]);
+    }
+  });
+
+  it("referencePrice가 없어(A14) 가격순으로 갈 때도 실측군이 먼저다", () => {
+    const sorted = recomputeAndSort([estimatedAndCheap, measuredButPricey], vehicle, null, "balanced");
+    expect(sorted.map((c) => c.id)).toEqual(["MEASURED", "ESTIMATED"]);
+  });
+
+  it("같은 군 안에서는 모드 점수 순으로 정렬한다", () => {
+    const cheap = candidate({ id: "CHEAP", price: 1600, detour: { precise: true, distanceM: 0, durationS: 0 } });
+    const pricey = candidate({ id: "PRICEY", price: 1800, detour: { precise: true, distanceM: 0, durationS: 0 } });
+    const sorted = recomputeAndSort([pricey, cheap], vehicle, 1900, "minCost");
+    expect(sorted.map((c) => c.id)).toEqual(["CHEAP", "PRICEY"]);
+  });
+});
+
+// 단대오거리역→모란역 실측(2026-09-08) — 1~14분대 근거리 후보 옆에 30~45분짜리가
+// 그대로 섞여 나오던 문제. 서버 A6(SHORT_ROUTE_DETOUR_TIME_CAP_S)가 이미 최악을
+// 거르지만, 그 안에서 "나는 몇 분까지만"은 사용자 취향 — 재요청 없이 필터링한다.
+describe("filterByMaxDetourMinutes", () => {
+  const near = candidate({ id: "NEAR", detour: { precise: true, distanceM: 500, durationS: 5 * 60 } });
+  const far = candidate({ id: "FAR", detour: { precise: true, distanceM: 20_000, durationS: 18 * 60 } });
+
+  it("우회 시간이 기준 이하인 후보만 남긴다", () => {
+    expect(filterByMaxDetourMinutes([near, far], 10).map((c) => c.id)).toEqual(["NEAR"]);
+  });
+
+  it("경계값(정확히 N분)은 포함한다", () => {
+    expect(filterByMaxDetourMinutes([far], 18).map((c) => c.id)).toEqual(["FAR"]);
+  });
+
+  it("기준을 넉넉히 주면 전부 남는다", () => {
+    expect(filterByMaxDetourMinutes([near, far], 30).map((c) => c.id)).toEqual(["NEAR", "FAR"]);
+  });
+
+  it("빈 배열이면 빈 배열", () => {
+    expect(filterByMaxDetourMinutes([], 20)).toEqual([]);
   });
 });

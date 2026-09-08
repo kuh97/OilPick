@@ -13,6 +13,7 @@ import {
   DEFAULT_EFFICIENCY,
   DEFAULT_REFUEL_AMOUNT,
   V_TIME,
+  DEFAULT_MAX_DETOUR_MINUTES,
 } from "@/domain/params";
 import type {
   Fuel,
@@ -54,6 +55,14 @@ interface SearchState {
   fuel: Fuel;
   filters: WireFilters;
   vehicle: WireVehicle; // persist — 사용자가 연비·주유량을 수정하면 다음 검색에도 유지
+  /**
+   * 사용자가 허용하는 최대 우회 시간(분) — persist. 서버 API 계약과 무관한 순수
+   * 클라이언트 표시 필터라 `vehicle`과 분리했다(§6 API Contract에 없음). `filters`와
+   * 달리 바뀌어도 재검색하지 않는다 — 이미 받은 후보 목록(전부 실측 완료, §7.3)을
+   * 그대로 다시 거르기만 하면 되므로, `vehicle`(연비·주유량)과 같은 "재요청 없이
+   * 즉시 재계산" 부류다 (PRODUCT.md §5.2).
+   */
+  maxDetourMinutes: number;
   mode: Mode;
 
   // ─── 검색 진행 상태 (휘발성) ───────────────────────────────────────────
@@ -85,6 +94,7 @@ interface SearchState {
   setFuel: (fuel: Fuel) => void;
   setFilters: (filters: WireFilters) => void;
   setVehicle: (vehicle: Partial<WireVehicle>) => void;
+  setMaxDetourMinutes: (minutes: number) => void;
   setMode: (mode: Mode) => void;
 
   startSearch: () => void;
@@ -140,6 +150,7 @@ export const useSearchStore = create<SearchState>()(
       fuel: "GASOLINE",
       filters: DEFAULT_FILTERS,
       vehicle: defaultVehicleFor("GASOLINE"),
+      maxDetourMinutes: DEFAULT_MAX_DETOUR_MINUTES,
       mode: "balanced",
 
       isLoading: false,
@@ -160,6 +171,7 @@ export const useSearchStore = create<SearchState>()(
       setFuel: (fuel) => set({ fuel }),
       setFilters: (filters) => set({ filters }),
       setVehicle: (vehicle) => set({ vehicle: { ...get().vehicle, ...vehicle } }),
+      setMaxDetourMinutes: (minutes) => set({ maxDetourMinutes: minutes }),
       setMode: (mode) => set({ mode }),
 
       startSearch: () =>
@@ -217,6 +229,7 @@ export const useSearchStore = create<SearchState>()(
       // origin/destination/result는 의도적으로 휘발성 — persist하지 않음
       partialize: (state) => ({
         vehicle: state.vehicle,
+        maxDetourMinutes: state.maxDetourMinutes,
         recentSearches: state.recentSearches,
         fuel: state.fuel,
       }),
