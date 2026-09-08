@@ -6,81 +6,57 @@
  * 비율이 큰 이상치가 있으면 유턴·중앙분리대·IC 진출입 때문일 가능성이 높습니다
  * (PRODUCT.md §6.5 표 참고).
  *
- * 오피넷은 노선 샘플 지점을 순서대로(중간부터) 호출하며, 후보가 MAX_CANDIDATES개
- * 모이거나 샘플을 다 쓰면 멈춥니다 — LPG처럼 희소한 연료는 지점 하나로는 못 찾을 수
- * 있습니다(그 자체가 PRODUCT.md §1.4의 전제를 실측으로 보여주는 결과이기도 합니다).
- * 카카오는 기본 경로 1회 + 후보 수만큼 경유 경로를 호출합니다.
+ * 후보는 오피넷 반경검색이 아니라 실제 검색 파이프라인과 같은 방법(station-service.
+ * collectStations — refuel_point 회랑 bbox 쿼리)으로 모읍니다(MIGRATION-DB.md §7 Phase C
+ * 전환 이후 이 스크립트는 오피넷을 전혀 호출하지 않습니다). LPG처럼 희소한 연료는
+ * 이 노선에 후보가 아예 없을 수 있습니다 — 그 자체가 PRODUCT.md §1.4의 "LPG는 희소하다"는
+ * 전제를 실측으로 보여주는 결과입니다.
  *
- * 실행: pnpm verify:uturn [--route=0|1|2|3] [--yes]
- * 기본: route 0 (성남→춘천).
+ * 실행: pnpm verify:uturn [--route=0|1|2|3] [--fuel=LPG|GASOLINE|DIESEL]
+ * 기본: route 0 (성남→춘천) × LPG.
  */
 
 import { header, info, ok, warn, requireEnv } from "../_shared";
 import { ROUTES } from "./_routes";
-import { confirmBudget, fetchStationsAtKatecPoint } from "./_measure-shared";
+import { parseFuelArg } from "./_measure-shared";
 import { fetchDirections } from "@/infra/kakao/mobility";
-import {
-  samplePolyline,
-  wgs84ToKatec,
-  wgs84ToProjected,
-  projectedToWgs84,
-  pointToPolylineDistanceM,
-} from "@/domain/geo";
+import { collectStations } from "@/services/station-service";
+import { wgs84ToProjected, pointToPolylineDistanceM } from "@/domain/geo";
+import { classifyTier } from "@/domain/tier";
 import { estimateDetourDistanceM } from "@/domain/pricing";
-import { SAMPLE_INTERVAL, DETOUR_ESTIMATE_FACTOR } from "@/domain/params";
-import type { MappedRadiusStation } from "@/infra/opinet/mapper";
+import { T3_MAX, DETOUR_ESTIMATE_FACTOR } from "@/domain/params";
 
-requireEnv(["OPINET_CERT_KEY", "KAKAO_REST_API_KEY"]);
+requireEnv(["KAKAO_REST_API_KEY", "DATABASE_URL"]);
 
-const FUEL = "LPG" as const;
 const MAX_CANDIDATES = 6;
+const NO_FILTERS = { facilities: [], brands: [], kpetroOnly: false, selfOnly: false };
 
 const routeArg = process.argv.slice(2).find((a) => a.startsWith("--route="));
 const routeIdx = routeArg ? Number(routeArg.split("=")[1]) : 0;
 const route = ROUTES[routeIdx];
 if (!route) throw new Error(`잘못된 --route 값: ${routeArg}`);
+const [fuel] = parseFuelArg();
 
 header("verify:uturn — 계획");
-info(`대상 노선: ${route.label}`);
-confirmBudget({
-  planLines: [
-    `오피넷: 노선 샘플 지점을 중간부터 순회 (후보 ${MAX_CANDIDATES}개 모이면 중단, 정확한 최대치는 실측 후 확인)`,
-    `카카오: 기본 경로 1회 + 경유 경로 최대 ${MAX_CANDIDATES}회`,
-  ],
-  opinetCalls: 15, // 100km 노선 가정 러프 추정 — 실제 상한은 샘플 수만큼
-  kakaoCalls: 1 + MAX_CANDIDATES,
-});
+info(`대상 노선: ${route.label} × ${fuel}`);
+info(`카카오 호출 최대 ${1 + MAX_CANDIDATES}회 (기본 경로 1 + 경유 경로 최대 ${MAX_CANDIDATES}) — 쿼터 내 무시할 수준.`);
 
-const baseRoute = await fetchDirections({ origin: route.origin, destination: route.destination, fuel: FUEL, retries: 1 });
+const baseRoute = await fetchDirections({ origin: route.origin, destination: route.destination, fuel, retries: 1 });
 info(`기본 경로 실측: ${(baseRoute.distanceM / 1000).toFixed(1)}km / ${Math.round(baseRoute.durationS / 60)}분`);
 
-const routeProjected = baseRoute.polyline.map(wgs84ToProjected);
-const samples = samplePolyline(baseRoute.polyline, SAMPLE_INTERVAL);
+const polyline = baseRoute.polyline.map(wgs84ToProjected);
+const collected = await collectStations({ referencePoints: polyline, marginM: T3_MAX, fuel, filters: NO_FILTERS });
+info(`회랑 bbox 후보 ${collected.stations.length}곳`);
 
-// 중간 지점부터 바깥쪽으로 순회 — LPG처럼 희소한 연료는 한 지점으로 못 찾을 수 있어
-// 후보가 MAX_CANDIDATES개 모이거나 샘플을 다 쓸 때까지 계속 찾습니다.
-const midIdx = Math.floor(samples.length / 2);
-const visitOrder = [...samples.keys()].sort((a, b) => Math.abs(a - midIdx) - Math.abs(b - midIdx));
-
-const stationMap = new Map<string, MappedRadiusStation>();
-let pointsUsed = 0;
-for (const idx of visitOrder) {
-  pointsUsed++;
-  const katec = wgs84ToKatec(projectedToWgs84(samples[idx]));
-  const found = await fetchStationsAtKatecPoint(katec, FUEL);
-  for (const st of found) if (!stationMap.has(st.id)) stationMap.set(st.id, st);
-  if (stationMap.size >= MAX_CANDIDATES * 2) break; // 넉넉히 모이면 조기 종료
-}
-info(`반경검색 지점 ${pointsUsed}곳 순회, 후보 ${stationMap.size}곳 확보`);
-
-const withDPerp = [...stationMap.values()]
-  .map((st) => ({ st, dPerpM: pointToPolylineDistanceM(wgs84ToProjected(st.location), routeProjected) }))
+const withDPerp = collected.stations
+  .map(({ station }) => ({ station, dPerpM: pointToPolylineDistanceM(wgs84ToProjected(station.location), polyline) }))
+  .filter((s) => classifyTier(s.dPerpM) != null)
   .sort((a, b) => a.dPerpM - b.dPerpM);
 
 if (withDPerp.length === 0) {
-  warn(`이 노선 전체(${pointsUsed}개 지점)에서 LPG 후보를 찾지 못했습니다.`);
+  warn(`이 노선에서 ${fuel} 후보를 찾지 못했습니다.`);
   warn("이 자체가 유의미한 결과입니다 — PRODUCT.md §1.4가 말하는 'LPG는 희소하다'를 실측으로 보여줍니다.");
-  warn("유턴 검증은 다른 --route(연료 밀도가 더 높은 구간)로 다시 시도하십시오.");
+  warn("다른 --route 또는 --fuel로 다시 시도하십시오.");
   process.exit(1);
 }
 
@@ -98,18 +74,24 @@ interface Row {
 
 const rows: Row[] = [];
 
-for (const { st, dPerpM } of selected) {
+for (const { station, dPerpM } of selected) {
   const viaRoute = await fetchDirections({
     origin: route.origin,
     destination: route.destination,
-    waypoint: st.location,
-    fuel: FUEL,
+    waypoint: station.location,
+    fuel,
     retries: 0, // 경유 경로 — ARCHITECTURE.md §5.4
   });
   const actualDetourM = Math.max(0, viaRoute.distanceM - baseRoute.distanceM); // AGENTS.md §5 불변식 5
   const estimatedDetourM = estimateDetourDistanceM(dPerpM);
   const ratio = dPerpM > 0 ? actualDetourM / dPerpM : NaN;
-  rows.push({ name: st.name, dPerpM: Math.round(dPerpM), estimatedDetourM: Math.round(estimatedDetourM), actualDetourM, ratio: Number(ratio.toFixed(2)) });
+  rows.push({
+    name: station.name,
+    dPerpM: Math.round(dPerpM),
+    estimatedDetourM: Math.round(estimatedDetourM),
+    actualDetourM,
+    ratio: Number(ratio.toFixed(2)),
+  });
 }
 
 header("결과 — d_perp 대비 실제 우회거리 비율 (ΔD / d_perp)");
@@ -132,12 +114,14 @@ info(`실측 비율 중앙값 = ${medianRatio.toFixed(2)}, 최댓값 = ${maxRati
 
 if (outliers.length > 0) {
   warn(`중앙값의 3배를 넘는 이상치 ${outliers.length}곳: ${outliers.map((o) => `${o.name}(${o.ratio}배)`).join(", ")}`);
-  warn("유턴·중앙분리대·IC 진출입 영향으로 추정됩니다 (PRODUCT.md §6.5) — 이런 후보는 추정식만으로는 못 잡아내므로, 정밀 계산(경유 경로 실측) 전까지 확정 수치로 쓰면 안 됩니다. 이미 그렇게 구현되어 있습니다 (detour.precise).");
+  warn(
+    "유턴·중앙분리대·IC 진출입 영향으로 추정됩니다 (PRODUCT.md §6.5) — 이런 후보는 추정식만으로는 못 잡아내므로, 정밀 계산(경유 경로 실측) 전까지 확정 수치로 쓰면 안 됩니다. 이미 그렇게 구현되어 있습니다 (detour.precise).",
+  );
 } else {
   ok("이상치 없이 고르게 분포합니다.");
 }
 
 console.log("\n── 다음 단계 ──────────────────────────────────────────");
 info(`DETOUR_ESTIMATE_FACTOR를 ${medianRatio.toFixed(1)}로 보정할지 검토하십시오 (현재 ${DETOUR_ESTIMATE_FACTOR}). 이상치는 중앙값 계산에서 제외됩니다.`);
-info("표본이 적으므로(최대 6곳) 다른 노선(--route=1, --route=2)에서도 돌려 중앙값을 교차 확인하십시오.");
+info("표본이 적으므로(최대 6곳) 다른 노선(--route=1, --route=2)·연료에서도 돌려 중앙값을 교차 확인하십시오.");
 info("값을 바꾸면 params.ts와 PRODUCT.md §9.1을 같은 커밋에서 갱신하십시오 (AGENTS.md §7.2).");

@@ -122,7 +122,7 @@ oilpick/
 │   └── verify/
 │       ├── _shared.ts                  # 콘솔 출력 · requireEnv 등 공통 유틸
 │       ├── _routes.ts                  # Phase 5 측정용 노선 4개 (§10 Phase 5)
-│       ├── _measure-shared.ts          # Phase 5 스크립트 공용 — 오피넷 호출 래퍼
+│       ├── _measure-shared.ts          # Phase 5 스크립트 공용 — 노선·연료 인자 파싱
 │       ├── coord.mts                   # verify:coord          (③)  Phase 0
 │       ├── standard-data.mts           # verify:standard-data  (②)  Phase 0
 │       ├── price-time.mts              # verify:price-time     (⑪)  Phase 0
@@ -994,11 +994,26 @@ Client → domain/deeplink.build(app, origin, station, destination)
 
 | 스크립트              | 확정할 것                                            |
 | --------------------- | ---------------------------------------------------- |
-| `verify:coverage` (⑫) | `SAMPLE_INTERVAL` · `OFFSET` · `T2_MAX` · `T3_MAX`   |
-| `verify:t3-rate`      | `MIN_CANDIDATES` + **T3 발동률·게이트 통과율**       |
+| `verify:coverage` (⑫) | 회랑 bbox 수집이 전수 스캔 대비 후보를 누락하지 않는가 |
+| `verify:t3-rate`      | **T3 발동률·게이트 통과율**                          |
 | `verify:uturn` (④)    | `DETOUR_ESTIMATE_FACTOR` + 경로 API의 유턴 반영 여부 |
 
-**모든 스크립트는 실행 전 예상 호출 수를 출력하고 확인을 받습니다.** dev 예산(기본 100회) 안에서 돌리십시오.
+> **`verify:coverage`·`verify:t3-rate`·`verify:uturn` 셋은 회랑 bbox 전환(§7 Phase C) 뒤
+> 한동안 제거된 `SAMPLE_INTERVAL`·`OFFSET`·`MIN_CANDIDATES`를 계속 import해서 모듈 로드
+> 단계에서 죽는 상태였습니다(`tsconfig.json`이 `scripts/`를 제외해 `pnpm typecheck`에
+> 잡히지 않았습니다). **2026-09-08에 되살렸습니다** — 오피넷 반경검색(`fetchStationsAtKatecPoint`
+> + `samplePolyline`/`normalOffsets` 샘플링)을 걷어내고 검색 파이프라인과 같은
+> `station-service.collectStations`(회랑 bbox, DB 쿼리)로 후보를 모으도록 다시 썼습니다.
+> `MIN_CANDIDATES`·확장 수집 로직은 되살리지 않았습니다 — 회랑 bbox가 `T3_MAX`까지 한
+> 번에 덮어 그 개념 자체가 없어졌기 때문입니다(§7 Phase C). `verify:coverage`는 측정
+> 대상도 함께 바뀌었습니다: "샘플 간격이 후보를 놓치는가"는 지금 구조에서 성립하지
+> 않는 질문이라(⑫는 이미 §12에서 "해결됨"), 대신 "`station-service`의 bbox 계산이
+> 전수 스캔 대비 후보를 누락하는가"를 검증합니다.
+>
+> 세 스크립트 모두 이제 오피넷을 전혀 호출하지 않으므로(후보 조회가 `refuel_point` DB
+> 쿼리 하나로 끝남) 예전의 오피넷 예산 보호 장치(`confirmBudget`·`--yes` 게이트)는
+> 제거했습니다 — 남은 카카오 호출(스크립트당 1~7회)은 일 10,000건 쿼터 안에서 무시할
+> 수준입니다(`verify:detour`와 같은 관례).
 
 **완료 기준**
 
@@ -1183,7 +1198,8 @@ Client → domain/deeplink.build(app, origin, station, destination)
   백필(§9.3)만** 쓰므로, 로컬에서 `pnpm data:backfill-details`를 큰 건수로 돌리면 그날
   prod 백필 몫을 잠식합니다 — 로컬 검증은 `--status`(조회 전용)나 소량(`… 20`)으로만
 - 로컬 개발에서 `CACHE_BYPASS=false`를 유지해 캐시를 최대한 활용
-- `verify:t3-rate`·`verify:coverage`는 실행 전 예상 호출 수를 출력하고 확인을 받도록 구현
+- `verify:t3-rate`·`verify:coverage`·`verify:uturn`은 오피넷을 호출하지 않습니다(§10 Phase 5) —
+  후보 조회가 `refuel_point` DB 쿼리로 끝나, 예전에 있던 오피넷 예산 확인 게이트는 제거했습니다
 
 ---
 
@@ -1210,7 +1226,7 @@ Client → domain/deeplink.build(app, origin, station, destination)
 | ⑪   | 오피넷 응답의 가격 기준시각 | **JSON 응답엔 없음** (`TRADE_DT`/`TRADE_TM` 미포함). 가격은 유가 CSV 스냅샷이 됐고, CSV 메타행의 기준일자를 `priced_on`(날짜)으로 표시 (§5.1). 오피넷 파라미터명은 `certkey` |
 | ⑬   | Upstash 무료 티어 일일 명령 수 한도 | **10,000회/일.** 예상 사용량 665회/일 — 여유 충분. `INCRBY` 원자성 확인 |
 | ⑧   | 티맵 경유지 딥링크 지원 | **미지원 — 실기기 확인 (2026-08-28).** 커뮤니티 자료에 정리된 경유지 파라미터(`rV1Name`·`rV1X`·`rV1Y`)를 붙인 `tmap://route?...`를 실기기에서 열었으나 **경유지가 경로에 반영되지 않음** — 목적지만 안내됨. 기존 가정대로 **주유소를 목적지(`rGo*`)로 전달하는 방식 유지** ([`PRODUCT.md`](PRODUCT.md) §5.5). 표본이 실기기 1대이므로 Phase 10 매트릭스에서 iOS/Android 양쪽 재확인 |
-| ⑫   | 샘플링 커버리지·T2 후보 누락률 | **누락률 0%** (`verify:coverage`, 2026-08-28, 노선 3개 — 8km vs 2km 샘플 간격 T1+T2 일치). 이후 후보 수집이 회랑 bbox 쿼리로 바뀌어 T2 누락은 구조적으로 0 — 샘플링 파라미터 자체가 제거됨 |
+| ⑫   | 샘플링 커버리지·T2 후보 누락률 | **누락률 0%** (`verify:coverage`, 2026-08-28, 노선 3개 — 8km vs 2km 샘플 간격 T1+T2 일치). 이후 후보 수집이 회랑 bbox 쿼리로 바뀌어 T2 누락은 구조적으로 0 — 샘플링 파라미터 자체가 제거됨. **재검증(2026-09-08, `verify:coverage`, bbox vs 전수 스캔 방식으로 재작성):** 성남→춘천 노선 LPG 126곳 전수 일치, 누락 0건 — 계속 해결됨 |
 | ④   | 경로 API가 유턴·중앙분리대 반영 | **반영됨 — 확인.** 실제 후보로 검증한 결과 `d_perp` 대비 실제 우회거리 비율이 노선별 중앙값 0.67~2.11(통합 약 1.4)로 현재 `DETOUR_ESTIMATE_FACTOR=2.0`과 같은 자릿수. 동시에 중앙분리대 건너편·고속도로 반대 방향 충전소에서 실제 우회가 추정의 **100~425배**에 달하는 사례를 실측으로 확인 — `PRODUCT.md` §6.5 표가 이론으로 적어둔 위험이 실측으로 재현됨. **`DETOUR_ESTIMATE_FACTOR=2.0` 유지** (표본이 노선당 6곳뿐이라 재조정 근거 부족, `verify:uturn`, 2026-08-28) |
 
 **⑭ 현재 근거 (2026-09-08)** — 노선 **1개**(휘발유, 원익홀딩스 본사 → 수내역 40.4km)에서

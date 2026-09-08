@@ -1,89 +1,65 @@
 /**
- * verify:t3-rate — T3 발동률 · 게이트 통과율, MIN_CANDIDATES 확정
+ * verify:t3-rate — T3 발동률 · 게이트 통과율
  *
- * 노선 × 연료 조합별로 STEP 1~9(경유 정밀계산 제외) 상당을 실행해
- * T1/T2/T3 분류, 확장 발동 여부, T3 게이트 통과 결과를 집계합니다.
+ * 노선 × 연료 조합별로 실제 검색 파이프라인과 같은 방법(회랑 bbox 수집 + P_ref +
+ * T3 게이트)을 돌려 T1/T2/T3 분류와 T3 게이트 통과 결과를 집계합니다.
  *
- * ★ LPG T3 발동률이 20% 미만이면 개발을 멈추고 기획 재검토 대상입니다
- *   (PRODUCT.md §11.3, ARCHITECTURE.md §10 Phase 5 완료 기준).
+ * ★ LPG T3 발동률이 20% 미만이면 개발을 멈추고 기획 재검토 대상입니다 (PRODUCT.md §11.3).
  *
- * P_ref는 T1+T2 중앙값만 씁니다. 시군구 평균가(SIGUNGU_AVG) 폴백은
- * Phase 6(DB)에서 만들어지므로 아직 쓸 수 없습니다 — T1+T2 <
- * P_REF_MIN_BASE인 조합은 "P_ref 없음"으로 정직하게 보고합니다.
+ * 회랑 bbox가 T3_MAX까지 한 번에 덮으므로(§7 Phase C) "후보가 모자라 넓혀 찾는다"는
+ * 옛 확장 단계(MIN_CANDIDATES 게이트·normalOffsets)가 없습니다 — 후보 수집은 조합당
+ * 정확히 1번입니다. P_ref는 이제 시군구→시도→전국 폴백 체인이 전부 구현돼 있어
+ * (price-service.ts, Phase 6) 실제 검색이 쓰는 것과 완전히 같은 함수를 그대로 씁니다 —
+ * 예전 스크립트의 "Phase 6 이전이라 시군구 폴백 불가" 제약은 더 이상 없습니다.
  *
- * 실행: pnpm verify:t3-rate [--route=0,1,2,3|all] [--fuel=LPG|GASOLINE|DIESEL|all] [--yes]
+ * 실행: pnpm verify:t3-rate [--route=0,1,2,3|all] [--fuel=LPG|GASOLINE|DIESEL|all]
  * 기본: 노선 전체 × LPG만 (1순위 타깃, 가장 저렴한 조합).
  */
 
 import { header, info, ok, warn, fail, requireEnv } from "../_shared";
 import { ROUTES } from "./_routes";
-import { confirmBudget, estimateSampleCount, fetchStationsAtKatecPoint, parseFuelArg, parseRouteIndexArg } from "./_measure-shared";
+import { parseFuelArg, parseRouteIndexArg } from "./_measure-shared";
 import { fetchDirections } from "@/infra/kakao/mobility";
-import {
-  samplePolyline,
-  normalOffsets,
-  wgs84ToKatec,
-  wgs84ToProjected,
-  projectedToWgs84,
-  pointToPolylineDistanceM,
-} from "@/domain/geo";
-import { classifyTier, needsExpansion } from "@/domain/tier";
-import { computeReferencePrice, passesT3Gate } from "@/domain/pricing";
-import { SAMPLE_INTERVAL, OFFSET, MIN_CANDIDATES, DEFAULT_EFFICIENCY, DEFAULT_REFUEL_AMOUNT } from "@/domain/params";
-import type { Fuel, ProjectedPoint, Tier } from "@/domain/types";
-import type { MappedRadiusStation } from "@/infra/opinet/mapper";
+import { collectStations } from "@/services/station-service";
+import { computeReferencePrice } from "@/services/price-service";
+import { wgs84ToProjected, pointToPolylineDistanceM } from "@/domain/geo";
+import { classifyTier } from "@/domain/tier";
+import { passesT3Gate } from "@/domain/pricing";
+import { T3_MAX, DEFAULT_EFFICIENCY, DEFAULT_REFUEL_AMOUNT } from "@/domain/params";
+import type { Fuel, ProjectedPoint, RefuelPoint, Tier } from "@/domain/types";
 
-requireEnv(["OPINET_CERT_KEY", "KAKAO_REST_API_KEY"]);
+requireEnv(["KAKAO_REST_API_KEY", "DATABASE_URL"]);
+
+const NO_FILTERS = { facilities: [], brands: [], kpetroOnly: false, selfOnly: false };
 
 const routeIndexes = parseRouteIndexArg(ROUTES.length);
 const fuels = parseFuelArg();
 
 header("verify:t3-rate — 계획");
 info(`대상: ${routeIndexes.map((i) => ROUTES[i].label).join(", ")} × ${fuels.join(", ")}`);
-
-// 사전 추정 (거리 100km 가정) — 기본 수집 + 확장(양쪽) 최악치
-const roughSamples = estimateSampleCount(100_000, SAMPLE_INTERVAL);
-const roughWorstCasePerCombo = roughSamples + roughSamples * 2;
-const combos = routeIndexes.length * fuels.length;
-confirmBudget({
-  planLines: [
-    `조합 수: ${combos}개 (노선 ${routeIndexes.length} × 연료 ${fuels.length})`,
-    `조합당 최대 약 ${roughWorstCasePerCombo}회 (거리 100km 가정, 확장 발동 시)`,
-  ],
-  opinetCalls: combos * roughWorstCasePerCombo,
-  kakaoCalls: combos,
-});
+info(`카카오 호출 ${routeIndexes.length * fuels.length}회(조합당 기본 경로 1회). 후보 조회는 refuel_point DB 쿼리뿐입니다.`);
 
 interface Classified {
   id: string;
-  priceWon: number;
+  price: number;
+  sigunCd?: string;
   dPerpM: number;
   tier: Tier | null;
 }
 
-function classify(stations: MappedRadiusStation[], routeProjected: ProjectedPoint[]): Map<string, Classified> {
-  const map = new Map<string, Classified>();
-  for (const st of stations) {
-    if (map.has(st.id)) continue;
-    const dPerpM = pointToPolylineDistanceM(wgs84ToProjected(st.location), routeProjected);
-    map.set(st.id, { id: st.id, priceWon: st.priceWon, dPerpM, tier: classifyTier(dPerpM) });
-  }
-  return map;
-}
-
-async function collectAt(points: ProjectedPoint[], fuel: Fuel): Promise<MappedRadiusStation[]> {
-  const out: MappedRadiusStation[] = [];
-  for (const p of points) {
-    const stations = await fetchStationsAtKatecPoint(wgs84ToKatec(projectedToWgs84(p)), fuel);
-    out.push(...stations);
-  }
-  return out;
+function classify(
+  stations: Array<{ station: RefuelPoint; price: number }>,
+  routeProjected: ProjectedPoint[],
+): Classified[] {
+  return stations.map(({ station, price }) => {
+    const dPerpM = pointToPolylineDistanceM(wgs84ToProjected(station.location), routeProjected);
+    return { id: station.id, price, sigunCd: station.sigunCd, dPerpM, tier: classifyTier(dPerpM) };
+  });
 }
 
 interface RunResult {
   route: string;
   fuel: Fuel;
-  expansionTriggered: boolean;
   t1: number;
   t2: number;
   t3Candidates: number;
@@ -100,29 +76,26 @@ for (const idx of routeIndexes) {
 
     const baseRoute = await fetchDirections({ origin: route.origin, destination: route.destination, fuel, retries: 1 });
     const routeProjected = baseRoute.polyline.map(wgs84ToProjected);
-    const prodSamples = samplePolyline(baseRoute.polyline, SAMPLE_INTERVAL);
-    info(`실측 거리 ${(baseRoute.distanceM / 1000).toFixed(1)}km, 샘플 ${prodSamples.length}개`);
+    info(`실측 거리 ${(baseRoute.distanceM / 1000).toFixed(1)}km`);
 
-    const stations = classify(await collectAt(prodSamples, fuel), routeProjected);
-    let t1 = [...stations.values()].filter((s) => s.tier === "T1").length;
-    let t2 = [...stations.values()].filter((s) => s.tier === "T2").length;
+    const collected = await collectStations({
+      referencePoints: routeProjected,
+      marginM: T3_MAX,
+      fuel,
+      filters: NO_FILTERS,
+    });
+    const classified = classify(collected.stations, routeProjected).filter((c) => c.tier != null);
 
-    let expansionTriggered = false;
-    if (needsExpansion(t1, t2, MIN_CANDIDATES)) {
-      expansionTriggered = true;
-      info(`T1+T2=${t1 + t2} < MIN_CANDIDATES(${MIN_CANDIDATES}) → 확장 수집`);
-      const offsetPoints = [...normalOffsets(prodSamples, OFFSET), ...normalOffsets(prodSamples, -OFFSET)];
-      const expanded = classify(await collectAt(offsetPoints, fuel), routeProjected);
-      for (const [id, row] of expanded) {
-        if (!stations.has(id)) stations.set(id, row);
-      }
-      t1 = [...stations.values()].filter((s) => s.tier === "T1").length;
-      t2 = [...stations.values()].filter((s) => s.tier === "T2").length;
-    }
+    const t1 = classified.filter((c) => c.tier === "T1").length;
+    const t2 = classified.filter((c) => c.tier === "T2").length;
+    const t3Candidates = classified.filter((c) => c.tier === "T3");
 
-    const t1t2Prices = [...stations.values()].filter((s) => s.tier === "T1" || s.tier === "T2").map((s) => s.priceWon);
-    const refResult = computeReferencePrice(t1t2Prices); // sigunguAvg 없음 — Phase 6 이전
-    const t3Candidates = [...stations.values()].filter((s) => s.tier === "T3");
+    const t1t2Prices = classified.filter((c) => c.tier === "T1" || c.tier === "T2").map((c) => c.price);
+    const refResult = await computeReferencePrice({
+      t1t2Prices,
+      pool: classified.map((c) => ({ sigunCd: c.sigunCd })),
+      fuel,
+    });
 
     let t3AfterGate = 0;
     if (refResult) {
@@ -130,7 +103,7 @@ for (const idx of routeIndexes) {
       for (const c of t3Candidates) {
         const passes = passesT3Gate({
           priceRefWon: refResult.price,
-          priceStationWon: c.priceWon,
+          priceStationWon: c.price,
           refuelAmountL: DEFAULT_REFUEL_AMOUNT,
           dPerpM: c.dPerpM,
           efficiencyKmPerL: efficiency,
@@ -138,14 +111,13 @@ for (const idx of routeIndexes) {
         if (passes) t3AfterGate++;
       }
     } else {
-      warn("T1+T2 < P_REF_MIN_BASE, 시군구 폴백 없음(Phase 6 이전) → P_ref 산출 불가, T3 게이트 판정 불가");
+      warn("P_ref를 산출할 수 없습니다(A14) — T3 게이트 판정 불가.");
     }
 
     info(`T1=${t1} T2=${t2} T3후보=${t3Candidates.length} T3(게이트 통과)=${t3AfterGate} P_ref=${refResult?.price ?? "없음"}`);
     results.push({
       route: route.label,
       fuel,
-      expansionTriggered,
       t1,
       t2,
       t3Candidates: t3Candidates.length,
@@ -169,11 +141,11 @@ if (lpgResults.length > 0) {
     fail("LPG T3 발동률이 20% 미만입니다 — PRODUCT.md §11.3에 따라 개발을 멈추고 기획을 재검토해야 합니다.");
     process.exit(1);
   }
-  ok("LPG T3 발동률이 20% 이상입니다. 이 결과를 근거로 MIN_CANDIDATES 등을 확정하십시오.");
+  ok("LPG T3 발동률이 20% 이상입니다.");
 } else {
   warn("LPG 조합이 선택되지 않아 발동률 게이트를 평가할 수 없습니다. --fuel=LPG 또는 --fuel=all로 다시 실행하십시오.");
 }
 
 console.log("\n── 다음 단계 ──────────────────────────────────────────");
-info("확정된 파라미터는 params.ts에 반영하고 PRODUCT.md §9.1을 같은 커밋에서 갱신하십시오 (AGENTS.md §7.2).");
+info("파라미터를 바꿨다면 params.ts와 PRODUCT.md §9.1을 같은 커밋에서 갱신하십시오 (AGENTS.md §7.2).");
 process.exit(0);

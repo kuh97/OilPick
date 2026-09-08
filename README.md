@@ -152,9 +152,15 @@ pnpm verify:standard-data     # ② 표준데이터의 좌표·시설 컬럼 + U
 pnpm verify:price-time        # ⑪ 오피넷 응답에 가격 기준시각이 오는가
 pnpm verify:upstash           # ⑬ Upstash 무료 티어 일일 명령 수 한도
 
-# Phase 5 — 파라미터 실측
-pnpm verify:t3-rate           # T3 발동률·게이트 통과율 (노선 3개 × 연료 3종)
-pnpm verify:uturn             # ④ 경로 API가 유턴·중앙분리대를 반영하는지
+# Phase 5 — 파라미터 실측 (회랑 bbox 수집 기준으로 재작성됨, 2026-09-08)
+pnpm verify:coverage          # ⑫ 회랑 bbox 수집이 전수 스캔 대비 후보를 누락하지 않는지
+pnpm verify:t3-rate           # T3 발동률·게이트 통과율 (노선 4개 × 연료)
+pnpm verify:uturn             # ④ 경로 API가 유턴·중앙분리대를 반영하는지 (DETOUR_ESTIMATE_FACTOR 보정)
+
+# Phase 10 — 우회 실측
+pnpm verify:detour "출발지" "목적지" [GASOLINE|DIESEL|LPG] [샘플수]
+#   ⑭ 추정 ΔT̂ vs 실측 ΔT 분포 · ΔD=0 비율 · A6 시간 cap 판정
+#   예: pnpm verify:detour "원익홀딩스 본사" "수내역 수인분당선" GASOLINE 40
 ```
 
 ### 데이터 파이프라인
