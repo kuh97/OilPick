@@ -104,13 +104,13 @@ describe("StationDetailView — 정상 흐름 (AGENTS.md §6 불변식)", () => 
     expect(screen.getByText(/가격은 실제와 다를 수 있습니다/)).toBeTruthy();
   });
 
-  it("T3 후보는 전화 확인 권고 문구와 전화번호를 함께 보여준다", () => {
+  it("우회 후보는 전화 확인 권고 문구와 전화번호를 함께 보여준다", () => {
     renderPage();
     expect(screen.getByText(/전화 확인을 권합니다/)).toBeTruthy();
     expect(screen.getByText("033-000-0000 — 전화걸기")).toBeTruthy();
   });
 
-  it("T1 후보는 전화 확인 권고 문구를 보여주지 않는다", () => {
+  it("경로상 후보는 전화 확인 권고 문구를 보여주지 않는다", () => {
     useSearchStore.setState({ result: result({ candidates: [candidate({ tier: "ON_ROUTE" })] }) });
     renderPage();
     expect(screen.queryByText(/전화 확인을 권합니다/)).toBeNull();
