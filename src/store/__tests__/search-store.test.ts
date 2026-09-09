@@ -12,6 +12,7 @@ beforeEach(() => {
     fuel: "GASOLINE",
     filters: { facilities: [], brands: [], kpetroOnly: false, selfOnly: false },
     vehicle: { efficiency: DEFAULT_EFFICIENCY.GASOLINE, refuelAmount: DEFAULT_REFUEL_AMOUNT, timeValue: V_TIME },
+    efficiencyTouched: false,
     maxDetourMinutes: DEFAULT_MAX_DETOUR_MINUTES,
     mode: "balanced",
     avoidHighway: false,
@@ -60,6 +61,48 @@ describe("search-store — 입력", () => {
     const state = useSearchStore.getState();
     expect(state.avoidHighway).toBe(true);
     expect(state.fuel).toBe("GASOLINE");
+  });
+});
+
+describe("search-store — 연료별 기본 연비 (PRODUCT.md §9.2)", () => {
+  it("연료를 바꾸면 연비가 그 연료의 기본값으로 따라간다", () => {
+    useSearchStore.getState().setFuel("LPG");
+    expect(useSearchStore.getState().vehicle.efficiency).toBe(DEFAULT_EFFICIENCY.LPG);
+
+    useSearchStore.getState().setFuel("DIESEL");
+    expect(useSearchStore.getState().vehicle.efficiency).toBe(DEFAULT_EFFICIENCY.DIESEL);
+
+    useSearchStore.getState().setFuel("GASOLINE");
+    expect(useSearchStore.getState().vehicle.efficiency).toBe(DEFAULT_EFFICIENCY.GASOLINE);
+  });
+
+  it("연비를 직접 고친 뒤에는 연료를 바꿔도 그 값을 유지한다", () => {
+    useSearchStore.getState().setVehicle({ efficiency: 9.5 });
+    expect(useSearchStore.getState().efficiencyTouched).toBe(true);
+
+    useSearchStore.getState().setFuel("LPG");
+    expect(useSearchStore.getState().vehicle.efficiency).toBe(9.5);
+
+    useSearchStore.getState().setFuel("DIESEL");
+    expect(useSearchStore.getState().vehicle.efficiency).toBe(9.5);
+  });
+
+  it("주유량만 고치면 연비는 계속 연료를 따라간다", () => {
+    useSearchStore.getState().setVehicle({ refuelAmount: 60 });
+    expect(useSearchStore.getState().efficiencyTouched).toBe(false);
+
+    useSearchStore.getState().setFuel("LPG");
+    expect(useSearchStore.getState().vehicle.efficiency).toBe(DEFAULT_EFFICIENCY.LPG);
+    expect(useSearchStore.getState().vehicle.refuelAmount).toBe(60);
+  });
+
+  it("연비를 현재 연료의 기본값으로 되돌리면 다시 자동 추종한다", () => {
+    useSearchStore.getState().setVehicle({ efficiency: 9.5 });
+    useSearchStore.getState().setVehicle({ efficiency: DEFAULT_EFFICIENCY.GASOLINE });
+    expect(useSearchStore.getState().efficiencyTouched).toBe(false);
+
+    useSearchStore.getState().setFuel("DIESEL");
+    expect(useSearchStore.getState().vehicle.efficiency).toBe(DEFAULT_EFFICIENCY.DIESEL);
   });
 });
 

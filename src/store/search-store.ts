@@ -55,6 +55,9 @@ interface SearchState {
   fuel: Fuel;
   filters: WireFilters;
   vehicle: WireVehicle; // persist — 사용자가 연비·주유량을 수정하면 다음 검색에도 유지
+  /** 연비를 사용자가 직접 고쳐둔 상태인지 — true면 연료를 바꿔도 연비를 덮어쓰지 않는다.
+   * "현재 연료의 기본 연비와 다른가"로 판정하므로, 기본값으로 되돌리면 다시 자동 추종한다. */
+  efficiencyTouched: boolean;
   /**
    * 사용자가 허용하는 최대 우회 시간(분) — persist. 서버 API 계약과 무관한 순수
    * 클라이언트 표시 필터라 `vehicle`과 분리했다(§6 API Contract에 없음). `filters`와
@@ -149,6 +152,11 @@ function safeStorage(): StateStorage {
   };
 }
 
+type PersistedState = Pick<
+  SearchState,
+  "vehicle" | "efficiencyTouched" | "maxDetourMinutes" | "recentSearches" | "fuel" | "avoidHighway"
+>;
+
 export const useSearchStore = create<SearchState>()(
   persist(
     (set, get) => ({
@@ -157,6 +165,7 @@ export const useSearchStore = create<SearchState>()(
       fuel: "GASOLINE",
       filters: DEFAULT_FILTERS,
       vehicle: defaultVehicleFor("GASOLINE"),
+      efficiencyTouched: false,
       maxDetourMinutes: DEFAULT_MAX_DETOUR_MINUTES,
       mode: "balanced",
       avoidHighway: false,
@@ -176,9 +185,16 @@ export const useSearchStore = create<SearchState>()(
 
       setOrigin: (p) => set({ origin: p }),
       setDestination: (p) => set({ destination: p }),
-      setFuel: (fuel) => set({ fuel }),
+      setFuel: (fuel) =>
+        set((s) => ({
+          fuel,
+          vehicle: s.efficiencyTouched ? s.vehicle : { ...s.vehicle, efficiency: DEFAULT_EFFICIENCY[fuel] },
+        })),
       setFilters: (filters) => set({ filters }),
-      setVehicle: (vehicle) => set({ vehicle: { ...get().vehicle, ...vehicle } }),
+      setVehicle: (vehicle) => {
+        const next = { ...get().vehicle, ...vehicle };
+        set({ vehicle: next, efficiencyTouched: next.efficiency !== DEFAULT_EFFICIENCY[get().fuel] });
+      },
       setMaxDetourMinutes: (minutes) => set({ maxDetourMinutes: minutes }),
       setMode: (mode) => set({ mode }),
       setAvoidHighway: (avoid) => set({ avoidHighway: avoid }),
@@ -235,9 +251,25 @@ export const useSearchStore = create<SearchState>()(
     {
       name: "oilpick-search-store",
       storage: createJSONStorage(safeStorage),
+      version: 1,
+      // v0는 연비가 항상 휘발유 기본값으로 초기화됐다 — 그와 다른 값이면 사용자가 고친 것이고,
+      // 같은 값이면 손대지 않은 것이므로 현재 연료의 기본 연비로 맞춰준다.
+      migrate: (persisted, version) => {
+        const state = persisted as Partial<PersistedState> | undefined;
+        if (version >= 1 || !state?.vehicle) return state as PersistedState;
+        const touched = state.vehicle.efficiency !== DEFAULT_EFFICIENCY.GASOLINE;
+        return {
+          ...state,
+          efficiencyTouched: touched,
+          vehicle: touched
+            ? state.vehicle
+            : { ...state.vehicle, efficiency: DEFAULT_EFFICIENCY[state.fuel ?? "GASOLINE"] },
+        } as PersistedState;
+      },
       // origin/destination/result는 의도적으로 휘발성 — persist하지 않음
       partialize: (state) => ({
         vehicle: state.vehicle,
+        efficiencyTouched: state.efficiencyTouched,
         maxDetourMinutes: state.maxDetourMinutes,
         recentSearches: state.recentSearches,
         fuel: state.fuel,
