@@ -9,7 +9,6 @@
 import {
   DETOUR_ESTIMATE_FACTOR,
   T3_GATE_DETOUR_FACTOR,
-  T1_PRIORITY_GAP_WON,
   AVG_SPEED,
   V_TIME,
   OUTLIER_SIGMA,
@@ -19,7 +18,7 @@ import {
   SHORT_ROUTE_DETOUR_TIME_CAP_S,
   MIN_ROUTE_DISTANCE,
 } from "./params";
-import type { Mode, RefPriceSource, Scores, Tier } from "./types";
+import type { Mode, RefPriceSource, Scores } from "./types";
 
 // ─── 우회 추정 ───────────────────────────────────────────────────────────────
 
@@ -118,14 +117,22 @@ export function computeScores(args: {
   };
 }
 
-// ─── T3 게이트 ───────────────────────────────────────────────────────────────
+// ─── 우회 게이트 (STAGE 2) ───────────────────────────────────────────────────
 
 /**
- * T3 후보가 목록 진입 게이트를 통과하는지 확인 — 추정치 기준 1회만 적용 (AGENTS.md §5 불변식 6).
- * `DETOUR_ESTIMATE_FACTOR`(점수·정렬용, 2.0)가 아니라 `T3_GATE_DETOUR_FACTOR`(1.0)를
- * 쓴다 — 여기서 잘못 걸리면 복구 불가지만, 잘못 통과해도 나중에 걸러진다 (§6.5·§10.1).
+ * 게이트 전용 추정 우회거리 (m) — `T3_GATE_DETOUR_FACTOR`(1.0, 낙관적).
+ * 후보를 영구 제외하는 판정(NetSaving 게이트·우회 허용 시간 예산)에는 전부 이 값을 쓴다
+ * — 점수·정렬용 `estimateDetourDistanceM`(2.0)와 다르다 (불변식 7).
  */
-export function passesT3Gate(args: {
+export function gateDetourDistanceM(dPerpM: number): number {
+  return dPerpM * T3_GATE_DETOUR_FACTOR;
+}
+
+/**
+ * 우회 후보가 목록 진입 게이트를 통과하는지 — 추정치 기준 1회만 (불변식 7).
+ * 경로상(🟢) 후보에는 걸지 않는다.
+ */
+export function passesDetourGate(args: {
   priceRefWon: number;
   priceStationWon: number;
   refuelAmountL: number;
@@ -143,21 +150,27 @@ export function passesT3Gate(args: {
   return saving > 0;
 }
 
-// ─── T1 우선순위 필터 ────────────────────────────────────────────────────────
+/**
+ * "우회 허용 시간" 예산 안에 드는지 — 추정 단계에서 건다 (§7.2 STEP 7, 불변식 8).
+ * `estimatedDetourDurationS`는 경로 실측 평균속도로 환산한 값 (`tier.routeAvgSpeedKmh`).
+ */
+export function withinDetourBudget(args: {
+  estimatedDetourDurationS: number;
+  maxDetourMinutes: number;
+}): boolean {
+  return args.estimatedDetourDurationS <= args.maxDetourMinutes * 60;
+}
 
 /**
- * T1(경로상) 우선순위 필터 — PRODUCT.md §6.6. T1이 있으면 T2·T3는 T1 최저가보다
- * `T1_PRIORITY_GAP_WON` 이상 싸야 예외로 통과. `cheapestT1PriceWon`이 `null`(T1 없음)
- * 이면 미적용 — 이때는 AGENTS.md §5 불변식 7이 그대로 유지된다.
+ * "우회 허용 시간" 세그먼트 바의 상한(분, 5분 단위 내림) — 그 경로의 A6 cap에서 유도.
+ * 30분 하드코딩 금지 — 짧은 경로에서 죽은 버튼이 생긴다 (§5.3 ⑥).
  */
-export function passesT1PriorityFilter(args: {
-  geoTier: Tier;
-  priceStationWon: number;
-  cheapestT1PriceWon: number | null;
-}): boolean {
-  if (args.geoTier === "T1") return true;
-  if (args.cheapestT1PriceWon == null) return true;
-  return args.cheapestT1PriceWon - args.priceStationWon >= T1_PRIORITY_GAP_WON;
+export function maxDetourCeilingMinutes(base: { distanceM: number; durationS: number }): number {
+  const capS =
+    base.distanceM < MIN_ROUTE_DISTANCE
+      ? SHORT_ROUTE_DETOUR_TIME_CAP_S
+      : base.durationS * DETOUR_TIME_CAP_RATIO;
+  return Math.max(5, Math.floor(capS / 60 / 5) * 5);
 }
 
 /**

@@ -280,7 +280,7 @@ export function StationDetailView({ id }: { id: string }) {
         <AlertTriangle aria-hidden />
         <AlertDescription className="text-xs text-warning-foreground">
           가격은 실제와 다를 수 있습니다.
-          {candidate.tier === "T3" &&
+          {candidate.tier === "DETOUR" &&
             " 먼 거리를 우회하므로 전화 확인을 권합니다."}
         </AlertDescription>
       </Alert>

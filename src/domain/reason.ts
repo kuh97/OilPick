@@ -48,14 +48,14 @@ export function buildReason(input: ReasonInput): string {
   const detourKm = distanceMToKm(detourDistanceM);
   const detourMin = durationSToMin(detourDurationS);
 
-  // 1위 & T3
-  if (rank === 1 && tier === "T3") {
+  // 1위 & 우회
+  if (rank === 1 && tier === "DETOUR") {
     return `${detourKm}km 우회하지만 리터당 ${priceDiff}원 저렴합니다.`;
   }
 
-  // 1위 & T1
-  if (rank === 1 && tier === "T1") {
-    return `경로에서 바로 진입할 수 있으면서 가격도 ${priceRankAmongAll}번째로 저렴합니다.`;
+  // 1위 & 경로상
+  if (rank === 1 && tier === "ON_ROUTE") {
+    return `가는 길에 들를 수 있으면서 가격도 ${priceRankAmongAll}번째로 저렴합니다.`;
   }
 
   // 최저가 (가격 1위)
@@ -66,12 +66,12 @@ export function buildReason(input: ReasonInput): string {
     return "이 경로에서 가장 저렴합니다.";
   }
 
-  // 최소 우회 (d_perp 기준 가장 가까운 곳 — caller가 판단해서 hasFacilityMatch 등으로 대체 가능)
-  if (tier === "T1" && detourMin === 0) {
-    return "경로에서 가장 가깝습니다. 우회 없음.";
+  // 경로상 — 실측 ΔT 기준 (§6.4)
+  if (tier === "ON_ROUTE" && detourMin === 0) {
+    return "가는 길에 그대로 들를 수 있습니다. 우회 없음.";
   }
-  if (detourMin <= 2 && tier !== "T3") {
-    return `경로에서 가장 가깝습니다. 우회 ${detourMin}분.`;
+  if (tier === "ON_ROUTE") {
+    return `가는 길에 들를 수 있습니다. ${detourMin}분만 더 걸립니다.`;
   }
 
   // 필터 조건 매칭

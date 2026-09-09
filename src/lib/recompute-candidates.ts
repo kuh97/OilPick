@@ -53,21 +53,3 @@ export function recomputeAndSort(
   });
 }
 
-/**
- * "최대 우회 시간" 사용자 취향 필터 — PRODUCT.md §5.2.
- *
- * 서버의 `SHORT_ROUTE_DETOUR_TIME_CAP_S`(20분, domain/pricing.exceedsDetourCap)는
- * "이 이상은 아예 같은 여정이 아니다"라는 **기술적 하한**이라 사용자가 못 바꾼다.
- * 이건 그 안에서 "나는 몇 분까지만 돌아가겠다"는 **개인 취향**이다 — 재요청 없이
- * 이미 받은 후보 목록(전부 실측 완료, §7.3)을 그대로 다시 거르기만 한다.
- *
- * 서버 cap보다 관대한 값을 넣어도 서버가 이미 뺀 후보가 되살아나진 않는다 —
- * "표시 범위를 더 좁힐 수만 있다"는 게 이 필터의 한계다.
- */
-export function filterByMaxDetourMinutes(
-  candidates: WireCandidate[],
-  maxDetourMinutes: number,
-): WireCandidate[] {
-  const maxDetourS = maxDetourMinutes * 60;
-  return candidates.filter((c) => c.detour.durationS <= maxDetourS);
-}

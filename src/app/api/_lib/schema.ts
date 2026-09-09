@@ -8,7 +8,8 @@ import { z } from "zod";
 export const FuelSchema = z.enum(["GASOLINE", "DIESEL", "LPG"]);
 export const FacilitySchema = z.enum(["CAR_WASH", "MAINTENANCE", "CVS"]);
 export const ModeSchema = z.enum(["balanced", "minCost", "minDistance"]);
-export const TierSchema = z.enum(["T1", "T2", "T3"]);
+/** 배지 2종 — 경로상 / 우회 (§6.4). */
+export const TierSchema = z.enum(["ON_ROUTE", "DETOUR"]);
 /** domain/deeplink.ts NaviApp과 동기화 유지 */
 export const NaviAppSchema = z.enum(["KAKAO", "NAVER", "TMAP"]);
 
@@ -40,6 +41,10 @@ export const SearchRequestSchema = z.object({
   mode: ModeSchema,
   /** 고속도로·자동차전용도로 회피 — 경로 자체가 바뀌는 검색 조건 (PRODUCT.md §5.1) */
   avoidHighway: z.boolean().default(false),
+  /** 우회 섹션 펼침 여부 — 기본 false면 STAGE 1만 (§6.6) */
+  includeDetour: z.boolean().default(false),
+  /** "우회 허용 시간"(분) — 검색 파라미터, STAGE 2 전용 (불변식 8) */
+  maxDetourMinutes: z.number().int().nonnegative().optional(),
 });
 export type SearchRequest = z.infer<typeof SearchRequestSchema>;
 

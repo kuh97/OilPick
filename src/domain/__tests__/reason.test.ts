@@ -4,7 +4,7 @@ import type { ReasonInput } from "../reason";
 
 const BASE: ReasonInput = {
   rank: 2,
-  tier: "T2",
+  tier: "DETOUR",
   priceRefWon: 1800,
   priceStationWon: 1700,
   priceRankAmongAll: 2,
@@ -17,15 +17,15 @@ const BASE: ReasonInput = {
 
 describe("buildReason — 6분기 전부 커버", () => {
   it("분기 1: rank==1 && T3 → 우회km·리터당원 문구", () => {
-    const result = buildReason({ ...BASE, rank: 1, tier: "T3", detourDistanceM: 5000 });
+    const result = buildReason({ ...BASE, rank: 1, tier: "DETOUR", detourDistanceM: 5000 });
     expect(result).toContain("우회하지만");
     expect(result).toContain("리터당");
     expect(result).toContain("100"); // priceDiff = 1800-1700 = 100
   });
 
-  it("분기 2: rank==1 && T1 → 바로 진입 문구", () => {
-    const result = buildReason({ ...BASE, rank: 1, tier: "T1", priceRankAmongAll: 3 });
-    expect(result).toContain("바로 진입");
+  it("분기 2: rank==1 && 경로상 → 가는 길 문구", () => {
+    const result = buildReason({ ...BASE, rank: 1, tier: "ON_ROUTE", priceRankAmongAll: 3 });
+    expect(result).toContain("가는 길에 들를 수 있");
     expect(result).toContain("3번째로 저렴");
   });
 
@@ -41,16 +41,15 @@ describe("buildReason — 6분기 전부 커버", () => {
     expect(result).toBe("이 경로에서 가장 저렴합니다.");
   });
 
-  it("분기 4: tier==T1 && detourMin==0 → 우회 없음 문구", () => {
-    const result = buildReason({ ...BASE, tier: "T1", detourDurationS: 20 }); // 20s → 0분
-    expect(result).toContain("가장 가깝습니다");
+  it("분기 4: 경로상 && detourMin==0 → 우회 없음 문구", () => {
+    const result = buildReason({ ...BASE, tier: "ON_ROUTE", detourDurationS: 20 }); // 20s → 0분
+    expect(result).toContain("가는 길에 그대로");
     expect(result).toContain("우회 없음");
   });
 
-  it("분기 5: detourMin<=2 && tier!=T3 → 우회N분 문구", () => {
-    // T2, 2분 우회 → 분기 5
-    const result = buildReason({ ...BASE, tier: "T2", detourDurationS: 120 }); // 2분
-    expect(result).toContain("가장 가깝습니다");
+  it("분기 5: 경로상 && ΔT>0 → N분만 더 걸린다 문구", () => {
+    const result = buildReason({ ...BASE, tier: "ON_ROUTE", detourDurationS: 120 }); // 2분
+    expect(result).toContain("가는 길에 들를 수 있");
     expect(result).toContain("2분");
   });
 
@@ -68,7 +67,7 @@ describe("buildReason — 6분기 전부 커버", () => {
     const result = buildReason({
       ...BASE,
       rank: 1,
-      tier: "T3",
+      tier: "DETOUR",
       priceRankAmongAll: 1,
       detourDistanceM: 5000,
       detourDurationS: 60,

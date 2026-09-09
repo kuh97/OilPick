@@ -12,7 +12,7 @@ function validBody() {
     searchId: "s-1",
     app: "KAKAO",
     rank: 1,
-    tier: "T3",
+    tier: "DETOUR",
     netSaving: 3252,
     detourDistanceM: 12400,
   };

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { recomputeCandidate, recomputeAndSort, filterByMaxDetourMinutes } from "../recompute-candidates";
+import { recomputeCandidate, recomputeAndSort } from "../recompute-candidates";
 import type { WireCandidate } from "@/app/api/_lib/types";
 
 function candidate(overrides: Partial<WireCandidate> = {}): WireCandidate {
@@ -15,7 +15,7 @@ function candidate(overrides: Partial<WireCandidate> = {}): WireCandidate {
     priceUpdatedAt: null,
     facilities: { carWash: false, maintenance: false, cvs: false },
     kpetro: false,
-    tier: "T1",
+    tier: "ON_ROUTE",
     perpDistanceM: 100,
     detour: { precise: false, distanceM: 1000, durationS: 120 },
     netSaving: 999,
@@ -104,23 +104,3 @@ describe("recomputeAndSort — 실측군 우선 (AGENTS.md §5 불변식 4)", ()
 // 단대오거리역→모란역 실측(2026-09-08) — 1~14분대 근거리 후보 옆에 30~45분짜리가
 // 그대로 섞여 나오던 문제. 서버 A6(SHORT_ROUTE_DETOUR_TIME_CAP_S)가 이미 최악을
 // 거르지만, 그 안에서 "나는 몇 분까지만"은 사용자 취향 — 재요청 없이 필터링한다.
-describe("filterByMaxDetourMinutes", () => {
-  const near = candidate({ id: "NEAR", detour: { precise: true, distanceM: 500, durationS: 5 * 60 } });
-  const far = candidate({ id: "FAR", detour: { precise: true, distanceM: 20_000, durationS: 18 * 60 } });
-
-  it("우회 시간이 기준 이하인 후보만 남긴다", () => {
-    expect(filterByMaxDetourMinutes([near, far], 10).map((c) => c.id)).toEqual(["NEAR"]);
-  });
-
-  it("경계값(정확히 N분)은 포함한다", () => {
-    expect(filterByMaxDetourMinutes([far], 18).map((c) => c.id)).toEqual(["FAR"]);
-  });
-
-  it("기준을 넉넉히 주면 전부 남는다", () => {
-    expect(filterByMaxDetourMinutes([near, far], 30).map((c) => c.id)).toEqual(["NEAR", "FAR"]);
-  });
-
-  it("빈 배열이면 빈 배열", () => {
-    expect(filterByMaxDetourMinutes([], 20)).toEqual([]);
-  });
-});

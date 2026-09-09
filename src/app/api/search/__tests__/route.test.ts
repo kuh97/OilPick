@@ -37,6 +37,8 @@ function fakeResult(): SearchResult {
     refPriceSource: "MEDIAN_T1T2",
     expansion: { triggered: false, finalRadiusM: 3000 },
     warnings: [],
+    stage: "DETOUR",
+    minutesNeededForOneResult: null,
   };
 }
 

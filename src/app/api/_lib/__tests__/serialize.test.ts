@@ -19,7 +19,7 @@ function candidate(overrides: Partial<Candidate> = {}): Candidate {
     },
     price: 1700,
     dPerp: 320,
-    tier: "T1",
+    tier: "ON_ROUTE",
     detour: { precise: false, distanceM: 640, durationS: 60 },
     netSaving: 1200,
     totalCost: 76500,
@@ -120,6 +120,8 @@ describe("serializeSearchResult", () => {
       refPriceSource: "MEDIAN_T1T2",
       expansion: { triggered: false, finalRadiusM: 3000 },
       warnings: [{ code: "SHORT_ROUTE", message: "경로가 짧습니다" }],
+      stage: "DETOUR",
+      minutesNeededForOneResult: null,
     };
 
     const wire = serializeSearchResult(result);

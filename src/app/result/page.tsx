@@ -17,8 +17,8 @@ import { CalcAssumptionsFooter } from "@/components/result/calc-assumptions-foot
 import { FilterSheet } from "@/components/result/filter-sheet";
 import { useSearchStore, type ProgressStep } from "@/store/search-store";
 import { useSearchStream, type SearchStreamInput } from "@/lib/api/useSearchStream";
-import { recomputeAndSort, filterByMaxDetourMinutes } from "@/lib/recompute-candidates";
-import { distanceMToKm, durationSToMin } from "@/domain/pricing";
+import { recomputeAndSort } from "@/lib/recompute-candidates";
+import { distanceMToKm, durationSToMin, maxDetourCeilingMinutes } from "@/domain/pricing";
 import type { WireFilters, WireWarning } from "@/app/api/_lib/types";
 
 function WarningBanner({ warning }: { warning: WireWarning }) {
@@ -103,51 +103,56 @@ export default function ResultPage() {
     return () => clearTimeout(timer);
   }, [settling]);
 
-  function runSearch(input: { origin: NonNullable<typeof origin>; destination: NonNullable<typeof destination> }) {
+  // 우회 탐색 의사표시 — null이면 STAGE 1만. 사용자 행동으로만 바뀐다(result에서 파생하면
+  // STAGE 1↔2 사이에서 키가 진동한다). 세팅하면 아래 useEffect가 STAGE 2 재검색을 건다 (§6.6).
+  const [detourIntent, setDetourIntent] = useState<{ maxDetourMinutes: number } | null>(null);
+
+  // 새 경로는 STAGE 1부터.
+  const routeKey = JSON.stringify({ origin, destination });
+  const [seenRouteKey, setSeenRouteKey] = useState(routeKey);
+  if (routeKey !== seenRouteKey) {
+    setSeenRouteKey(routeKey);
+    setDetourIntent(null);
+  }
+
+  function runSearch(detour: { maxDetourMinutes: number } | null) {
+    if (!origin || !destination) return;
     const body: SearchStreamInput = {
-      origin: input.origin,
-      destination: input.destination,
+      origin,
+      destination,
       fuel,
       filters,
       vehicle: useSearchStore.getState().vehicle,
       mode: useSearchStore.getState().mode,
       avoidHighway,
+      includeDetour: detour != null,
+      maxDetourMinutes: detour?.maxDetourMinutes,
     };
     void search(body);
   }
 
-  // 출발지·목적지·연료·필터·회피 설정이 바뀌면 다시 검색한다. vehicle·mode는 클라이언트
-  // 재계산만 하므로 의도적으로 의존성에서 뺐다(§10 Phase 9 완료 기준 — API 재호출 0회).
-  // avoidHighway는 filters와 같은 부류다 — 후보를 거르는 게 아니라 baseRoute 자체가
-  // 달라지는 검색 조건이라 재검색 없이는 대응할 수 없다.
-  //
-  // "마지막으로 검색한 조건"은 컴포넌트 로컬(useRef)이 아니라 스토어에 둔다 — 상세보기
-  // 갔다가 뒤로가기하면 이 페이지 컴포넌트가 리마운트되어 로컬 ref는 초기화되지만,
-  // 스토어의 result·lastSearchKey는 그대로 남아있으므로 같은 조건이면 재검색을 건너뛴다.
+  // 재검색 트리거는 이 한 곳뿐 — 필터·우회 시간을 같이 바꿔도 검색은 한 번만 나간다 (불변식 8).
+  // vehicle·mode는 클라이언트 재계산만 하므로 제외. lastSearchKey는 스토어에 둬서
+  // 상세→뒤로가기 리마운트 후에도 같은 조건이면 재검색을 건너뛴다.
   useEffect(() => {
     if (!origin || !destination) return;
-    const key = JSON.stringify({ origin, destination, fuel, filters, avoidHighway });
+    const key = JSON.stringify({ origin, destination, fuel, filters, avoidHighway, detourIntent });
     if (useSearchStore.getState().lastSearchKey === key) return;
     useSearchStore.getState().setLastSearchKey(key);
-    runSearch({ origin, destination });
+    runSearch(detourIntent);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [origin, destination, fuel, filters, avoidHighway]);
+  }, [origin, destination, fuel, filters, avoidHighway, detourIntent]);
 
   const referencePrice = result?.referencePrice ?? partial?.referencePrice ?? null;
   const expansion = result?.expansion ?? partial?.expansion ?? null;
 
-  // "최대 우회 시간"은 서버 필터(facilities·brands 등)와 달리 재요청 없이 이미 받은
-  // 후보 목록을 다시 거르기만 한다(PRODUCT.md §5.2) — sorted를 따로 남겨둬야 "이 설정
-  // 때문에 0건이 됐다"를 구분하고, 필요한 최소 완화값을 계산할 수 있다.
-  const sortedCandidates = useMemo(() => {
+  const displayCandidates = useMemo(() => {
     const rawCandidates = result?.candidates ?? partial?.candidates ?? [];
     return recomputeAndSort(rawCandidates, vehicle, referencePrice, mode);
   }, [result, partial, vehicle, referencePrice, mode]);
 
-  const displayCandidates = useMemo(
-    () => filterByMaxDetourMinutes(sortedCandidates, maxDetourMinutes),
-    [sortedCandidates, maxDetourMinutes],
-  );
+  // STAGE 1에서 끝났으면 "조금 우회하면 더 싼 곳 보기" 버튼만 노출한다 (§6.6).
+  const isOnRouteStage = result?.stage === "ON_ROUTE";
 
   const hasActiveFilters =
     filters.facilities.length > 0 ||
@@ -155,14 +160,11 @@ export default function ResultPage() {
     filters.kpetroOnly ||
     filters.selfOnly;
 
-  // 필터 때문이 아니라 "최대 우회 시간" 설정 때문에 0건이 됐는지 — sorted엔 있는데
-  // display엔 없으면 이 설정이 원인이다 (A2, 어떤 필터가 원인인지 특정해야 함).
-  const hiddenByMaxDetour = sortedCandidates.length > 0 && displayCandidates.length === 0;
-  // 다시 한 건이라도 보이는 값 — 바의 5분 단위로 올림. 30분 초과면 이 필터로는 못 푼다.
-  const minutesNeededForOneResult = hiddenByMaxDetour
-    ? Math.ceil(Math.min(...sortedCandidates.map((c) => c.detour.durationS)) / 60 / 5) * 5
-    : null;
-  const canRelaxMaxDetour = minutesNeededForOneResult != null && minutesNeededForOneResult <= 30;
+  // 우회 허용 시간이 검색 파라미터라 클라이언트엔 걸러진 후보가 없다 → 서버가 담아 준다 (§5.3).
+  const minutesNeededForOneResult = result?.minutesNeededForOneResult ?? null;
+  const maxDetourCeiling = baseRoute ? maxDetourCeilingMinutes(baseRoute) : 30;
+  const canRelaxMaxDetour =
+    minutesNeededForOneResult != null && minutesNeededForOneResult <= maxDetourCeiling;
   const defaultFilters: WireFilters = {
     facilities: [],
     brands: [],
@@ -193,9 +195,9 @@ export default function ResultPage() {
           </Button>
           <Button
             onClick={() => {
-              const key = JSON.stringify({ origin, destination, fuel, filters, avoidHighway });
+              const key = JSON.stringify({ origin, destination, fuel, filters, avoidHighway, detourIntent });
               useSearchStore.getState().setLastSearchKey(key);
-              runSearch({ origin, destination });
+              runSearch(detourIntent);
             }}
           >
             다시 시도
@@ -245,7 +247,12 @@ export default function ResultPage() {
               filters={filters}
               onApply={setFilters}
               maxDetourMinutes={maxDetourMinutes}
-              onApplyMaxDetourMinutes={setMaxDetourMinutes}
+              maxDetourCeiling={maxDetourCeiling}
+              onApplyMaxDetourMinutes={(minutes) => {
+                // 필터에서 우회 허용 시간 적용 = STAGE 2를 이 예산으로 보겠다는 의사표시.
+                setMaxDetourMinutes(minutes);
+                setDetourIntent({ maxDetourMinutes: minutes });
+              }}
             />
           </div>
 
@@ -258,7 +265,7 @@ export default function ResultPage() {
                     필터 초기화하고 다시 찾기
                   </Button>
                 </>
-              ) : hiddenByMaxDetour ? (
+              ) : minutesNeededForOneResult != null ? (
                 <>
                   <p className="text-sm text-muted-foreground">
                     우회 허용 시간({maxDetourMinutes}분) 안에 드는 주유소가 없습니다.
@@ -266,13 +273,16 @@ export default function ResultPage() {
                   {canRelaxMaxDetour ? (
                     <Button
                       variant="outline"
-                      onClick={() => setMaxDetourMinutes(minutesNeededForOneResult!)}
+                      onClick={() => {
+                        setMaxDetourMinutes(minutesNeededForOneResult);
+                        setDetourIntent({ maxDetourMinutes: minutesNeededForOneResult });
+                      }}
                     >
                       우회 허용 시간을 {minutesNeededForOneResult}분으로 늘리기
                     </Button>
                   ) : (
                     <p className="text-xs text-muted-foreground">
-                      허용 시간을 최대(30분)로 늘려도 이 경로에는 조건에 맞는 주유소가 없습니다.
+                      허용 시간을 최대({maxDetourCeiling}분)로 늘려도 이 경로에는 조건에 맞는 주유소가 없습니다.
                     </p>
                   )}
                 </>
@@ -297,6 +307,19 @@ export default function ResultPage() {
                 </li>
               ))}
             </ul>
+          )}
+
+          {/* 누르면 STAGE 2 실행 — 펼치는 행위가 곧 우회 의향 (§5.3 ⑥). */}
+          {isOnRouteStage && (
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() =>
+                setDetourIntent({ maxDetourMinutes: Math.min(maxDetourMinutes, maxDetourCeiling) })
+              }
+            >
+              조금 우회하면 더 싼 곳 보기
+            </Button>
           )}
 
           {result && (

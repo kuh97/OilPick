@@ -3,8 +3,9 @@ import {
   netSaving,
   totalCost,
   computeScores,
-  passesT3Gate,
-  passesT1PriorityFilter,
+  passesDetourGate,
+  withinDetourBudget,
+  maxDetourCeilingMinutes,
   exceedsDetourCap,
   median,
   removeOutliers,
@@ -161,10 +162,10 @@ describe("effectiveDetourDistanceM", () => {
   });
 });
 
-// ─── passesT3Gate ────────────────────────────────────────────────────────────
-describe("passesT3Gate", () => {
+// ─── passesDetourGate ────────────────────────────────────────────────────────
+describe("passesDetourGate", () => {
   it("충분히 저렴 → true", () => {
-    expect(passesT3Gate({
+    expect(passesDetourGate({
       priceRefWon: 1800,
       priceStationWon: 1600,
       refuelAmountL: 45,
@@ -174,7 +175,7 @@ describe("passesT3Gate", () => {
   });
 
   it("비싸거나 우회비가 절감분을 초과 → false", () => {
-    expect(passesT3Gate({
+    expect(passesDetourGate({
       priceRefWon: 1700,
       priceStationWon: 1700,
       refuelAmountL: 45,
@@ -206,33 +207,7 @@ describe("passesT3Gate", () => {
     });
     expect(wouldFailAt2x).toBeLessThan(0);
 
-    expect(passesT3Gate(args)).toBe(true);
-  });
-});
-
-// ─── passesT1PriorityFilter ──────────────────────────────────────────────────
-describe("passesT1PriorityFilter", () => {
-  it("T1은 가격과 무관하게 항상 통과", () => {
-    expect(passesT1PriorityFilter({ geoTier: "T1", priceStationWon: 99_999, cheapestT1PriceWon: 1500 })).toBe(true);
-  });
-
-  it("T1 후보가 없으면(null) T2·T3도 항상 통과 — 필터 미적용", () => {
-    expect(passesT1PriorityFilter({ geoTier: "T2", priceStationWon: 1900, cheapestT1PriceWon: null })).toBe(true);
-    expect(passesT1PriorityFilter({ geoTier: "T3", priceStationWon: 1900, cheapestT1PriceWon: null })).toBe(true);
-  });
-
-  it("T1 최저가보다 T1_PRIORITY_GAP_WON(100원/L) 이상 싸면 T2·T3도 통과", () => {
-    expect(passesT1PriorityFilter({ geoTier: "T2", priceStationWon: 1700, cheapestT1PriceWon: 1800 })).toBe(true); // 100원 차
-    expect(passesT1PriorityFilter({ geoTier: "T3", priceStationWon: 1699, cheapestT1PriceWon: 1800 })).toBe(true); // 101원 차
-  });
-
-  it("T1 최저가보다 100원 미만 싸면 T2·T3는 제외 — 20~30원 정도로는 안 돌아간다", () => {
-    expect(passesT1PriorityFilter({ geoTier: "T2", priceStationWon: 1770, cheapestT1PriceWon: 1800 })).toBe(false); // 30원 차
-    expect(passesT1PriorityFilter({ geoTier: "T3", priceStationWon: 1701, cheapestT1PriceWon: 1800 })).toBe(false); // 99원 차
-  });
-
-  it("T2·T3가 T1보다 더 비싸도 false (음수 차이)", () => {
-    expect(passesT1PriorityFilter({ geoTier: "T2", priceStationWon: 1850, cheapestT1PriceWon: 1800 })).toBe(false);
+    expect(passesDetourGate(args)).toBe(true);
   });
 });
 
@@ -394,5 +369,37 @@ describe("유틸", () => {
     expect(scoreByMode(scores, "minDistance")).toBe(1000);
     expect(scoreByMode(scores, "minCost")).toBe(80000);
     expect(scoreByMode(scores, "balanced")).toBe(82000);
+  });
+});
+
+// ─── withinDetourBudget (STAGE 2 검색 파라미터 — 불변식 8) ────────────────────
+describe("withinDetourBudget", () => {
+  it("예산 안이면 통과", () => {
+    expect(withinDetourBudget({ estimatedDetourDurationS: 240, maxDetourMinutes: 5 })).toBe(true);
+  });
+
+  it("경계값(정확히 N분)은 통과", () => {
+    expect(withinDetourBudget({ estimatedDetourDurationS: 300, maxDetourMinutes: 5 })).toBe(true);
+  });
+
+  it("예산을 넘으면 제외 — 실측 예산을 여기 쓰지 않기 위해 추정 단계에서 건다", () => {
+    expect(withinDetourBudget({ estimatedDetourDurationS: 301, maxDetourMinutes: 5 })).toBe(false);
+  });
+});
+
+// ─── maxDetourCeilingMinutes (§5.3 ⑥ — 죽은 UI 방지) ─────────────────────────
+describe("maxDetourCeilingMinutes", () => {
+  it("짧은 경로는 서버 하드캡(20분)이 상한이다 — 25·30 버튼을 만들면 안 된다", () => {
+    // 남한산성입구역 → 단대오거리역: 3.7km / 15분
+    expect(maxDetourCeilingMinutes({ distanceM: 3_700, durationS: 15 * 60 })).toBe(20);
+  });
+
+  it("긴 경로는 T_base의 50%가 상한이다", () => {
+    // 92km / 94분 → cap 47분 → 5분 단위 내림 45분
+    expect(maxDetourCeilingMinutes({ distanceM: 92_000, durationS: 94 * 60 })).toBe(45);
+  });
+
+  it("아주 짧은 경로에서도 최소 한 칸(5분)은 남긴다", () => {
+    expect(maxDetourCeilingMinutes({ distanceM: 500, durationS: 60 })).toBeGreaterThanOrEqual(5);
   });
 });

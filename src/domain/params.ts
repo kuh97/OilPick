@@ -4,18 +4,19 @@
  * 값을 바꾸려면 PRODUCT.md §9를 먼저 갱신하십시오.
  */
 
+// ─── 경로상 배지 판정 (§6.4) ─────────────────────────────────────────────────
+// 실측 ΔT ≤ ON_ROUTE_MAX_S  AND  ΔD ≤ ON_ROUTE_MAX_D → 🟢경로상, 그 밖 → 🟡우회.
+// 실측 아닌 사용자 판단값(2026-09-09).
+export const ON_ROUTE_MAX_S = 180;          // s
+export const ON_ROUTE_MAX_D = 1_500;        // m
+export const ON_ROUTE_PREFILTER_M = 2_500;  // m — STAGE 1 실측 대상 d_perp 상한 (§6.4)
+
 // ─── 티어 분류 (§6.3) ───────────────────────────────────────────────────────
-export const T1_MAX = 500;       // m — 경로상 (바로 진입 가능)
-export const T2_MAX = 3_000;     // m — 근처 (조금 벗어남)
+export const T2_MAX = 3_000;     // m — P_ref 표본 정의 전용 (§6.4)
 export const T3_MAX = 15_000;    // m — 우회 탐색 상한 (회랑 bbox 마진)
 
 // ─── 기준가 (§6.5) ─────────────────────────────────────────────────────────
-export const P_REF_MIN_BASE = 2;  // 개 — 중앙값 사용 최소 T1+T2 수 (미만이면 시군구 가중평균)
-
-// ─── T1 우선순위 (§6.6, Phase 13) ────────────────────────────────────────────
-// T1 있으면 T2·T3는 원칙적으로 제외 — T1 최저가보다 이 값(원/L) 이상 싸야 예외.
-// 실측 아닌 사용자 판단값(2026-09-08).
-export const T1_PRIORITY_GAP_WON = 100; // 원/L
+export const P_REF_MIN_BASE = 2;  // 개 — 중앙값 사용 최소 표본 수 (미만이면 시군구 가중평균)
 
 // ─── 우회 추정 (§6.4) ────────────────────────────────────────────────────────
 export const DETOUR_ESTIMATE_FACTOR = 2.0;  // ΔD̂ = factor × d_perp (Phase 5 실측으로 유지 — 중앙값 0.67~2.11, PRODUCT.md §9.1)
@@ -29,7 +30,14 @@ export const DETOUR_TIME_CAP_RATIO = 0.5;   // 우회 시간이 T_base 이 비�
 // 순절감액>0(추정 기준)만으로 30~50분짜리 우회가 그대로 통과한다(Phase 11 실측 —
 // PRODUCT.md §10.1 A6).
 export const SHORT_ROUTE_DETOUR_TIME_CAP_S = 20 * 60;  // 20분
-export const AVG_SPEED = 50;               // km/h — 우회 시간 ↔ 거리 환산용
+
+// ΔD_eff(§6.5, 최단거리 모드 점수) 환산 전용. 우회 허용 시간 게이트는 경로 실측
+// 평균속도(D_base/T_base)를 쓴다 — §7.2 STEP 7.
+export const AVG_SPEED = 50;               // km/h
+
+// 경로 실측 평균속도 클램프 (§7.2 STEP 7).
+export const ROUTE_SPEED_MIN_KMH = 10;
+export const ROUTE_SPEED_MAX_KMH = 100;
 
 // ─── 정밀 계산 (§7.2 STEP 10) ───────────────────────────────────────────────
 export const MAX_PRECISE = 15;  // 개 — 정밀 계산(경유 경로) 개수. MAX_RESULTS와 같게 유지 (§7.2 STEP 10)

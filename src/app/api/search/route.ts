@@ -29,6 +29,8 @@ function toSearchInput(body: SearchRequest): SearchInput {
     filters: body.filters,
     mode: body.mode,
     avoidHighway: body.avoidHighway,
+    includeDetour: body.includeDetour,
+    maxDetourMinutes: body.maxDetourMinutes,
   };
 }
 

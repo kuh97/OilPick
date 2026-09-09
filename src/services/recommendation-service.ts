@@ -14,23 +14,38 @@ import { getRedis } from "@/infra/cache/redis";
 import { getDb } from "@/infra/db/client";
 import { env } from "@/infra/env";
 import { wgs84ToProjected, pointToPolylineDistanceM } from "@/domain/geo";
-import { classifyTier, classifyTierByDetour } from "@/domain/tier";
+import {
+  classifyByDetour,
+  isOutOfRange,
+  isOnRouteCandidate,
+  routeAvgSpeedKmh,
+  estimateDetourDurationSAtSpeed,
+} from "@/domain/tier";
 import {
   estimateDetourDistanceM,
   estimateDetourDurationS,
   netSaving,
   totalCost,
   computeScores,
-  passesT3Gate,
-  passesT1PriorityFilter,
+  passesDetourGate,
+  gateDetourDistanceM,
+  withinDetourBudget,
   exceedsDetourCap,
   scoreByMode,
 } from "@/domain/pricing";
 import { buildReason } from "@/domain/reason";
-import { T2_MAX, T3_MAX, MAX_PRECISE, MAX_RESULTS, MIN_ROUTE_DISTANCE } from "@/domain/params";
+import {
+  T2_MAX,
+  T3_MAX,
+  MAX_PRECISE,
+  MAX_RESULTS,
+  MIN_ROUTE_DISTANCE,
+  DEFAULT_MAX_DETOUR_MINUTES,
+} from "@/domain/params";
 import type {
   SearchInput,
   SearchResult,
+  SearchStage,
   Candidate,
   BaseRoute,
   RefuelPoint,
@@ -74,9 +89,7 @@ interface InternalCandidate {
   /** CSV 기준일자("YYYY-MM-DD"). 상세 API로만 채워진 행은 null — priceUpdatedAt이 비게 됨 */
   pricedOn: string | null;
   dPerp: number;
-  /** d_perp 기준 기하 티어 — P_ref·T3 게이트·확장 배너 등 파이프라인 판정의 근거. 불변. */
-  geoTier: Tier;
-  /** 화면에 표시하는 티어. precise 후보는 실측 우회거리로 재판정되어 geoTier와 다를 수 있음. */
+  /** 배지 — 실측 `ΔT`·`ΔD`로 판정 (§6.4). 실측 전에는 추정치, `precise:false`. */
   tier: Tier;
   detourDistanceM: number;
   detourDurationS: number;
@@ -100,18 +113,18 @@ function toInternalCandidates(
   for (const { station, price, pricedOn } of stations) {
     const stationProjected = wgs84ToProjected(station.location);
     const dPerp = pointToPolylineDistanceM(stationProjected, projectedPolyline);
-    const tier = classifyTier(dPerp);
-    if (!tier) continue; // A13 — T3_MAX 초과
+    if (isOutOfRange(dPerp)) continue; // A13 — T3_MAX 초과
     const detourDistanceM = estimateDetourDistanceM(dPerp);
+    const detourDurationS = estimateDetourDurationS(detourDistanceM);
     result.push({
       station,
       price,
       pricedOn,
       dPerp,
-      geoTier: tier,
-      tier,
+      // 실측 전이라 추정치 기준. STEP 6·9에서 실측값으로 덮인다.
+      tier: classifyByDetour(detourDurationS, detourDistanceM),
       detourDistanceM,
-      detourDurationS: estimateDetourDurationS(detourDistanceM),
+      detourDurationS,
       precise: false,
     });
   }
@@ -277,6 +290,87 @@ function selectPreciseTargets(
   return chosen.slice(0, MAX_PRECISE);
 }
 
+interface MeasureCtx {
+  input: SearchInput;
+  baseRoute: BaseRoute;
+  redis: RedisLike;
+  prefix: string;
+}
+
+/**
+ * 경유지 경로를 병렬 실측해 ΔD·ΔT·통행료를 채웁니다 — STAGE 1(STEP 6)과 STEP 9b 공용.
+ * 실패한 후보(A8)는 추정치를 그대로 유지하고 `precise: false`로 남습니다.
+ */
+async function measureBatch(
+  targets: InternalCandidate[],
+  ctx: MeasureCtx,
+): Promise<InternalCandidate[]> {
+  const results = await Promise.allSettled(
+    targets.map((ic) =>
+      getRoute({
+        origin: ctx.input.origin,
+        destination: ctx.input.destination,
+        waypoint: ic.station.location,
+        fuel: ctx.input.vehicle.fuel,
+        avoidHighway: ctx.input.avoidHighway,
+        retries: 0,
+        redis: ctx.redis,
+        prefix: ctx.prefix,
+      }),
+    ),
+  );
+
+  return targets.map((ic, idx) => {
+    const result = results[idx];
+    // A8 — 이 후보만 추정치 유지. 정렬 1차 키가 precise라 실측군 아래로 내려간다.
+    if (result.status !== "fulfilled") return ic;
+    const preciseRoute = result.value;
+    const detourDistanceM = Math.max(0, preciseRoute.distanceM - ctx.baseRoute.distanceM);
+    const detourDurationS = Math.max(0, preciseRoute.durationS - ctx.baseRoute.durationS);
+    return {
+      ...ic,
+      detourDistanceM,
+      detourDurationS,
+      // 정보 표시 전용 (netSaving 미반영) — DetourInfo.tollWon 주석 참고.
+      tollWon:
+        preciseRoute.tollWon != null && ctx.baseRoute.tollWon != null
+          ? Math.max(0, preciseRoute.tollWon - ctx.baseRoute.tollWon)
+          : undefined,
+      // 배지는 실측 ΔT·ΔD 두 값으로 판정한다 (§6.4).
+      tier: classifyByDetour(detourDurationS, detourDistanceM),
+      precise: true,
+    };
+  });
+}
+
+/**
+ * STAGE 1 — 경로상 후보 목록 (§7.2 STEP 6, 불변식 6a).
+ * 프리필터 통과분을 가격 싼 순 `MAX_PRECISE`개 실측(조기 종료 없음), 배지가 경로상인 것 전부 반환.
+ */
+async function findOnRouteCandidates(
+  internal: InternalCandidate[],
+  ctx: MeasureCtx,
+): Promise<{ onRoute: InternalCandidate[]; measured: InternalCandidate[] }> {
+  const targets = internal
+    .filter((ic) => isOnRouteCandidate(ic.dPerp))
+    .sort((a, b) => a.price - b.price || a.station.id.localeCompare(b.station.id))
+    .slice(0, MAX_PRECISE);
+
+  const measured = await measureBatch(targets, ctx);
+  const onRoute = measured.filter((ic) => ic.precise && ic.tier === "ON_ROUTE");
+  return { onRoute, measured };
+}
+
+/** 실측 결과를 후보 풀에 병합 — 같은 주유소는 실측값이 이긴다. */
+function mergeMeasured(
+  pool: InternalCandidate[],
+  measured: InternalCandidate[],
+): InternalCandidate[] {
+  if (measured.length === 0) return pool;
+  const byId = new Map(measured.map((ic) => [ic.station.id, ic]));
+  return pool.map((ic) => byId.get(ic.station.id) ?? ic);
+}
+
 /** 오케스트레이터 본체. */
 export async function search(
   input: SearchInput,
@@ -331,13 +425,13 @@ export async function search(
     db,
   });
 
-  // STEP4 — d_perp · tier 분류 (T3_MAX 초과는 A13으로 제외됨)
+  // STEP4 — d_perp 산출 · T3_MAX 초과 제거(A13). **티어는 여기서 만들지 않는다** — §6.4
   let internal = toInternalCandidates(collected.stations, projectedPolyline);
 
-  // STEP7 — P_ref
-  const t1t2 = internal.filter((ic) => ic.geoTier === "T1" || ic.geoTier === "T2");
+  // STEP5 — P_ref. 표본은 d_perp ≤ T2_MAX — "이 지역 시세"는 기하 개념이 맞다 (§6.4)
+  const refSample = internal.filter((ic) => ic.dPerp <= T2_MAX);
   const priceResult = await computeReferencePrice({
-    t1t2Prices: t1t2.map((ic) => ic.price),
+    t1t2Prices: refSample.map((ic) => ic.price),
     pool: internal.map((ic) => ({ sigunCd: ic.station.sigunCd })),
     fuel: input.vehicle.fuel,
     db,
@@ -355,68 +449,100 @@ export async function search(
     };
     warnings.push(warning);
     onProgress?.({ type: "warning", data: warning });
-    // T3는 순절감액 게이트를 판정할 수 없으므로 제외합니다.
-    internal = internal.filter((ic) => ic.geoTier !== "T3");
   }
 
-  // STEP8 — T3 게이트 (referencePrice가 있을 때만 의미가 있음)
-  if (referencePrice != null) {
-    internal = internal.filter((ic) => {
-      if (ic.geoTier !== "T3") return true;
-      return passesT3Gate({
-        priceRefWon: referencePrice!,
-        priceStationWon: ic.price,
-        refuelAmountL: input.vehicle.refuelAmountL,
-        dPerpM: ic.dPerp,
-        efficiencyKmPerL: input.vehicle.efficiencyKmPerL,
-      });
-    });
+  const measureCtx: MeasureCtx = { input, baseRoute, redis, prefix };
+
+  // ─── STAGE 1 — 경로상 목록 (§7.2 STEP 6, 불변식 6a) ─────────────────────────
+  onProgress?.({ type: "progress", step: "PRECISE" });
+  const { onRoute, measured: stage1Measured } = await findOnRouteCandidates(internal, measureCtx);
+  internal = mergeMeasured(internal, stage1Measured);
+  const onRouteIds = new Set(onRoute.map((ic) => ic.station.id));
+
+  // 경로상이 있고 우회 미요청이면 여기서 끝 (§6.6).
+  if (onRoute.length > 0 && !input.includeDetour) {
+    const candidates = finalizeCandidates(
+      onRoute,
+      referencePrice,
+      input.vehicle,
+      input.mode,
+      input.filters.facilities.length > 0,
+    ).slice(0, MAX_RESULTS);
+
+    const onRouteResult: SearchResult = {
+      searchId: crypto.randomUUID(),
+      baseRoute,
+      candidates,
+      referencePrice,
+      refPriceSource,
+      expansion: { triggered: false, finalRadiusM: T2_MAX }, // 우회 안 함 → 배너 OFF
+      warnings,
+      stage: "ON_ROUTE",
+      minutesNeededForOneResult: null,
+    };
+    void logSearch(onRouteResult, { durationMs: Date.now() - startedAt });
+    return onRouteResult;
   }
 
-  // STEP8.5 — T1 우선순위 필터: T1 있으면 T2·T3는 확실히 싼 예외만 (PRODUCT.md §6.6)
-  {
-    const t1Prices = internal.filter((ic) => ic.geoTier === "T1").map((ic) => ic.price);
-    const cheapestT1Price = t1Prices.length > 0 ? Math.min(...t1Prices) : null;
-    internal = internal.filter((ic) =>
-      passesT1PriorityFilter({
-        geoTier: ic.geoTier,
-        priceStationWon: ic.price,
-        cheapestT1PriceWon: cheapestT1Price,
-      }),
+  // ─── STAGE 2 — 우회 탐색 (§7.2 STEP 7, 불변식 6a) ──────────────────────────
+  // 확정 경로상은 판정에서 빼고 STEP 10에서 다시 합친다.
+  const stage: SearchStage = "DETOUR";
+  const maxDetourMinutes = input.maxDetourMinutes ?? DEFAULT_MAX_DETOUR_MINUTES;
+  const routeSpeedKmh = routeAvgSpeedKmh(baseRoute.distanceM, baseRoute.durationS);
+
+  let detourPool = internal.filter((ic) => !onRouteIds.has(ic.station.id));
+
+  // 기준가 없으면 NetSaving 게이트 판정 불가 → 우회 후보를 남길 수 없다.
+  if (referencePrice == null) {
+    detourPool = detourPool.filter((ic) => ic.dPerp <= T2_MAX);
+  }
+
+  // STEP7 — 우회 게이트: 우회 허용 시간 예산 + NetSaving > 0
+  const overBudget: InternalCandidate[] = [];
+  detourPool = detourPool.filter((ic) => {
+    const estimatedDetourDurationS = estimateDetourDurationSAtSpeed(
+      gateDetourDistanceM(ic.dPerp),
+      routeSpeedKmh,
     );
-  }
+    if (!withinDetourBudget({ estimatedDetourDurationS, maxDetourMinutes })) {
+      overBudget.push({ ...ic, detourDurationS: estimatedDetourDurationS });
+      return false;
+    }
+    if (referencePrice == null) return true;
+    return passesDetourGate({
+      priceRefWon: referencePrice,
+      priceStationWon: ic.price,
+      refuelAmountL: input.vehicle.refuelAmountL,
+      dPerpM: ic.dPerp,
+      efficiencyKmPerL: input.vehicle.efficiencyKmPerL,
+    });
+  });
+
+  // 추정 단계에서 예산에 걸려 빠진 후보 — STEP10에서 실측 탈락분과 합쳐 "N분으로 늘리기"에 쓴다.
+  const budgetDropped: InternalCandidate[] = [...overBudget];
 
   const hasFacilityFilter = filters.facilities.length > 0;
 
-  // "어디까지 뒤졌나"는 기하 개념 — 배지가 재판정된 tier가 아니라 geoTier로 본다.
+  // "경로에서 몇 km까지 살폈나" — 최종 후보 중 최대 d_perp. 배지가 아니라 기하 개념 (§5.3 ②).
   function computeFinalRadiusM(list: InternalCandidate[]): number {
-    const t3 = list.filter((ic) => ic.geoTier === "T3");
-    if (t3.length === 0) return T2_MAX;
-    return Math.max(...t3.map((ic) => ic.dPerp));
+    const maxDPerp = list.length > 0 ? Math.max(...list.map((ic) => ic.dPerp)) : 0;
+    return Math.max(T2_MAX, maxDPerp);
   }
 
-  // STEP10a — 정밀 계산 대상 선정을 STEP9보다 먼저 한다.
-  //
-  // 화면에 올리는 후보는 전부 실측하므로(MAX_PRECISE === MAX_RESULTS) 여기서 뽑힌
-  // 집합이 곧 최종 목록이다. 이후 파이프라인은 이 집합만 다룬다 — partial과 result의
-  // **구성원이 같아지고 순위·수치만 갱신**되므로, 로딩 중 보던 카드가 통째로 다른
-  // 목록으로 바뀌는 일이 없어진다 (PRODUCT.md §7.2 STEP 11).
-  const preciseTargets = selectPreciseTargets(internal, input.mode, input.vehicle);
-  internal = preciseTargets;
+  // STEP9a — 정밀 계산 대상 선정을 STEP8보다 먼저. MAX_PRECISE === MAX_RESULTS라
+  // 여기서 뽑힌 집합이 곧 STAGE 2 목록이고 partial·result 구성원이 같아진다 (§7.2 STEP 9).
+  const preciseTargets = selectPreciseTargets(detourPool, input.mode, input.vehicle);
+  let internalStage2 = preciseTargets;
 
-  // 회랑 수집이 T1~T3를 한 번에 가져와 STEP5·6(확장 게이트·수집)이 없어졌지만,
-  // "충분히 못 찾아 넓혀 찾았다"는 로딩 중 안내(AGENTS.md §6 제거 금지)는 결과가
-  // 나오기 전에도 떠야 한다. 대상 선정이 끝난 시점에 최종 반경이 이미 정해졌으므로,
-  // 정밀 계산(STEP10b, 실제 카카오 API 호출이 있어 시간이 걸림)이 시작되기 전에
-  // 이 시점에서 알린다 — 가짜 지연이 아니라 이미 일어난 일을 알리는 것뿐이다.
-  const finalRadiusForProgress = computeFinalRadiusM(internal);
+  // 정밀 계산 전에 EXPAND 안내 방출 — 최종 반경은 이미 정해졌다 (§6 제거 금지).
+  const finalRadiusForProgress = computeFinalRadiusM([...onRoute, ...internalStage2]);
   if (finalRadiusForProgress > T2_MAX) {
     onProgress?.({ type: "progress", step: "EXPAND", radiusM: finalRadiusForProgress });
   }
 
-  // STEP9 — 1차 스코어링(추정치) + partial 이벤트
+  // STEP9 — 1차 스코어링(추정치) + partial 이벤트. STAGE 1 목록 + STAGE 2 후보를 합쳐 보낸다.
   const partialCandidates = finalizeCandidates(
-    internal,
+    [...onRoute, ...internalStage2],
     referencePrice,
     input.vehicle,
     input.mode,
@@ -428,58 +554,20 @@ export async function search(
       candidates: partialCandidates,
       referencePrice,
       refPriceSource,
-      // 회랑 수집이 T1~T3를 한 번에 가져오므로 "확장"이라는 별도 단계는 없다.
-      // 배너(AGENTS.md §6 제거 금지)는 "최종 채택된 후보가 T2_MAX를 넘겨 우회했는가"로
-      // 계속 켜진다 — finalRadiusM만 보고 그려지므로 문구는 그대로 유지된다.
       expansion: {
-        triggered: computeFinalRadiusM(internal) > T2_MAX,
-        finalRadiusM: computeFinalRadiusM(internal),
+        triggered: computeFinalRadiusM([...onRoute, ...internalStage2]) > T2_MAX,
+        finalRadiusM: computeFinalRadiusM([...onRoute, ...internalStage2]),
       },
     },
   });
 
-  // STEP10b — 정밀 계산
+  // STEP9b — 정밀 계산. STAGE 1이 이미 잰 후보는 건너뛴다 (예산 이중 지출 방지).
   onProgress?.({ type: "progress", step: "PRECISE" });
+  const unmeasured = preciseTargets.filter((ic) => !ic.precise);
+  internalStage2 = mergeMeasured(preciseTargets, await measureBatch(unmeasured, measureCtx));
 
-  const preciseResults = await Promise.allSettled(
-    preciseTargets.map((ic) =>
-      getRoute({
-        origin: input.origin,
-        destination: input.destination,
-        waypoint: ic.station.location,
-        fuel: input.vehicle.fuel,
-        avoidHighway: input.avoidHighway,
-        retries: 0,
-        redis,
-        prefix,
-      }),
-    ),
-  );
-
-  // internal === preciseTargets 이므로 인덱스가 preciseResults와 그대로 대응한다.
-  internal = internal.map((ic, idx) => {
-    const result = preciseResults[idx];
-    // A8 — 이 후보만 추정치 유지. 정렬 1차 키가 precise라 실측군 아래로 내려간다.
-    if (result.status !== "fulfilled") return ic;
-    const preciseRoute = result.value;
-    const detourDistanceM = Math.max(0, preciseRoute.distanceM - baseRoute.distanceM);
-    return {
-      ...ic,
-      detourDistanceM,
-      detourDurationS: Math.max(0, preciseRoute.durationS - baseRoute.durationS),
-      // 정보 표시 전용 (netSaving 미반영) — 위 DetourInfo.tollWon 주석 참고.
-      tollWon:
-        preciseRoute.tollWon != null && baseRoute.tollWon != null
-          ? Math.max(0, preciseRoute.tollWon - baseRoute.tollWon)
-          : undefined,
-      // 실측 우회거리로 배지 재판정 (geoTier는 유지 — §6.4)
-      tier: classifyTierByDetour(detourDistanceM),
-      precise: true,
-    };
-  });
-
-  // STEP11 — 최종 정리
-  internal = internal.filter(
+  // STEP10 — 최종 정리. A6·예산 재확인은 STAGE 2 후보에만 — 경로상은 이미 통과했다.
+  internalStage2 = internalStage2.filter(
     (ic) =>
       !exceedsDetourCap({
         detourDistanceM: ic.detourDistanceM,
@@ -489,9 +577,30 @@ export async function search(
       }),
   ); // A6
 
-  const finalRadiusM = computeFinalRadiusM(internal);
+  // 우회 허용 시간 예산을 실측값으로 한 번 더 확인 — 추정 게이트(낙관적 계수)가 통과시킨
+  // 후보가 실측에서 예산을 넘길 수 있다.
+  internalStage2 = internalStage2.filter((ic) => {
+    if (ic.precise && ic.detourDurationS > maxDetourMinutes * 60) {
+      budgetDropped.push(ic);
+      return false;
+    }
+    return true;
+  });
+
+  // 최종 목록 = STAGE 1 경로상 + STAGE 2 우회 (finalizeCandidates가 총비용순 정렬).
+  const internal2 = [...onRoute, ...internalStage2];
+
+  // "N분으로 늘리기" — 우회 0건 + 예산 탈락분이 있을 때만. 실측 탈락분 우선, 없으면 추정.
+  const droppedByMeasurement = budgetDropped.filter((ic) => ic.precise);
+  const basis = droppedByMeasurement.length > 0 ? droppedByMeasurement : budgetDropped;
+  const minutesNeededForOneResult =
+    internalStage2.length === 0 && basis.length > 0
+      ? Math.ceil(Math.min(...basis.map((ic) => ic.detourDurationS)) / 60 / 5) * 5
+      : null;
+
+  const finalRadiusM = computeFinalRadiusM(internal2);
   let finalCandidates = finalizeCandidates(
-    internal,
+    internal2,
     referencePrice,
     input.vehicle,
     input.mode,
@@ -507,6 +616,8 @@ export async function search(
     refPriceSource,
     expansion: { triggered: finalRadiusM > T2_MAX, finalRadiusM },
     warnings,
+    stage,
+    minutesNeededForOneResult,
   };
 
   void logSearch(result, { durationMs: now.getTime() - startedAt }).catch(() => {});

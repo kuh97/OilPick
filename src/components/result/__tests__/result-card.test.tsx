@@ -19,7 +19,7 @@ function candidate(overrides: Partial<WireCandidate> = {}): WireCandidate {
     priceUpdatedAt: NOW.toISOString(),
     facilities: { carWash: true, maintenance: false, cvs: true },
     kpetro: false,
-    tier: "T3",
+    tier: "DETOUR",
     perpDistanceM: 6200,
     detour: { precise: true, distanceM: 12400, durationS: 1080 },
     netSaving: 3252,
@@ -43,7 +43,7 @@ describe("ResultCard", () => {
     render(
       <ResultCard
         rank={3}
-        candidate={candidate({ tier: "T2", detour: { precise: false, distanceM: 0, durationS: 0 }, perpDistanceM: 2100 })}
+        candidate={candidate({ tier: "DETOUR", detour: { precise: false, distanceM: 0, durationS: 0 }, perpDistanceM: 2100 })}
         referencePrice={1210}
       />,
     );

@@ -62,5 +62,7 @@ export function serializeSearchResult(result: SearchResult): WireSearchResult {
     refPriceSource: result.refPriceSource,
     candidates: serializeCandidates(result.candidates),
     warnings: result.warnings,
+    stage: result.stage,
+    minutesNeededForOneResult: result.minutesNeededForOneResult,
   };
 }

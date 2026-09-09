@@ -4,9 +4,9 @@
  * 변환은 lib/api/serialize.ts가 맡습니다.
  */
 
-import type { Fuel, Tier, Facility, Mode, RefPriceSource, WarningCode } from "@/domain/types";
+import type { Fuel, Tier, Facility, Mode, RefPriceSource, WarningCode, SearchStage } from "@/domain/types";
 
-export type { Fuel, Tier, Facility, Mode, RefPriceSource, WarningCode };
+export type { Fuel, Tier, Facility, Mode, RefPriceSource, WarningCode, SearchStage };
 
 export interface WirePoint {
   lat: number;
@@ -75,6 +75,10 @@ export interface WireSearchResult {
   refPriceSource: RefPriceSource | null;
   candidates: WireCandidate[];
   warnings: WireWarning[];
+  /** 이 결과가 STAGE 1(경로상)인지 STAGE 2(우회)인지 — PRODUCT.md §6.6 */
+  stage: SearchStage;
+  /** STAGE 2가 0건일 때 한 건이라도 나오는 최소 우회 허용 시간(분). 없으면 null */
+  minutesNeededForOneResult: number | null;
 }
 
 export interface WirePartial {

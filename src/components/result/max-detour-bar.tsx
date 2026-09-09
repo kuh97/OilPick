@@ -1,21 +1,28 @@
 "use client";
 
 /**
- * "우회 허용 시간" 세그먼트 바 (0~30분·5분 단위) — PRODUCT.md §5.3 ⑥.
- * FilterSheet(§5.2) 안에서 쓴다. 값이 30 이상이면 30 세그먼트를 활성 표시.
+ * "우회 허용 시간" 세그먼트 바 (5분 단위) — §5.3 ⑥. 필터 시트 안에서 씀 (불변식 8).
+ * `ceilingMinutes`는 `pricing.maxDetourCeilingMinutes` 값 — 30 하드코딩 금지.
  */
 import { cn } from "@/lib/utils";
 
-export const MAX_DETOUR_STEPS = [0, 5, 10, 15, 20, 25, 30] as const;
-const CEIL = MAX_DETOUR_STEPS[MAX_DETOUR_STEPS.length - 1];
+export function maxDetourSteps(ceilingMinutes: number): number[] {
+  const steps: number[] = [];
+  for (let m = 5; m <= ceilingMinutes; m += 5) steps.push(m);
+  return steps.length > 0 ? steps : [5];
+}
 
 export function MaxDetourBar({
   value,
+  ceilingMinutes,
   onChange,
 }: {
   value: number;
+  ceilingMinutes: number;
   onChange: (minutes: number) => void;
 }) {
+  const steps = maxDetourSteps(ceilingMinutes);
+  const ceil = steps[steps.length - 1];
   return (
     <section className="flex flex-col gap-1.5">
       <h3 className="text-sm font-medium text-foreground">
@@ -26,8 +33,8 @@ export function MaxDetourBar({
         aria-label="최대 우회 시간(분)"
         className="flex overflow-hidden rounded-xl border border-border"
       >
-        {MAX_DETOUR_STEPS.map((step, i) => {
-          const active = value >= CEIL ? step === CEIL : step === value;
+        {steps.map((step, i) => {
+          const active = value >= ceil ? step === ceil : step === value;
           return (
             <button
               key={step}

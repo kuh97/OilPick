@@ -46,6 +46,10 @@ export interface SearchStreamInput {
   vehicle: WireVehicle;
   mode: Mode;
   avoidHighway: boolean;
+  /** 사용자가 접힌 우회 섹션을 펼쳤는가 — STAGE 2 실행 여부 (PRODUCT.md §6.6) */
+  includeDetour?: boolean;
+  /** "우회 허용 시간"(분). 표시 필터가 아니라 검색 파라미터 (AGENTS.md 불변식 8) */
+  maxDetourMinutes?: number;
 }
 
 function isAbortError(err: unknown): boolean {
@@ -267,6 +271,9 @@ export function useSearchStream() {
               refPriceSource: lastPartial.refPriceSource,
               expansion: lastPartial.expansion,
               warnings: [{ code: "TIMEOUT", message: "일부 계산이 완료되지 않았습니다." }],
+              // partial은 STAGE 2에서만 방출된다 — STAGE 1은 실측을 마치고 곧장 result다.
+              stage: "DETOUR",
+              minutesNeededForOneResult: null,
             };
             finishAfterSteps(() => setResult(synthesized));
           } else {

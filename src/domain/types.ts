@@ -39,7 +39,8 @@ export function projected(x: number, y: number): ProjectedPoint {
 // ─── 연료 · 티어 (§6.3) ──────────────────────────────────────────────────────
 
 export type Fuel = "GASOLINE" | "DIESEL" | "LPG";
-export type Tier = "T1" | "T2" | "T3";
+/** 배지 2종 — 실측 `ΔT`·`ΔD`로 판정 (§6.4, 불변식 6). `d_perp`로 만들지 말 것. */
+export type Tier = "ON_ROUTE" | "DETOUR";
 export type Facility = "CAR_WASH" | "MAINTENANCE" | "CVS";
 export type Mode = "balanced" | "minCost" | "minDistance";
 export type RefPriceSource = "MEDIAN_T1T2" | "SIGUNGU_AVG";
@@ -144,6 +145,9 @@ export interface ExpansionInfo {
   finalRadiusM: number;  // 최종 목록에 남은 T3의 최대 d_perp (없으면 T2_MAX)
 }
 
+/** `ON_ROUTE` = STAGE 1에서 종료(배너 OFF), `DETOUR` = STAGE 2까지 감 (§6.6). */
+export type SearchStage = "ON_ROUTE" | "DETOUR";
+
 export interface SearchResult {
   searchId: string;   // 익명. 딥링크 이벤트 연결용
   baseRoute: BaseRoute;
@@ -152,6 +156,9 @@ export interface SearchResult {
   refPriceSource: RefPriceSource | null;
   expansion: ExpansionInfo;
   warnings: Warning[];
+  stage: SearchStage;
+  /** STAGE 2가 0건일 때 한 건이라도 나오는 최소 우회 허용 시간(분). 없으면 null (§5.3). */
+  minutesNeededForOneResult: number | null;
 }
 
 // ─── 장소 검색 (F1 자동완성) ─────────────────────────────────────────────────
@@ -188,4 +195,8 @@ export interface SearchInput {
    * 다시 조회해야 한다 (PRODUCT.md §5.1).
    */
   avoidHighway: boolean;
+  /** 사용자가 우회 섹션을 펼쳤는가 — 기본 false, true면 경로상 유무와 무관하게 STAGE 2 (§6.6). */
+  includeDetour?: boolean;
+  /** "우회 허용 시간"(분) — 표시 필터가 아니라 검색 파라미터 (불변식 8). STAGE 2 전용. */
+  maxDetourMinutes?: number;
 }

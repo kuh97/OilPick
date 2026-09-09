@@ -31,7 +31,7 @@ function candidate(overrides: Partial<WireCandidate> = {}): WireCandidate {
     priceUpdatedAt: new Date().toISOString(),
     facilities: { carWash: true, maintenance: false, cvs: false },
     kpetro: false,
-    tier: "T3",
+    tier: "DETOUR",
     perpDistanceM: 6200,
     detour: { precise: true, distanceM: 12400, durationS: 1080 },
     netSaving: 3252,
@@ -51,6 +51,8 @@ function result(overrides: Partial<WireSearchResult> = {}): WireSearchResult {
     refPriceSource: "MEDIAN_T1T2",
     expansion: { triggered: true, finalRadiusM: 7000 },
     warnings: [],
+    stage: "DETOUR",
+    minutesNeededForOneResult: null,
     ...overrides,
   };
 }
@@ -109,7 +111,7 @@ describe("StationDetailView — 정상 흐름 (AGENTS.md §6 불변식)", () => 
   });
 
   it("T1 후보는 전화 확인 권고 문구를 보여주지 않는다", () => {
-    useSearchStore.setState({ result: result({ candidates: [candidate({ tier: "T1" })] }) });
+    useSearchStore.setState({ result: result({ candidates: [candidate({ tier: "ON_ROUTE" })] }) });
     renderPage();
     expect(screen.queryByText(/전화 확인을 권합니다/)).toBeNull();
   });

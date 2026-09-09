@@ -1,10 +1,8 @@
 "use client";
 
 /**
- * 필터 시트(F2·F6) — PRODUCT.md §5.2. 여기선 시설·브랜드·품질인증·셀프·우회 허용 시간.
- * "적용"을 눌러야 커밋된다. 시설·브랜드·품질·셀프는 서버가 후보 수집 시 걸러 바뀌면
- * 재검색되고(토글 즉시 반영은 예산 때문에 안 함), 우회 허용 시간은 받은 목록을 화면에서
- * 거르기만 한다 — 재검색 없음 (§5.3 ⑥).
+ * 필터 시트(F2·F6) — §5.2. 시설·브랜드·품질·셀프·우회 허용 시간.
+ * "적용" 시 다섯 항목 모두 재검색을 유발한다 (불변식 8).
  */
 import { useState } from "react";
 import { SlidersHorizontal } from "lucide-react";
@@ -19,9 +17,9 @@ import {
 } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { cn } from "@/lib/utils";
-import { DEFAULT_MAX_DETOUR_MINUTES } from "@/domain/params";
 import { MaxDetourBar } from "@/components/result/max-detour-bar";
+import { DEFAULT_MAX_DETOUR_MINUTES } from "@/domain/params";
+import { cn } from "@/lib/utils";
 import type { Facility, WireFilters } from "@/app/api/_lib/types";
 
 const FACILITY_LABEL: Record<Facility, string> = {
@@ -55,15 +53,19 @@ export function FilterSheet({
   filters,
   onApply,
   maxDetourMinutes,
+  maxDetourCeiling,
   onApplyMaxDetourMinutes,
 }: {
   filters: WireFilters;
   onApply: (filters: WireFilters) => void;
   maxDetourMinutes: number;
+  maxDetourCeiling: number;
+  /** draft가 실제로 바뀌었을 때만 호출 — page.tsx가 이걸 STAGE 2 재검색으로 해석한다. */
   onApplyMaxDetourMinutes: (minutes: number) => void;
 }) {
   const [draft, setDraft] = useState(filters);
-  const [maxDetourDraft, setMaxDetourDraft] = useState(maxDetourMinutes);
+  const clampedMax = Math.min(maxDetourMinutes, maxDetourCeiling);
+  const [maxDetourDraft, setMaxDetourDraft] = useState(clampedMax);
 
   return (
     <Drawer
@@ -71,7 +73,7 @@ export function FilterSheet({
         if (open) {
           // 열 때마다 현재 적용된 값으로 초기화
           setDraft(filters);
-          setMaxDetourDraft(maxDetourMinutes);
+          setMaxDetourDraft(clampedMax);
         }
       }}
     >
@@ -87,7 +89,7 @@ export function FilterSheet({
             className="text-sm text-muted-foreground underline underline-offset-2"
             onClick={() => {
               setDraft(EMPTY_FILTERS);
-              setMaxDetourDraft(DEFAULT_MAX_DETOUR_MINUTES);
+              setMaxDetourDraft(Math.min(DEFAULT_MAX_DETOUR_MINUTES, maxDetourCeiling));
             }}
           >
             초기화
@@ -95,7 +97,11 @@ export function FilterSheet({
         </DrawerHeader>
 
         <div className="flex flex-col gap-5 px-4 pb-4">
-          <MaxDetourBar value={maxDetourDraft} onChange={setMaxDetourDraft} />
+          <MaxDetourBar
+            value={maxDetourDraft}
+            ceilingMinutes={maxDetourCeiling}
+            onChange={setMaxDetourDraft}
+          />
 
           <section className="flex flex-col gap-2">
             <h3 className="text-sm font-semibold">시설</h3>
@@ -175,9 +181,8 @@ export function FilterSheet({
           </section>
 
           <p className="text-xs text-muted-foreground">
-            시설·브랜드·셀프·품질인증을 바꾸면 조건에 맞는 주유소를 다시 탐색해요. 우회 허용
-            시간은 이미 찾은 목록에서 바로 걸러져요. 운영시간 필터는 공공데이터에서 제공되지
-            않아 지원하지 않습니다.
+            바꾼 뒤 &apos;적용&apos;을 누르면 조건에 맞는 주유소를 다시 찾아요. 운영시간 필터는
+            공공데이터에서 제공되지 않아 지원하지 않습니다.
           </p>
         </div>
 
@@ -189,7 +194,8 @@ export function FilterSheet({
                 className="w-full"
                 onClick={() => {
                   onApply(draft);
-                  onApplyMaxDetourMinutes(maxDetourDraft);
+                  // 실제로 건드렸을 때만 — 안 건드린 필터 적용이 STAGE 2로 튕기지 않게.
+                  if (maxDetourDraft !== clampedMax) onApplyMaxDetourMinutes(maxDetourDraft);
                 }}
               />
             }
