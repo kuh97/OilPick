@@ -515,7 +515,7 @@ interface Warning {
 | `progress`   | 단계 전환마다 | `{ step, radiusM? }` — `step`: `ROUTE`\|`COLLECT`\|`EXPAND`\|`PRECISE`    |
 | `base_route` | STEP 1 직후   | `{ distanceM, durationS, polyline }` — 지도·헤더를 먼저 그림              |
 | `partial`    | STEP 9 직후   | `{ candidates, referencePrice, refPriceSource, expansion }` — 추정치 결과 |
-| `result`     | STEP 11 완료  | `SearchResult` 전체                                                       |
+| `result`     | STEP 10 완료  | `SearchResult` 전체                                                       |
 | `warning`    | 발생 시       | `Warning`                                                                 |
 | `error`      | 치명적 실패   | `{ code, message }`                                                       |
 
@@ -545,11 +545,11 @@ data: {"searchId":"...","baseRoute":{...},"candidates":[...]}
 | 필드                       | 값                        | 의미                                                               |
 | -------------------------- | ------------------------- | ------------------------------------------------------------------ |
 | `progress(EXPAND).radiusM` | `T3_MAX` = 15,000         | **지금 어디까지 뒤지는 중인가.** 후보 평가 전이라 실제 결과를 모름 |
-| `expansion.finalRadiusM`   | 채택된 T3(geoTier)의 최대 `d_perp` | **어디서 찾았는가.** 결과 배너에 쓰는 값. 실측 우회로 배지가 바뀐 후보(§6.4)가 아니라 기하 티어 기준 |
+| `expansion.finalRadiusM`   | 채택된 🟡우회 후보의 최대 `d_perp` | **어디서 찾았는가.** 결과 배너에 쓰는 값. 배지(`ΔT`)로 우회인 후보 중 가장 먼 기하 거리 — STAGE 1만으로 끝나면 배너 자체가 없다 (§6.4) |
 
 두 값이 달라 보이는 것은 정상입니다. [`PRODUCT.md`](PRODUCT.md) §5.3 ②·§10.3.
 
-> `partial`의 `expansion.finalRadiusM`은 STEP 9 시점 값이라 `result`와 다를 수 있습니다(STEP 11에서 `DETOUR_CAP_RATIO`·`MAX_RESULTS`로 후보가 빠지므로). **배너는 `result`를 받은 뒤 확정 렌더링하십시오.**
+> `partial`의 `expansion.finalRadiusM`은 STEP 8 시점 값이라 `result`와 다를 수 있습니다(STEP 10에서 `DETOUR_CAP_RATIO`·`MAX_RESULTS`로 후보가 빠지므로). **배너는 `result`를 받은 뒤 확정 렌더링하십시오.**
 
 **클라이언트 규칙**
 
@@ -821,28 +821,37 @@ recommendation-service
   │      └─ 필터 적용 (시설·브랜드·품질인증·셀프여부)
   │
   ├─▶ domain/tier (d_perp 계산 · T3_MAX 초과 제거)        ── STEP 4
-  │      회랑 쿼리가 T1~T3를 한 번에 덮으므로 별도 확장 단계 없음
+  │      티어를 만들지 않는다 — 판정은 실측 ΔT·ΔD가 한다 (PRODUCT §6.4)
   │
-  ├─▶ price-service.computeReferencePrice                 ── STEP 7
-  │      └─ T1+T2 ≥ P_REF_MIN_BASE ? median
+  ├─▶ price-service.computeReferencePrice                 ── STEP 5
+  │      └─ d_perp ≤ T2_MAX 표본 ≥ P_REF_MIN_BASE ? median
   │         : refuel_point 시군구→시도→전국 avg(price) 가중평균
   │
-  ├─▶ domain/pricing (T3 게이트)                          ── STEP 8
+  │  ┌─ STAGE 1 ─ 경로상 목록 (항상 실행) ──────────────────────────┐
+  │   ═══▶ SSE: progress(PRECISE)
+  ├─▶ route-service 경유 경로 — d_perp ≤ ON_ROUTE_PREFILTER_M 후보  ── STEP 6
+  │      가격 싼 순 MAX_PRECISE개 전량 실측 (조기 종료 없음)
+  │      onRoute = { ΔT ≤ ON_ROUTE_MAX_S AND ΔD ≤ ON_ROUTE_MAX_D }
+  │      ├─ onRoute ≥1곳 이고 우회 미요청 → STEP 10 으로 (STAGE 2 미실행, 배너 OFF)
+  │      └─ 0곳 또는 우회 요청           → STAGE 2 로 (onRoute는 STEP 10에서 합침)
+  │  └──────────────────────────────────────────────────────────────┘
   │
-  ├─▶ domain/pricing (T1 우선순위 필터)                    ── STEP 8.5
-  │      T1 있으면 T2·T3는 T1 최저가보다 T1_PRIORITY_GAP_WON 이상 싼 예외만 (§6.6)
+  │  ┌─ STAGE 2 ─ 우회 탐색 (경로상 0곳 또는 사용자가 버튼 누름) ──────┐
+  ├─▶ domain/pricing (우회 게이트 + maxDetourMinutes 예산)  ── STEP 7
+  │      detourPool = 전체 후보 − onRoute
+  │      추정 ΔT̂ > maxDetourMinutes → 제거. NetSaving ≤ 0 → 제거
   │
-  ├─▶ 정밀 계산 대상 선정 (모드별 상위 합집합 → MAX_PRECISE) ── STEP 10a
-  │      이후 파이프라인은 이 집합만 다룬다 — partial과 result의 구성원이 같아진다
-  │      ※ 최종 후보에 T3(d_perp > T2_MAX)가 남으면 progress(EXPAND) 방출
+  ├─▶ 정밀 계산 대상 선정 (모드별 상위 합집합 → MAX_PRECISE) ── STEP 9a
+  │      ※ 최종 후보에 d_perp > T2_MAX가 남으면 progress(EXPAND) 방출
   │
-  ├─▶ domain/pricing 1차 스코어링                         ── STEP 9
+  ├─▶ domain/pricing 1차 스코어링                         ── STEP 8
   │   ═══▶ SSE: partial  (추정치 결과 — precise:false)
   │
-  │   ═══▶ SSE: progress(PRECISE)
-  ├─▶ route-service 병렬 경유 경로 (MAX_PRECISE개 전량)     ── STEP 10b
+  ├─▶ route-service 병렬 경유 경로 (STAGE 1 미측정분만)     ── STEP 9b
+  │  └──────────────────────────────────────────────────────────────┘
   │
-  ├─▶ domain/pricing 재계산 · 배지 재판정 · CAP 제거 · 정렬 · reason  ── STEP 11
+  ├─▶ domain/pricing 재계산 · 배지 판정(ΔT·ΔD) · CAP 제거 · 정렬 · reason ── STEP 10
+  │      최종 목록 = STAGE 1 onRoute + STAGE 2 결과
   │      정렬 1차 키는 detour.precise — 실측군이 추정군보다 항상 위
   │   ═══▶ SSE: result
   │
@@ -1228,7 +1237,9 @@ Client → domain/deeplink.build(app, origin, station, destination)
 | ⑩   | 연료별 평균 연비 통계                         | 공식 통계 확인                              | 기본값 보정 ([`PRODUCT.md`](PRODUCT.md) §9.2)                                            | 낮음        |
 | ⑭   | **실측 `ΔT` 분포 — 다노선·다연료**            | `verify:detour` (노선·연료를 바꿔가며)      | `DETOUR_TIME_CAP_RATIO`(0.5)가 정당한 후보를 자르거나 39분짜리를 통과시킴                 | Phase 10 이후 |
 | ⑮   | **`SHORT_ROUTE_DETOUR_TIME_CAP_S`(20분) 적정성** | 다양한 짧은 경로 × 연료로 재측정            | 너무 짧으면 수진역 LPG류 정당한 근거리 우회를 막고, 너무 길면 사실상 별도 여정을 통과시킴 | Phase 11 이후 |
-| ⑯   | **`T1_PRIORITY_GAP_WON`(100원/L) 적정성** | 실사용 데이터(search_event) 쌓이면 실제 클릭·이탈률과 대조 | 실측이 아니라 사용자 판단값이다 — 너무 낮으면 예전처럼 소액에 우회 노출, 너무 높으면 진짜 좋은 딜도 숨김 | 실사용 데이터 확보 후 |
+| ⑯   | **`ON_ROUTE_MAX_S`(3분)·`ON_ROUTE_MAX_D`(1.5km) 적정성** | 실사용 데이터(search_event) 쌓이면 실제 클릭·이탈률과 대조 | 실측이 아닌 사용자 판단값(2026-09-09). 너무 크면 "가는 길"이 아닌 곳이 경로상으로 들어와 STAGE 2가 영영 안 열리고, 너무 작으면 멀쩡한 후보가 우회로 밀림 | 실사용 데이터 확보 후 |
+| ⑰   | **`ON_ROUTE_PREFILTER_M`(2.5km) 충분성** | `verify:detour`로 `d_perp` 2.5~3.5km 구간의 실측 `ΔD` 분포 확인 | 너무 좁으면 경로상 후보를 STAGE 1이 놓쳐 STAGE 2로 새고(A17), 너무 넓으면 STAGE 1 실측이 헛돌아 쿼터를 씀 | 2단계 탐색 재설계 이후 |
+| ⑱   | **STAGE 1 실측 횟수 분포** | `search_event`에 STAGE 1 실측 개수 로깅 후 집계 | 쿼터 계산(검색당 10~16회)의 전제. 프리필터 통과분이 상시 15개 이상이면 `MAX_PRECISE` cap이 상시 바인딩 — 경로상 완결성이 깨질 수 있음 | 2단계 탐색 재설계 이후 |
 
 ### 해결된 항목
 
