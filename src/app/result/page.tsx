@@ -158,9 +158,11 @@ export default function ResultPage() {
   // 필터 때문이 아니라 "최대 우회 시간" 설정 때문에 0건이 됐는지 — sorted엔 있는데
   // display엔 없으면 이 설정이 원인이다 (A2, 어떤 필터가 원인인지 특정해야 함).
   const hiddenByMaxDetour = sortedCandidates.length > 0 && displayCandidates.length === 0;
+  // 다시 한 건이라도 보이는 값 — 바의 5분 단위로 올림. 30분 초과면 이 필터로는 못 푼다.
   const minutesNeededForOneResult = hiddenByMaxDetour
-    ? Math.ceil(sortedCandidates[0].detour.durationS / 60)
+    ? Math.ceil(Math.min(...sortedCandidates.map((c) => c.detour.durationS)) / 60 / 5) * 5
     : null;
+  const canRelaxMaxDetour = minutesNeededForOneResult != null && minutesNeededForOneResult <= 30;
   const defaultFilters: WireFilters = {
     facilities: [],
     brands: [],
@@ -239,7 +241,12 @@ export default function ResultPage() {
 
           <div className="flex items-center justify-between gap-2">
             <ModeTabs value={mode} onChange={setMode} />
-            <FilterSheet filters={filters} onApply={setFilters} />
+            <FilterSheet
+              filters={filters}
+              onApply={setFilters}
+              maxDetourMinutes={maxDetourMinutes}
+              onApplyMaxDetourMinutes={setMaxDetourMinutes}
+            />
           </div>
 
           {displayCandidates.length === 0 ? (
@@ -254,14 +261,20 @@ export default function ResultPage() {
               ) : hiddenByMaxDetour ? (
                 <>
                   <p className="text-sm text-muted-foreground">
-                    최대 우회 시간({maxDetourMinutes}분) 안에 드는 주유소가 없습니다.
+                    우회 허용 시간({maxDetourMinutes}분) 안에 드는 주유소가 없습니다.
                   </p>
-                  <Button
-                    variant="outline"
-                    onClick={() => setMaxDetourMinutes(minutesNeededForOneResult!)}
-                  >
-                    최대 우회 시간을 {minutesNeededForOneResult}분으로 늘리기
-                  </Button>
+                  {canRelaxMaxDetour ? (
+                    <Button
+                      variant="outline"
+                      onClick={() => setMaxDetourMinutes(minutesNeededForOneResult!)}
+                    >
+                      우회 허용 시간을 {minutesNeededForOneResult}분으로 늘리기
+                    </Button>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">
+                      허용 시간을 최대(30분)로 늘려도 이 경로에는 조건에 맞는 주유소가 없습니다.
+                    </p>
+                  )}
                 </>
               ) : (
                 <>
@@ -292,8 +305,6 @@ export default function ResultPage() {
               refPriceSource={result.refPriceSource}
               vehicle={vehicle}
               onChangeVehicle={setVehicle}
-              maxDetourMinutes={maxDetourMinutes}
-              onChangeMaxDetourMinutes={setMaxDetourMinutes}
             />
           )}
         </>
