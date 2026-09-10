@@ -161,6 +161,10 @@ html[data-mobile-ua] [data-desktop-only] {
   }
   body {
     @apply bg-background text-foreground;
+    /* 한국어: 음절 단위 줄바꿈을 막고 어절(띄어쓰기) 경계에서만 끊는다.
+       긴 URL·숫자 등 공백 없는 토큰은 넘칠 때만 강제로 끊는다. */
+    word-break: keep-all;
+    overflow-wrap: break-word;
   }
   html {
     @apply font-sans;

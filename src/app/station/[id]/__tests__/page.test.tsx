@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { StationDetailView } from "../page";
+import { StationDetailView } from "../station-detail-view";
 import { useSearchStore } from "@/store/search-store";
 import { wgs84 } from "@/domain/types";
 import type { WireCandidate, WireSearchResult } from "@/app/api/_lib/types";
@@ -76,10 +76,17 @@ function renderPage(id = "A1") {
 }
 
 const ORIGINAL_USER_AGENT = window.navigator.userAgent;
+const ORIGINAL_MAX_TOUCH_POINTS = window.navigator.maxTouchPoints;
 function stubUserAgent(ua: string) {
   Object.defineProperty(window.navigator, "userAgent", { value: ua, configurable: true });
 }
-afterEach(() => stubUserAgent(ORIGINAL_USER_AGENT));
+function stubMaxTouchPoints(value: number) {
+  Object.defineProperty(window.navigator, "maxTouchPoints", { value, configurable: true });
+}
+afterEach(() => {
+  stubUserAgent(ORIGINAL_USER_AGENT);
+  stubMaxTouchPoints(ORIGINAL_MAX_TOUCH_POINTS);
+});
 
 describe("StationDetailView — 검색 컨텍스트 없음", () => {
   it("스토어에 result가 없으면 안내 화면을 보여준다", () => {
@@ -107,7 +114,11 @@ describe("StationDetailView — 정상 흐름 (AGENTS.md §6 불변식)", () => 
   it("우회 후보는 전화 확인 권고 문구와 전화번호를 함께 보여준다", () => {
     renderPage();
     expect(screen.getByText(/전화 확인을 권합니다/)).toBeTruthy();
-    expect(screen.getByText("033-000-0000 — 전화걸기")).toBeTruthy();
+    expect(screen.getByText("033-000-0000")).toBeTruthy();
+    expect(
+      screen.getByRole("link", { name: "033-000-0000" }).getAttribute("href"),
+    ).toBe("tel:033-000-0000");
+    expect(screen.queryByText(/전화걸기/)).toBeNull();
   });
 
   it("경로상 후보는 전화 확인 권고 문구를 보여주지 않는다", () => {
@@ -122,12 +133,23 @@ describe("StationDetailView — 정상 흐름 (AGENTS.md §6 불변식)", () => 
     await screen.findByText("카카오맵"); // 마운트 이펙트가 반영될 때까지 대기
     expect(screen.queryByText("티맵")).toBeNull();
     expect(screen.queryByText(/티맵은 주유소까지만 안내됩니다/)).toBeNull();
+    expect(screen.queryByText(/지도 앱은 설치되어 있어야 열 수 있습니다/)).toBeNull();
   });
 
   it("모바일 UA에서는 티맵 버튼과 안내 문구를 보여준다", async () => {
     stubUserAgent("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15");
     renderPage();
     expect(await screen.findByText("티맵")).toBeTruthy();
+    expect(screen.getByText("지도 앱은 설치되어 있어야 열 수 있습니다.")).toBeTruthy();
+    expect(screen.getByText(/티맵은 주유소까지만 안내됩니다/)).toBeTruthy();
+  });
+
+  it("터치 가능한 iPad 데스크톱 UA에서도 모바일 내비 UI를 보여준다", async () => {
+    stubMaxTouchPoints(5);
+    stubUserAgent("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15) AppleWebKit/605.1.15");
+    renderPage();
+    expect(await screen.findByText("티맵")).toBeTruthy();
+    expect(screen.getByText("지도 앱은 설치되어 있어야 열 수 있습니다.")).toBeTruthy();
     expect(screen.getByText(/티맵은 주유소까지만 안내됩니다/)).toBeTruthy();
   });
 
