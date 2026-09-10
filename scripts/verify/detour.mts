@@ -7,9 +7,10 @@
  *
  *   pnpm verify:detour "출발지" "목적지" [GASOLINE|DIESEL|LPG] [샘플수]
  *
- * 검색 파이프라인과 같은 순서로 후보를 만든 뒤(회랑 수집 → d_perp → T3 게이트 →
- * 추정 스코어링), 추정 상위 N개에 대해 경유 경로를 실제로 호출해 ΔD·ΔT를 잽니다.
- * 경로 캐시(1시간)를 그대로 타므로 같은 노선을 반복해도 카카오 호출이 늘지 않습니다.
+ * 검색 파이프라인 STAGE 2와 같은 순서로 후보를 만든 뒤(회랑 수집 → d_perp → 범위
+ * 필터 → 우회 허용 시간 예산 + NetSaving 게이트 → 추정 스코어링), 추정 상위 N개에
+ * 대해 경유 경로를 실제로 호출해 ΔD·ΔT를 잽니다. 경로 캐시(1시간)를 그대로 타므로
+ * 같은 노선을 반복해도 카카오 호출이 늘지 않습니다.
  */
 
 import { searchPlaces } from "@/services/place-service";
@@ -17,22 +18,30 @@ import { getRoute } from "@/services/route-service";
 import { collectStations } from "@/services/station-service";
 import { computeReferencePrice } from "@/services/price-service";
 import { wgs84ToProjected, pointToPolylineDistanceM } from "@/domain/geo";
-import { classifyTier } from "@/domain/tier";
+import {
+  isOutOfRange,
+  routeAvgSpeedKmh,
+  estimateDetourDurationSAtSpeed,
+} from "@/domain/tier";
 import {
   estimateDetourDistanceM,
   estimateDetourDurationS,
   computeScores,
-  passesT3Gate,
+  passesDetourGate,
+  gateDetourDistanceM,
+  withinDetourBudget,
   scoreByMode,
   exceedsDetourCap,
 } from "@/domain/pricing";
 import {
+  T2_MAX,
   T3_MAX,
   DEFAULT_EFFICIENCY,
   DEFAULT_REFUEL_AMOUNT,
   V_TIME,
   AVG_SPEED,
   DETOUR_TIME_CAP_RATIO,
+  DEFAULT_MAX_DETOUR_MINUTES,
 } from "@/domain/params";
 import { header, info, warn } from "../_shared";
 import type { Fuel, WGS84Point } from "@/domain/types";
@@ -92,37 +101,42 @@ interface Cand {
   name: string;
   price: number;
   dPerp: number;
-  tier: string;
+  sigunCd?: string;
   location: WGS84Point;
 }
 const pool: Cand[] = [];
 for (const { station, price } of collected.stations) {
   const dPerp = pointToPolylineDistanceM(wgs84ToProjected(station.location), polyline);
-  const tier = classifyTier(dPerp);
-  if (!tier) continue; // A13
-  pool.push({ name: station.name, price, dPerp, tier, location: station.location });
+  if (isOutOfRange(dPerp)) continue; // A13 — T3_MAX 초과
+  pool.push({ name: station.name, price, dPerp, sigunCd: station.sigunCd, location: station.location });
 }
 
 const priceResult = await computeReferencePrice({
-  t1t2Prices: pool.filter((c) => c.tier !== "T3").map((c) => c.price),
-  pool: [],
+  t1t2Prices: pool.filter((c) => c.dPerp <= T2_MAX).map((c) => c.price),
+  pool: pool.map((c) => ({ sigunCd: c.sigunCd })),
   fuel,
 });
 if (!priceResult) abort("P_ref를 계산할 수 없어(A14) 측정을 중단합니다.");
 const priceRefWon = priceResult.price;
 
-const gated = pool.filter(
-  (c) =>
-    c.tier !== "T3" ||
-    passesT3Gate({
-      priceRefWon,
-      priceStationWon: c.price,
-      refuelAmountL: vehicle.refuelAmountL,
-      dPerpM: c.dPerp,
-      efficiencyKmPerL: vehicle.efficiencyKmPerL,
-    }),
-);
-info(`후보  수집 ${collected.stations.length} → 티어분류 ${pool.length} → T3게이트 ${gated.length}`);
+const routeSpeedKmh = routeAvgSpeedKmh(base.distanceM, base.durationS);
+const maxDetourMinutes = DEFAULT_MAX_DETOUR_MINUTES;
+
+const gated = pool.filter((c) => {
+  const estimatedDetourDurationS = estimateDetourDurationSAtSpeed(
+    gateDetourDistanceM(c.dPerp),
+    routeSpeedKmh,
+  );
+  if (!withinDetourBudget({ estimatedDetourDurationS, maxDetourMinutes })) return false;
+  return passesDetourGate({
+    priceRefWon,
+    priceStationWon: c.price,
+    refuelAmountL: vehicle.refuelAmountL,
+    dPerpM: c.dPerp,
+    efficiencyKmPerL: vehicle.efficiencyKmPerL,
+  });
+});
+info(`후보  수집 ${collected.stations.length} → 범위내 ${pool.length} → 우회게이트 ${gated.length}`);
 
 const estimated = gated.map((c) => {
   const detourDistanceM = estimateDetourDistanceM(c.dPerp);
