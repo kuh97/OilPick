@@ -8,7 +8,10 @@ function subscribeNever() {
   return () => {};
 }
 function getIsMobileSnapshot(): boolean {
-  return MOBILE_UA_REGEX.test(navigator.userAgent);
+  return (
+    MOBILE_UA_REGEX.test(navigator.userAgent) ||
+    (/Macintosh/i.test(navigator.userAgent) && navigator.maxTouchPoints > 1)
+  );
 }
 function getIsMobileServerSnapshot(): boolean | null {
   return null;

@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { buildDeeplink, buildNaverAndroidIntent, buildWebFallbackUrl } from "../deeplink";
+import {
+  buildDeeplink,
+  buildWebFallbackUrl,
+} from "../deeplink";
 import { wgs84 } from "../types";
 
 const ORIGIN = wgs84(37.5, 127.0);
@@ -209,26 +212,5 @@ describe("buildWebFallbackUrl — 이름 미지정", () => {
     for (const stop of stops) {
       expect(stop.split(",")[2]).not.toBe("");
     }
-  });
-});
-
-describe("buildNaverAndroidIntent", () => {
-  it("intent:// 스킴으로 시작", () => {
-    const naverUrl = buildDeeplink({ ...BASE, app: "NAVER" });
-    const intent = buildNaverAndroidIntent(naverUrl, "https://map.naver.com");
-    expect(intent).toMatch(/^intent:\/\//);
-  });
-
-  it("scheme=nmap 포함", () => {
-    const naverUrl = buildDeeplink({ ...BASE, app: "NAVER" });
-    const intent = buildNaverAndroidIntent(naverUrl, "https://map.naver.com");
-    expect(intent).toContain("scheme=nmap");
-  });
-
-  it("폴백 URL 포함", () => {
-    const naverUrl = buildDeeplink({ ...BASE, app: "NAVER" });
-    const fallback = "https://map.naver.com";
-    const intent = buildNaverAndroidIntent(naverUrl, fallback);
-    expect(intent).toContain(encodeURIComponent(fallback));
   });
 });

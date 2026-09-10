@@ -75,12 +75,6 @@ function buildTmapDeeplink(input: DeeplinkInput): string {
   return `tmap://route?${params.toString()}`;
 }
 
-/** Android intent 래퍼 (네이버지도 폴백) */
-export function buildNaverAndroidIntent(naverUrl: string, fallbackUrl: string): string {
-  const encoded = encodeURIComponent(naverUrl.replace("nmap://", ""));
-  return `intent://${encoded}#Intent;scheme=nmap;S.browser_fallback_url=${encodeURIComponent(fallbackUrl)};end`;
-}
-
 // 네이버 New Map(map.naver.com/p) 좌표 인코딩 — 실제 사용자가 카카오맵과 동일하게
 // "출발→경유 추가"로 만든 공유 링크를 역공학해 확인함(2026-08-31). 위경도를 1e7배해
 // 반올림한 정수에 20억을 더한 뒤(항상 양수로 만들기 위한 오프셋으로 추정) 62진법

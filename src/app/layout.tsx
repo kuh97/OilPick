@@ -37,7 +37,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {/* body 페인트 전에 UA 판정을 html 속성으로 찍고 CSS([data-desktop-only])로만 토글 — 깜빡임 방지 */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `if(/${MOBILE_UA_PATTERN}/i.test(navigator.userAgent))document.documentElement.setAttribute('data-mobile-ua','1')`,
+            __html: `if(/${MOBILE_UA_PATTERN}/i.test(navigator.userAgent)||(/Macintosh/i.test(navigator.userAgent)&&navigator.maxTouchPoints>1))document.documentElement.setAttribute('data-mobile-ua','1')`,
           }}
         />
 
