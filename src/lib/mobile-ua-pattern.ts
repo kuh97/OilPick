@@ -1,2 +1,2 @@
-/** UA 패턴 — use-is-mobile.ts(훅)에 두면 서버 컴포넌트가 못 불러와서 여기로 분리 */
+/** UA 패턴 — 서버 렌더링 가능한 layout.tsx의 pre-paint script에서도 공유 */
 export const MOBILE_UA_PATTERN = "Android|iPhone|iPad|iPod";
