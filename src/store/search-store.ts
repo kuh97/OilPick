@@ -73,6 +73,8 @@ interface SearchState {
    * 바꾸는 검색 조건이기 때문이다 (PRODUCT.md §5.1).
    */
   avoidHighway: boolean;
+  /** 결과 화면에서 사용자가 우회 탐색을 요청했는지 — 상세→뒤로가기에서도 유지해야 하는 휘발성 상태 */
+  detourIntent: { maxDetourMinutes: number } | null;
 
   // ─── 검색 진행 상태 (휘발성) ───────────────────────────────────────────
   isLoading: boolean;
@@ -106,6 +108,7 @@ interface SearchState {
   setMaxDetourMinutes: (minutes: number) => void;
   setMode: (mode: Mode) => void;
   setAvoidHighway: (avoid: boolean) => void;
+  setDetourIntent: (intent: { maxDetourMinutes: number } | null) => void;
 
   startSearch: () => void;
   setProgressStep: (step: ProgressStep, radiusM?: number) => void;
@@ -169,6 +172,7 @@ export const useSearchStore = create<SearchState>()(
       maxDetourMinutes: DEFAULT_MAX_DETOUR_MINUTES,
       mode: "balanced",
       avoidHighway: false,
+      detourIntent: null,
 
       isLoading: false,
       progressStep: null,
@@ -198,6 +202,7 @@ export const useSearchStore = create<SearchState>()(
       setMaxDetourMinutes: (minutes) => set({ maxDetourMinutes: minutes }),
       setMode: (mode) => set({ mode }),
       setAvoidHighway: (avoid) => set({ avoidHighway: avoid }),
+      setDetourIntent: (intent) => set({ detourIntent: intent }),
 
       startSearch: () =>
         set({
@@ -242,11 +247,12 @@ export const useSearchStore = create<SearchState>()(
           result: null,
           streamWarnings: [],
           error: null,
+          detourIntent: null,
           lastSearchKey: null,
         }),
 
       // 결과 화면에서 홈으로 돌아갈 때 — 연료·필터는 유지, 출발지/목적지만 비운다.
-      clearRoute: () => set({ origin: null, destination: null }),
+      clearRoute: () => set({ origin: null, destination: null, detourIntent: null }),
     }),
     {
       name: "oilpick-search-store",

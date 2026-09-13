@@ -72,6 +72,7 @@ export default function HomePage() {
   function handleSearch() {
     if (!canSearch || !origin || !destination) return;
     useSearchStore.getState().addRecentSearch({ origin, destination, fuel });
+    useSearchStore.getState().setDetourIntent(null);
     router.push("/result");
   }
 
