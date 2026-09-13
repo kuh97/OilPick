@@ -24,6 +24,8 @@ beforeEach(() => {
     result: null,
     streamWarnings: [],
     error: null,
+    detourIntent: null,
+    lastSearchKey: null,
     recentSearches: [],
   });
 });
@@ -107,6 +109,19 @@ describe("search-store — 연료별 기본 연비 (PRODUCT.md §9.2)", () => {
 });
 
 describe("search-store — 검색 진행 상태", () => {
+  it("우회 의도는 상세→뒤로가기에서 재검색 조건을 복원할 수 있도록 유지된다", () => {
+    useSearchStore.getState().setDetourIntent({ maxDetourMinutes: 20 });
+
+    expect(useSearchStore.getState().detourIntent).toEqual({ maxDetourMinutes: 20 });
+  });
+
+  it("경로를 비우면 이전 우회 의도도 비운다", () => {
+    useSearchStore.getState().setDetourIntent({ maxDetourMinutes: 20 });
+    useSearchStore.getState().clearRoute();
+
+    expect(useSearchStore.getState().detourIntent).toBeNull();
+  });
+
   it("startSearch는 이전 result·partial·error를 지운다", () => {
     useSearchStore.setState({
       result: { searchId: "old" } as never,

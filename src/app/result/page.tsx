@@ -60,6 +60,8 @@ export default function ResultPage() {
   const setVehicle = useSearchStore((s) => s.setVehicle);
   const setMaxDetourMinutes = useSearchStore((s) => s.setMaxDetourMinutes);
   const setMode = useSearchStore((s) => s.setMode);
+  const detourIntent = useSearchStore((s) => s.detourIntent);
+  const setDetourIntent = useSearchStore((s) => s.setDetourIntent);
 
   const isLoading = useSearchStore((s) => s.isLoading);
   const progressStep = useSearchStore((s) => s.progressStep);
@@ -102,10 +104,6 @@ export default function ResultPage() {
     const timer = setTimeout(() => setSettling(false), 500);
     return () => clearTimeout(timer);
   }, [settling]);
-
-  // 우회 탐색 의사표시 — null이면 STAGE 1만. 사용자 행동으로만 바뀐다(result에서 파생하면
-  // STAGE 1↔2 사이에서 키가 진동한다). 세팅하면 아래 useEffect가 STAGE 2 재검색을 건다 (§6.6).
-  const [detourIntent, setDetourIntent] = useState<{ maxDetourMinutes: number } | null>(null);
 
   // 새 경로는 STAGE 1부터.
   const routeKey = JSON.stringify({ origin, destination });
