@@ -18,6 +18,38 @@ vi.mock("@/lib/api/useDetour", () => ({
   useDetour: () => ({ fetchDetour: fetchDetourMock, isLoading: false, error: null }),
 }));
 
+vi.mock("@/lib/api/useStationDetail", () => ({
+  useStationDetail: (stationId: string | null) => ({
+    station: stationId ? {
+        id: "A1",
+        name: "주변 테스트 주유소",
+        brand: "SKE",
+        lat: 37.5,
+        lng: 127.0,
+        address: "서울 테스트구",
+        tel: "02-0000-0000",
+        price: 1700,
+        priceUpdatedAt: "2026-09-14T00:00:00.000Z",
+        facilities: { carWash: true, maintenance: false, cvs: false },
+        kpetro: false,
+      } : null,
+    isLoading: false,
+    error: null,
+  }),
+}));
+
+vi.mock("@/lib/api/useStationRoute", () => ({
+  useStationRoute: () => ({
+    route: {
+      distanceM: 3200,
+      durationS: 480,
+      polyline: [{ lat: 37.42, lng: 127.12 }, { lat: 37.5, lng: 127.0 }],
+    },
+    isLoading: false,
+    error: null,
+  }),
+}));
+
 function candidate(overrides: Partial<WireCandidate> = {}): WireCandidate {
   return {
     id: "A1",
@@ -62,6 +94,7 @@ beforeEach(() => {
   useSearchStore.setState({
     origin: wgs84AsPoint(37.42, 127.12),
     destination: wgs84AsPoint(37.88, 127.73),
+    nearbyOrigin: null,
     result: null,
   });
 });
@@ -89,15 +122,19 @@ afterEach(() => {
 });
 
 describe("StationDetailView — 검색 컨텍스트 없음", () => {
-  it("스토어에 result가 없으면 안내 화면을 보여준다", () => {
+  it("스토어에 result가 없으면 가격·시설·주소만 보여준다", () => {
     renderPage();
-    expect(screen.getByText(/검색 컨텍스트가 없습니다/)).toBeTruthy();
+    expect(screen.getByText("주변 테스트 주유소")).toBeTruthy();
+    expect(screen.getByText("1,700원/L")).toBeTruthy();
+    expect(screen.getByText("서울 테스트구")).toBeTruthy();
+    expect(screen.queryByText("추천 이유")).toBeNull();
   });
 
-  it("result는 있지만 해당 id의 후보가 없으면 안내 화면을 보여준다", () => {
+  it("result는 있지만 해당 id의 후보가 없으면 독립 상세 정보를 조회한다", () => {
     useSearchStore.setState({ result: result() });
     renderPage("없는-id");
-    expect(screen.getByText(/검색 컨텍스트가 없습니다/)).toBeTruthy();
+    expect(screen.getByText("주변 테스트 주유소")).toBeTruthy();
+    expect(screen.queryByText("추천 이유")).toBeNull();
   });
 });
 
@@ -203,5 +240,27 @@ describe("StationDetailView — 정상 흐름 (AGENTS.md §6 불변식)", () => 
     renderPage();
     expect(fetchDetourMock).toHaveBeenCalledTimes(1);
     expect(fetchDetourMock.mock.calls[0][0]).toMatchObject({ stationId: "A1", priceStation: 1102 });
+  });
+});
+
+describe("StationDetailView — 내 주변 목적지 안내", () => {
+  it("현재 위치와 도착지를 표시하고 카카오·네이버·티맵 목적지 버튼을 제공한다", async () => {
+    stubUserAgent("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15");
+    useSearchStore.setState({
+      nearbyOrigin: wgs84AsPoint(37.42, 127.12),
+      result: null,
+    });
+
+    renderPage();
+
+    expect(screen.getByText("내 위치 → 도착지")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "거리" })).toBeTruthy();
+    expect(screen.getByText("3.2km")).toBeTruthy();
+    expect(screen.getByText("약 8분")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "가격" })).toBeTruthy();
+    expect(await screen.findByText("카카오맵")).toBeTruthy();
+    expect(screen.getByText("네이버지도")).toBeTruthy();
+    expect(screen.getByText("티맵")).toBeTruthy();
+    expect(screen.queryByText("추천 이유")).toBeNull();
   });
 });

@@ -13,11 +13,21 @@ export interface RouteMapProps {
   baseRoutePolyline: WirePoint[];
   viaRoutePolyline?: WirePoint[];
   station: WirePoint;
-  origin: WirePoint;
-  destination: WirePoint;
+  origin?: WirePoint;
+  destination?: WirePoint;
+  stationLabel?: string;
+  showStationMarker?: boolean;
 }
 
-export function RouteMap({ baseRoutePolyline, viaRoutePolyline, station, origin, destination }: RouteMapProps) {
+export function RouteMap({
+  baseRoutePolyline,
+  viaRoutePolyline,
+  station,
+  origin,
+  destination,
+  stationLabel = "경유",
+  showStationMarker = true,
+}: RouteMapProps) {
   // 기본 SDK url이 프로토콜 상대경로(//dapi.kakao.com/...)라 http://localhost 개발 서버에서
   // http로 해석되어 로드에 실패한다 — https를 명시해 우회한다.
   const [loading, error] = useKakaoLoader({
@@ -28,14 +38,22 @@ export function RouteMap({ baseRoutePolyline, viaRoutePolyline, station, origin,
 
   useEffect(() => {
     if (!map) return;
-    // center={station} + 고정 level만으로는 우회가 클 때 경로 상당 부분이 화면 밖으로
-    // 잘려나가 마치 길이 끊긴 것처럼 보인다 — 경로 전체가 담기도록 뷰포트를 맞춘다.
-    const bounds = new kakao.maps.LatLngBounds();
-    const points = [origin, destination, station, ...baseRoutePolyline, ...(viaRoutePolyline ?? [])];
-    for (const p of points) {
-      bounds.extend(new kakao.maps.LatLng(p.lat, p.lng));
+    const routePoints = [origin, destination, ...baseRoutePolyline, ...(viaRoutePolyline ?? [])].filter(
+      (point): point is WirePoint => point != null,
+    );
+    if (routePoints.length > 0) {
+      // center={station} + 고정 level만으로는 우회가 클 때 경로 상당 부분이 화면 밖으로
+      // 잘려나가 마치 길이 끊긴 것처럼 보인다 — 경로 전체가 담기도록 뷰포트를 맞춘다.
+      const bounds = new kakao.maps.LatLngBounds();
+      for (const p of [station, ...routePoints]) {
+        bounds.extend(new kakao.maps.LatLng(p.lat, p.lng));
+      }
+      map.setBounds(bounds, 24, 24, 24, 24);
+    } else {
+      // 경로 없는 주변 상세는 해당 주유소 위치만 보여준다.
+      map.setCenter(new kakao.maps.LatLng(station.lat, station.lng));
+      map.setLevel(5);
     }
-    map.setBounds(bounds, 24, 24, 24, 24);
   }, [map, origin, destination, station, baseRoutePolyline, viaRoutePolyline]);
 
   if (loading) {
@@ -66,9 +84,9 @@ export function RouteMap({ baseRoutePolyline, viaRoutePolyline, station, origin,
       {viaRoutePolyline && viaRoutePolyline.length > 0 && (
         <Polyline path={viaRoutePolyline} strokeColor="#3182f6" strokeWeight={5} />
       )}
-      <MapMarker position={origin} image={labelPinImage("출발", PIN_COLOR.origin)} />
-      <MapMarker position={destination} image={labelPinImage("도착", PIN_COLOR.destination)} />
-      <MapMarker position={station} image={labelPinImage("경유", PIN_COLOR.waypoint)} />
+      {origin && <MapMarker position={origin} image={labelPinImage("출발", PIN_COLOR.origin)} />}
+      {destination && <MapMarker position={destination} image={labelPinImage("도착", PIN_COLOR.destination)} />}
+      {showStationMarker && <MapMarker position={station} image={labelPinImage(stationLabel, PIN_COLOR.waypoint)} />}
     </Map>
   );
 }

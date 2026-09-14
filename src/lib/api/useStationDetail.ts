@@ -44,5 +44,9 @@ export function useStationDetail(stationId: string | null) {
     return () => controller.abort();
   }, [stationId]);
 
-  return { station, isLoading, error };
+  // 요청은 effect에서 시작하므로 첫 렌더에는 내부 isLoading이 아직 false다.
+  // stationId가 있는데 결과와 오류가 모두 없으면 응답 대기 중으로 간주해
+  // 컨텍스트 없음 화면이 잠깐 노출되지 않게 한다.
+  const waitingForInitialResponse = stationId != null && station == null && error == null;
+  return { station, isLoading: isLoading || waitingForInitialResponse, error };
 }

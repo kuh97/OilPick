@@ -67,6 +67,13 @@ export const DetourRequestSchema = z.object({
 });
 export type DetourRequest = z.infer<typeof DetourRequestSchema>;
 
+/** F10 주변 상세 지도 — 현재 위치에서 주유소까지의 실제 도로 경로 요청 */
+export const StationRouteRequestSchema = z.object({
+  origin: PointSchema,
+  stationId: z.string().min(1),
+});
+export type StationRouteRequest = z.infer<typeof StationRouteRequestSchema>;
+
 export const NaviEventSchema = z.object({
   searchId: z.string().min(1),
   app: NaviAppSchema,

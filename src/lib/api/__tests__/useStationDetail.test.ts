@@ -24,6 +24,7 @@ describe("useStationDetail", () => {
     );
 
     const { result } = renderHook(() => useStationDetail("A1"));
+    expect(result.current.isLoading).toBe(true);
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
     expect(result.current.station?.id).toBe("A1");

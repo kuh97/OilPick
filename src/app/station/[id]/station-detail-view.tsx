@@ -23,6 +23,8 @@ import { TierBadge } from "@/components/result/tier-badge";
 import { RouteMap } from "@/components/route-map";
 import { useSearchStore } from "@/store/search-store";
 import { useDetour, type DetourResult } from "@/lib/api/useDetour";
+import { useStationDetail } from "@/lib/api/useStationDetail";
+import { useStationRoute } from "@/lib/api/useStationRoute";
 import { useIsMobile } from "@/lib/use-is-mobile";
 import {
   recomputeAndSort,
@@ -32,10 +34,17 @@ import { distanceMToKm, durationSToMin } from "@/domain/pricing";
 import { brandName, wgs84 } from "@/domain/types";
 import {
   buildDeeplink,
+  buildStationDeeplink,
+  buildStationWebFallbackUrl,
   buildWebFallbackUrl,
   type NaviApp,
 } from "@/domain/deeplink";
 import type { NaviEvent } from "@/app/api/_lib/schema";
+import type {
+  WireBaseRoute,
+  WirePoint,
+  WireStationSummary,
+} from "@/app/api/_lib/types";
 
 const NAVI_APPS: { app: NaviApp; label: string; appName?: string }[] = [
   { app: "KAKAO", label: "카카오맵" },
@@ -57,14 +66,202 @@ function reportNaviClick(event: NaviEvent) {
   }
 }
 
+function NearbyStationDetail({
+  station,
+  origin,
+  route,
+  routeLoading,
+  routeError,
+}: {
+  station: WireStationSummary;
+  origin: WirePoint | null;
+  route: WireBaseRoute | null;
+  routeLoading: boolean;
+  routeError: { message: string } | null;
+}) {
+  const isMobile = useIsMobile();
+  const stationPoint = wgs84(station.lat, station.lng);
+  const visibleNaviApps = NAVI_APPS.filter(
+    ({ app }) => app !== "TMAP" || isMobile,
+  );
+
+  function handleNaviClick(app: NaviApp, appName?: string) {
+    if (!origin) return;
+    const deeplinkInput = {
+      app,
+      origin: wgs84(origin.lat, origin.lng),
+      destination: stationPoint,
+      originName: "내 위치",
+      destinationName: station.name,
+      appName,
+    };
+    const webFallback =
+      isMobile === false ? buildStationWebFallbackUrl(deeplinkInput) : null;
+    if (webFallback) {
+      window.open(webFallback, "_blank", "noopener,noreferrer");
+      return;
+    }
+    window.location.assign(buildStationDeeplink(deeplinkInput));
+  }
+
+  return (
+    <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-4 px-4 py-6">
+      <header>
+        <Link href="/nearby" className="text-sm text-muted-foreground">
+          ← 내 주변 주유소
+        </Link>
+        <h1 className="mt-3 text-xl font-bold">{station.name}</h1>
+      </header>
+
+      {origin && (
+        <section className="rounded-xl border border-border bg-card px-3.5 py-3 text-sm shadow-[var(--shadow-sm)]">
+          <p className="font-medium">내 위치 → 도착지</p>
+          <p className="mt-1 truncate text-xs text-muted-foreground">
+            현재 위치에서 {station.name}까지
+          </p>
+        </section>
+      )}
+
+      <RouteMap
+        baseRoutePolyline={route?.polyline ?? []}
+        station={stationPoint}
+        origin={origin ?? undefined}
+        destination={origin ? stationPoint : undefined}
+        stationLabel="도착"
+        showStationMarker={!origin}
+      />
+
+      {origin && (
+        <section className="rounded-xl border border-border bg-card p-3.5 shadow-[var(--shadow-sm)]">
+          <h2 className="text-sm font-semibold">거리</h2>
+          {route && (
+            <div className="mt-1.5">
+              <div className="flex items-baseline gap-2">
+                <p className="text-2xl font-bold tracking-tight">
+                  {distanceMToKm(route.distanceM)}km
+                </p>
+                <span className="text-lg text-muted-foreground" aria-hidden>
+                  ·
+                </span>
+                <p className="text-xl font-bold tracking-tight">
+                  약 {durationSToMin(route.durationS)}분
+                </p>
+              </div>
+            </div>
+          )}
+          {routeLoading && (
+            <p className="mt-2 text-sm text-muted-foreground">
+              주유소까지의 도로 경로를 계산하고 있어요.
+            </p>
+          )}
+          {routeError && (
+            <p className="mt-2 text-sm text-muted-foreground">
+              {routeError.message} 출발·도착지만 표시합니다.
+            </p>
+          )}
+        </section>
+      )}
+
+      <section className="rounded-xl border border-border bg-card p-3.5 shadow-[var(--shadow-sm)]">
+        <h2 className="mb-1 text-sm font-semibold">가격</h2>
+        <p className="text-2xl font-bold tracking-tight">
+          {station.price != null
+            ? `${station.price.toLocaleString()}원/L`
+            : "가격 정보 없음"}
+        </p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {brandName(station.brand)}
+        </p>
+      </section>
+
+      <section className="flex flex-col gap-1.5 rounded-xl border border-border bg-card p-3.5 text-sm shadow-[var(--shadow-sm)]">
+        <div className="flex gap-3 text-muted-foreground">
+          {station.facilities.carWash && (
+            <span className="flex items-center gap-1">
+              <Droplets className="size-3.5" aria-hidden />
+              세차
+            </span>
+          )}
+          {station.facilities.maintenance && (
+            <span className="flex items-center gap-1">
+              <Wrench className="size-3.5" aria-hidden />
+              경정비
+            </span>
+          )}
+          {station.facilities.cvs && (
+            <span className="flex items-center gap-1">
+              <Store className="size-3.5" aria-hidden />
+              편의점
+            </span>
+          )}
+        </div>
+        <p className="text-muted-foreground">{station.address}</p>
+        {station.tel && (
+          <a
+            href={`tel:${station.tel}`}
+            className="flex items-center gap-1 text-primary underline"
+          >
+            <PhoneCall className="size-3.5" aria-hidden />
+            {station.tel}
+          </a>
+        )}
+      </section>
+
+      <Alert variant="warning">
+        <AlertTriangle aria-hidden />
+        <AlertDescription className="break-keep text-xs text-warning-foreground">
+          가격은 실제와 다를 수 있습니다.
+        </AlertDescription>
+      </Alert>
+
+      {origin && (
+        <div className="flex flex-col gap-2">
+          {visibleNaviApps.map(({ app, label, appName }) => (
+            <Button
+              key={app}
+              variant="outline"
+              size="lg"
+              onClick={() => handleNaviClick(app, appName)}
+            >
+              {label}
+            </Button>
+          ))}
+          {isMobile && (
+            <p className="break-keep text-xs text-muted-foreground">
+              지도 앱은 설치되어 있어야 열 수 있습니다.
+            </p>
+          )}
+          {isMobile && (
+            <p className="break-keep text-xs text-muted-foreground">
+              티맵은 주유소까지만 안내됩니다.
+            </p>
+          )}
+        </div>
+      )}
+    </main>
+  );
+}
+
 /** 라우트 파라미터 언래핑과 실제 화면 로직을 분리 — 후자만 별도로 렌더 테스트한다. */
 export function StationDetailView({ id }: { id: string }) {
   const origin = useSearchStore((s) => s.origin);
   const destination = useSearchStore((s) => s.destination);
+  const nearbyOrigin = useSearchStore((s) => s.nearbyOrigin);
   const result = useSearchStore((s) => s.result);
   const vehicle = useSearchStore((s) => s.vehicle);
   const mode = useSearchStore((s) => s.mode);
   const avoidHighway = useSearchStore((s) => s.avoidHighway);
+  const rawCandidate = result?.candidates.find((c) => c.id === id) ?? null;
+  const hasSearchContext =
+    origin != null &&
+    destination != null &&
+    result != null &&
+    rawCandidate != null;
+  const standaloneDetail = useStationDetail(hasSearchContext ? null : id);
+  const stationRoute = useStationRoute(
+    hasSearchContext || !nearbyOrigin ? null : id,
+    nearbyOrigin,
+  );
 
   const { fetchDetour } = useDetour();
   const [detour, setDetour] = useState<DetourResult | null>(null);
@@ -74,7 +271,6 @@ export function StationDetailView({ id }: { id: string }) {
     ({ app }) => app !== "TMAP" || isMobile,
   );
 
-  const rawCandidate = result?.candidates.find((c) => c.id === id) ?? null;
   const candidate = rawCandidate
     ? recomputeCandidate(rawCandidate, vehicle, result?.referencePrice ?? null)
     : null;
@@ -106,6 +302,36 @@ export function StationDetailView({ id }: { id: string }) {
   }, [candidate?.id, origin, destination]);
 
   if (!origin || !destination || !result || !candidate) {
+    if (standaloneDetail.isLoading) {
+      return (
+        <main className="mx-auto flex w-full max-w-md flex-1 items-center justify-center px-4 py-16 text-sm text-muted-foreground">
+          주유소 정보를 불러오는 중이에요.
+        </main>
+      );
+    }
+    if (standaloneDetail.station) {
+      return (
+        <NearbyStationDetail
+          station={standaloneDetail.station}
+          origin={nearbyOrigin}
+          route={stationRoute.route}
+          routeLoading={stationRoute.isLoading}
+          routeError={stationRoute.error}
+        />
+      );
+    }
+    if (standaloneDetail.error) {
+      return (
+        <main className="mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-center gap-4 px-4 py-16 text-center">
+          <p className="text-sm text-muted-foreground">
+            {standaloneDetail.error.message}
+          </p>
+          <Button render={<Link href="/nearby" />} nativeButton={false}>
+            주변 주유소로 돌아가기
+          </Button>
+        </main>
+      );
+    }
     return (
       <main className="mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-center gap-4 px-4 py-16 text-center">
         <p className="text-sm text-muted-foreground">
@@ -126,7 +352,9 @@ export function StationDetailView({ id }: { id: string }) {
   const additionalTollWon = detour?.tollWon ?? candidate.detour.tollWon;
   const baseTollWon = result.baseRoute.tollWon;
   const totalTollWon =
-    baseTollWon != null && additionalTollWon != null ? baseTollWon + additionalTollWon : undefined;
+    baseTollWon != null && additionalTollWon != null
+      ? baseTollWon + additionalTollWon
+      : undefined;
   const precise = detour != null;
 
   const rank =
@@ -162,7 +390,8 @@ export function StationDetailView({ id }: { id: string }) {
     });
 
     // 앱 스킴을 처리할 핸들러가 없는 데스크톱에서는 PC 웹 지도로 폴백한다.
-    const webFallback = isMobile === false ? buildWebFallbackUrl(deeplinkInput) : null;
+    const webFallback =
+      isMobile === false ? buildWebFallbackUrl(deeplinkInput) : null;
     if (webFallback) {
       window.open(webFallback, "_blank", "noopener,noreferrer");
       return;
@@ -200,7 +429,8 @@ export function StationDetailView({ id }: { id: string }) {
         <dl className="mt-1.5 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
           <dt className="text-muted-foreground">가격</dt>
           <dd>
-            이 경로 {result.candidates.length}곳 중 {priceRankAmongAll}번째로 저렴
+            이 경로 {result.candidates.length}곳 중 {priceRankAmongAll}번째로
+            저렴
           </dd>
           <dt className="text-muted-foreground">우회</dt>
           <dd>
@@ -213,12 +443,19 @@ export function StationDetailView({ id }: { id: string }) {
               <dt className="text-muted-foreground">통행료</dt>
               <dd className="text-muted-foreground">
                 {totalTollWon.toLocaleString()}원
-                {additionalTollWon! > 0 && ` (우회로 +${additionalTollWon!.toLocaleString()}원)`}
+                {additionalTollWon! > 0 &&
+                  ` (우회로 +${additionalTollWon!.toLocaleString()}원)`}
               </dd>
             </>
           )}
           <dt className="text-muted-foreground">순이득</dt>
-          <dd className={netSavingValue > 0 ? "font-medium text-success-foreground" : "text-muted-foreground"}>
+          <dd
+            className={
+              netSavingValue > 0
+                ? "font-medium text-success-foreground"
+                : "text-muted-foreground"
+            }
+          >
             {netSavingValue > 0
               ? `+${netSavingValue.toLocaleString()}원`
               : `${netSavingValue.toLocaleString()}원`}
