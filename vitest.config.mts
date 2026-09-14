@@ -5,6 +5,16 @@ export default defineConfig({
   test: {
     environment: "node",
     globals: true,
+    exclude: [
+      "**/node_modules/**",
+      "**/.git/**",
+      "**/dist/**",
+      "**/cypress/**",
+      "**/playwright.config.*",
+      "**/test-results/**",
+      "**/__snapshots__/**",
+      "tests/e2e/**",
+    ],
     coverage: {
       provider: "v8",
       include: ["src/domain/**", "src/infra/**"],

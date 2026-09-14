@@ -146,8 +146,10 @@ export function useSearchStream() {
   }, [stopFallbackCycle, resetPacer]);
 
   const runJsonFallback = useCallback(
-    async (body: SearchStreamInput, signal: AbortSignal) => {
+    async (body: SearchStreamInput) => {
       resetPacer(); // 폴백은 자체 시간 순환을 쓴다 — 스트림이 남긴 큐/타이머 정리
+      const fallbackController = new AbortController();
+      abortRef.current = fallbackController;
       let i = 0;
       setProgressStep(FALLBACK_STEP_CYCLE[0]);
       fallbackTimerRef.current = setInterval(() => {
@@ -160,7 +162,7 @@ export function useSearchStream() {
           method: "POST",
           headers: { "Content-Type": "application/json", Accept: "application/json" },
           body: JSON.stringify(body),
-          signal,
+          signal: fallbackController.signal,
         });
         if (!res.ok) {
           setError(await readErrorBody(res));
@@ -282,7 +284,7 @@ export function useSearchStream() {
         }
       } catch (err) {
         if (controller.signal.aborted && !gotFirstByte) {
-          await runJsonFallback(body, controller.signal);
+          await runJsonFallback(body);
         } else if (!isAbortError(err)) {
           resetPacer(); // 남은 큐가 에러 화면 위에 진행 문구를 덮어쓰지 않게
           setError({ code: "NETWORK_ERROR", message: "검색 중 문제가 발생했습니다." });
