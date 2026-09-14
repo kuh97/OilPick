@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   buildDeeplink,
+  buildStationDeeplink,
+  buildStationWebFallbackUrl,
   buildWebFallbackUrl,
 } from "../deeplink";
 import { wgs84 } from "../types";
@@ -149,7 +151,7 @@ describe("buildWebFallbackUrl — 네이버", () => {
     expect(stops[2]).toContain(encodeURIComponent("경유주유소"));
   });
 
-  it("각 지점은 {x},{y},{name},{poiId},{type} 5필드다", () => {
+  it("각 지점은 {x},{y},{name},{poiId},{type} 5필드이며 poiId·type은 비운다", () => {
     const url = buildWebFallbackUrl({ ...BASE, app: "NAVER" })!;
     const stops = url
       .replace("https://map.naver.com/p/directions/", "")
@@ -159,7 +161,7 @@ describe("buildWebFallbackUrl — 네이버", () => {
       const fields = stop.split(",");
       expect(fields).toHaveLength(5);
       expect(fields[3]).toBe(""); // poiId는 비워둔다
-      expect(fields[4]).toBe("SIMPLE_POI");
+      expect(fields[4]).toBe(""); // type은 비워둔다 — 자동차 경로 계산에 필요
     }
   });
 
@@ -182,7 +184,7 @@ describe("buildWebFallbackUrl — 네이버", () => {
 
   it("스냅샷 고정", () => {
     expect(buildWebFallbackUrl({ ...BASE, app: "NAVER" })).toMatchInlineSnapshot(
-      `"https://map.naver.com/p/directions/3ziAnu,2AJfZC,%EC%B6%9C%EB%B0%9C%EC%A7%80,,SIMPLE_POI/3AEvi8,2z6yuQ,%EB%AA%A9%EC%A0%81%EC%A7%80,,SIMPLE_POI/3zYxPO,2zUUfe,%EA%B2%BD%EC%9C%A0%EC%A3%BC%EC%9C%A0%EC%86%8C,,SIMPLE_POI/car"`,
+      `"https://map.naver.com/p/directions/3ziAnu,2AJfZC,%EC%B6%9C%EB%B0%9C%EC%A7%80,,/3AEvi8,2z6yuQ,%EB%AA%A9%EC%A0%81%EC%A7%80,,/3zYxPO,2zUUfe,%EA%B2%BD%EC%9C%A0%EC%A3%BC%EC%9C%A0%EC%86%8C,,/car"`,
     );
   });
 });
@@ -212,5 +214,68 @@ describe("buildWebFallbackUrl — 이름 미지정", () => {
     for (const stop of stops) {
       expect(stop.split(",")[2]).not.toBe("");
     }
+  });
+});
+
+describe("buildStationDeeplink — 주변 주유소 목적지", () => {
+  const BASE = {
+    origin: ORIGIN,
+    destination: WP,
+    originName: "내 위치",
+    destinationName: "주변 주유소",
+    appName: "https://oilpick.vercel.app",
+  };
+
+  it("카카오: 현재 위치(sp)에서 주유소(ep)까지 열고 경유지 파라미터는 넣지 않는다", () => {
+    const url = buildStationDeeplink({ ...BASE, app: "KAKAO" });
+    expect(url).toMatchInlineSnapshot(
+      `"kakaomap://route?sp=37.5%2C127&ep=36.3%2C128&by=car"`,
+    );
+    expect(url).not.toContain("vp=");
+  });
+
+  it("네이버: 목적지 전용 경로를 만들고 appname을 포함한다", () => {
+    const url = buildStationDeeplink({ ...BASE, app: "NAVER" });
+    expect(url).toContain("dlat=36.3");
+    expect(url).toContain("dlng=128");
+    expect(url).toContain("appname=https%3A%2F%2Foilpick.vercel.app");
+    expect(url).not.toContain("v1lat");
+  });
+
+  it("티맵: 현재 위치에서 주유소를 목적지로 전달한다", () => {
+    const url = buildStationDeeplink({ ...BASE, app: "TMAP" });
+    expect(url).toContain("rGoX=128");
+    expect(url).toContain("rGoY=36.3");
+    expect(url).not.toContain("slat");
+  });
+});
+
+describe("buildStationWebFallbackUrl — 주변 주유소 목적지", () => {
+  const BASE = {
+    origin: ORIGIN,
+    destination: WP,
+    originName: "내 위치",
+    destinationName: "주변 주유소",
+    appName: "https://oilpick.vercel.app",
+  };
+
+  it("카카오는 출발→목적지 2지점 웹 길찾기를 제공한다", () => {
+    expect(buildStationWebFallbackUrl({ ...BASE, app: "KAKAO" })).toContain(
+      "/link/by/car/",
+    );
+  });
+
+  it("네이버는 자동차 모드 쿼리로 열어 PC 자동차 경로를 선택한다", () => {
+    const naver = buildStationWebFallbackUrl({ ...BASE, app: "NAVER" })!;
+    const parsed = new URL(naver);
+    expect(parsed.origin + parsed.pathname).toBe("https://map.naver.com/index.nhn");
+    expect(parsed.searchParams.get("pathType")).toBe("0");
+    expect(parsed.searchParams.get("menu")).toBe("route");
+    expect(parsed.searchParams.get("slat")).toBe(String(ORIGIN.lat));
+    expect(parsed.searchParams.get("elng")).toBe(String(WP.lng));
+  });
+
+  it("티맵은 웹 길찾기 폴백이 없다", () => {
+    expect(buildStationWebFallbackUrl({ ...BASE, app: "TMAP" })).toBeNull();
   });
 });

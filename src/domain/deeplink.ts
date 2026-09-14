@@ -20,6 +20,15 @@ export interface DeeplinkInput {
   appName?: string;         // 네이버지도 appname 파라미터
 }
 
+export interface StationDeeplinkInput {
+  app: NaviApp;
+  origin: WGS84Point;
+  destination: WGS84Point;
+  originName?: string;
+  destinationName?: string;
+  appName?: string;
+}
+
 /**
  * 딥링크 URL 생성.
  * ARCHITECTURE.md §5.5 스킴 정의 기준.
@@ -29,6 +38,43 @@ export function buildDeeplink(input: DeeplinkInput): string {
     case "KAKAO":  return buildKakaoDeeplink(input);
     case "NAVER":  return buildNaverDeeplink(input);
     case "TMAP":   return buildTmapDeeplink(input);
+  }
+}
+
+/**
+ * 주변 주유소를 목적지로 여는 딥링크.
+ * 경로 검색 상세의 `buildDeeplink`와 달리 경유지 파라미터를 넣지 않는다.
+ */
+export function buildStationDeeplink(input: StationDeeplinkInput): string {
+  switch (input.app) {
+    case "KAKAO": {
+      const params = new URLSearchParams({
+        sp: `${input.origin.lat},${input.origin.lng}`,
+        ep: `${input.destination.lat},${input.destination.lng}`,
+        by: "car",
+      });
+      return `kakaomap://route?${params.toString()}`;
+    }
+    case "NAVER": {
+      const params = new URLSearchParams({
+        slat: String(input.origin.lat),
+        slng: String(input.origin.lng),
+        sname: input.originName ?? "",
+        dlat: String(input.destination.lat),
+        dlng: String(input.destination.lng),
+        dname: input.destinationName ?? "",
+        appname: input.appName ?? "",
+      });
+      return `nmap://route/car?${params.toString()}`;
+    }
+    case "TMAP": {
+      const params = new URLSearchParams({
+        rGoName: input.destinationName ?? "",
+        rGoX: String(input.destination.lng),
+        rGoY: String(input.destination.lat),
+      });
+      return `tmap://route?${params.toString()}`;
+    }
   }
 }
 
@@ -94,9 +140,9 @@ function encodeNaverCoord(degrees: number): string {
   return result;
 }
 
-/** 네이버 New Map 길찾기 URL의 지점 1개 세그먼트: {x},{y},{name},{poiId},{type} — poiId는 비워도 된다. */
+/** 네이버 New Map 길찾기 URL의 지점 1개 세그먼트 — poiId·type은 비워둔다. */
 function naverStopSegment(point: WGS84Point, name: string): string {
-  return `${encodeNaverCoord(point.lng)},${encodeNaverCoord(point.lat)},${encodeURIComponent(name)},,SIMPLE_POI`;
+  return `${encodeNaverCoord(point.lng)},${encodeNaverCoord(point.lat)},${encodeURIComponent(name)},,`;
 }
 
 /**
@@ -113,6 +159,7 @@ function naverStopSegment(point: WGS84Point, name: string): string {
  * 마지막=도착이라고 추측해 출발→경유→도착으로 넣었더니 실기기에서 출발-도착-경유로
  * 해석됨을 확인(2026-08-31) — 즉 두 번째 자리가 항상 도착이고, 경유지는 그 뒤에
  * 추가로 붙는다. 그래서 출발/도착을 먼저, 경유를 마지막에 넣도록 순서를 맞췄다.
+ * poiId·type은 비워야 네이버가 자동차 경로를 계산한다.
  */
 export function buildWebFallbackUrl(input: DeeplinkInput): string | null {
   const { app, origin, destination, waypoint, originName, destinationName, waypointName } = input;
@@ -125,6 +172,36 @@ export function buildWebFallbackUrl(input: DeeplinkInput): string | null {
       return `https://map.kakao.com/link/by/car/${encodeURIComponent(from)},${origin.lat},${origin.lng}/${encodeURIComponent(via)},${waypoint.lat},${waypoint.lng}/${encodeURIComponent(to)},${destination.lat},${destination.lng}`;
     case "NAVER":
       return `https://map.naver.com/p/directions/${naverStopSegment(origin, from)}/${naverStopSegment(destination, to)}/${naverStopSegment(waypoint, via)}/car`;
+    case "TMAP":
+      return null;
+  }
+}
+
+/** PC 웹에서 주변 주유소를 목적지로 여는 폴백 URL. */
+export function buildStationWebFallbackUrl(input: StationDeeplinkInput): string | null {
+  const from = input.originName || "내 위치";
+  const to = input.destinationName || "주유소";
+
+  switch (input.app) {
+    case "KAKAO":
+      return `https://map.kakao.com/link/by/car/${encodeURIComponent(from)},${input.origin.lat},${input.origin.lng}/${encodeURIComponent(to)},${input.destination.lat},${input.destination.lng}`;
+    case "NAVER": {
+      // 네이버 PC `/p/directions` 패턴은 공식 URL Scheme이 아니며, SIMPLE_POI
+      // 토큰으로 직접 만들면 지점만 표시되고 자동차 경로가 선택되지 않는다.
+      // 구형 쿼리 URL은 현재도 네이버가 `/p/directions/.../-/car`로 정규화한다.
+      const params = new URLSearchParams({
+        slng: String(input.origin.lng),
+        slat: String(input.origin.lat),
+        stext: from,
+        elng: String(input.destination.lng),
+        elat: String(input.destination.lat),
+        etext: to,
+        pathType: "0",
+        showMap: "true",
+        menu: "route",
+      });
+      return `https://map.naver.com/index.nhn?${params.toString()}`;
+    }
     case "TMAP":
       return null;
   }
