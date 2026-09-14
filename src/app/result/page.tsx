@@ -287,13 +287,22 @@ export default function ResultPage() {
               ) : (
                 <>
                   <p className="text-sm text-muted-foreground">이 경로에서는 조건에 맞는 주유소를 찾지 못했습니다.</p>
-                  <Button
-                    variant="outline"
-                    render={<Link href="/home" onClick={() => useSearchStore.getState().clearRoute()} />}
-                    nativeButton={false}
-                  >
-                    다른 경로로 다시 찾기
-                  </Button>
+                  <div className="flex flex-col gap-2">
+                    <Button
+                      variant="outline"
+                      render={<Link href="/home" onClick={() => useSearchStore.getState().clearRoute()} />}
+                      nativeButton={false}
+                    >
+                      다른 경로로 다시 찾기
+                    </Button>
+                    <Button
+                      variant="outline"
+                      render={<Link href="/nearby" />}
+                      nativeButton={false}
+                    >
+                      현재 위치 주변에서 찾기
+                    </Button>
+                  </div>
                 </>
               )}
             </div>

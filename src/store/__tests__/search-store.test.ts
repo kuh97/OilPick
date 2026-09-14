@@ -9,6 +9,7 @@ beforeEach(() => {
   useSearchStore.setState({
     origin: null,
     destination: null,
+    nearbyOrigin: null,
     fuel: "GASOLINE",
     filters: { facilities: [], brands: [], kpetroOnly: false, selfOnly: false },
     vehicle: { efficiency: DEFAULT_EFFICIENCY.GASOLINE, refuelAmount: DEFAULT_REFUEL_AMOUNT, timeValue: V_TIME },
@@ -39,6 +40,14 @@ describe("search-store — 입력", () => {
     expect(useSearchStore.getState().origin).toEqual(ORIGIN);
     expect(useSearchStore.getState().destination).toEqual(DESTINATION);
     expect(useSearchStore.getState().fuel).toBe("LPG");
+  });
+
+  it("내 주변 현재 위치는 휘발성 상세 컨텍스트로 설정하고 경로 입력 시 비운다", () => {
+    useSearchStore.getState().setNearbyOrigin(ORIGIN);
+    expect(useSearchStore.getState().nearbyOrigin).toEqual(ORIGIN);
+
+    useSearchStore.getState().setOrigin(ORIGIN);
+    expect(useSearchStore.getState().nearbyOrigin).toBeNull();
   });
 
   it("setVehicle은 부분 갱신이다 — 나머지 필드는 유지된다", () => {

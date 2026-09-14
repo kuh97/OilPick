@@ -2,7 +2,7 @@
  * 검색 컨텍스트 — Zustand. PRODUCT.md §5.1(최근 검색)·§9.2(계산 전제 기본값),
  * ARCHITECTURE.md §2(store/search-store.ts).
  *
- * vehicle·recentSearches만 persist합니다 — origin/destination/result는 화면을
+ * vehicle·recentSearches만 persist합니다 — origin/destination/nearbyOrigin/result는 화면을
  * 벗어나면 다시 검색하는 게 맞는 휘발성 상태입니다(스토어가 빈 채로 /station/:id에
  * 직접 진입하면 "검색 컨텍스트 없음"을 보여주는 것도 이 휘발성 전제 위에 섭니다).
  */
@@ -52,6 +52,8 @@ interface SearchState {
   // ─── F1 입력 ───────────────────────────────────────────────────────────
   origin: WirePoint | null;
   destination: WirePoint | null;
+  /** 내 주변 화면에서 상세로 전달할 현재 위치 — 정확한 좌표를 URL·localStorage에 저장하지 않는 휘발성 상태 */
+  nearbyOrigin: WirePoint | null;
   fuel: Fuel;
   filters: WireFilters;
   vehicle: WireVehicle; // persist — 사용자가 연비·주유량을 수정하면 다음 검색에도 유지
@@ -102,6 +104,7 @@ interface SearchState {
   // ─── actions ───────────────────────────────────────────────────────────
   setOrigin: (p: WirePoint | null) => void;
   setDestination: (p: WirePoint | null) => void;
+  setNearbyOrigin: (p: WirePoint | null) => void;
   setFuel: (fuel: Fuel) => void;
   setFilters: (filters: WireFilters) => void;
   setVehicle: (vehicle: Partial<WireVehicle>) => void;
@@ -165,6 +168,7 @@ export const useSearchStore = create<SearchState>()(
     (set, get) => ({
       origin: null,
       destination: null,
+      nearbyOrigin: null,
       fuel: "GASOLINE",
       filters: DEFAULT_FILTERS,
       vehicle: defaultVehicleFor("GASOLINE"),
@@ -187,8 +191,9 @@ export const useSearchStore = create<SearchState>()(
 
       recentSearches: [],
 
-      setOrigin: (p) => set({ origin: p }),
-      setDestination: (p) => set({ destination: p }),
+      setOrigin: (p) => set({ origin: p, nearbyOrigin: null }),
+      setDestination: (p) => set({ destination: p, nearbyOrigin: null }),
+      setNearbyOrigin: (p) => set({ nearbyOrigin: p }),
       setFuel: (fuel) =>
         set((s) => ({
           fuel,
@@ -215,6 +220,7 @@ export const useSearchStore = create<SearchState>()(
           result: null,
           streamWarnings: [],
           error: null,
+          nearbyOrigin: null,
         }),
       setProgressStep: (step, radiusM) =>
         set((s) => ({
@@ -248,11 +254,12 @@ export const useSearchStore = create<SearchState>()(
           streamWarnings: [],
           error: null,
           detourIntent: null,
+          nearbyOrigin: null,
           lastSearchKey: null,
         }),
 
       // 결과 화면에서 홈으로 돌아갈 때 — 연료·필터는 유지, 출발지/목적지만 비운다.
-      clearRoute: () => set({ origin: null, destination: null, detourIntent: null }),
+      clearRoute: () => set({ origin: null, destination: null, nearbyOrigin: null, detourIntent: null }),
     }),
     {
       name: "oilpick-search-store",

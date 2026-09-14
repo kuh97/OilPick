@@ -5,6 +5,7 @@
  */
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowUpDown, Clock, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -185,6 +186,10 @@ export default function HomePage() {
       >
         찾기
       </Button>
+
+      <Link href="/nearby" className="text-center text-sm text-primary hover:underline">
+        내 주변 주유소 보기
+      </Link>
 
       {recentSearches.length > 0 && (
         <div className="flex flex-col gap-2">
