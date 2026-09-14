@@ -81,6 +81,7 @@ export interface SearchDeps {
   db?: Db;
   prefix?: string;
   now?: Date;
+  jsonFallback?: boolean;
 }
 
 interface InternalCandidate {
@@ -304,7 +305,7 @@ interface MeasureCtx {
 async function measureBatch(
   targets: InternalCandidate[],
   ctx: MeasureCtx,
-): Promise<InternalCandidate[]> {
+): Promise<{ candidates: InternalCandidate[]; routeCalls: number }> {
   const results = await Promise.allSettled(
     targets.map((ic) =>
       getRoute({
@@ -320,7 +321,7 @@ async function measureBatch(
     ),
   );
 
-  return targets.map((ic, idx) => {
+  const candidates = targets.map((ic, idx) => {
     const result = results[idx];
     // A8 — 이 후보만 추정치 유지. 정렬 1차 키가 precise라 실측군 아래로 내려간다.
     if (result.status !== "fulfilled") return ic;
@@ -341,6 +342,7 @@ async function measureBatch(
       precise: true,
     };
   });
+  return { candidates, routeCalls: targets.length };
 }
 
 /**
@@ -350,15 +352,15 @@ async function measureBatch(
 async function findOnRouteCandidates(
   internal: InternalCandidate[],
   ctx: MeasureCtx,
-): Promise<{ onRoute: InternalCandidate[]; measured: InternalCandidate[] }> {
+): Promise<{ onRoute: InternalCandidate[]; measured: InternalCandidate[]; routeCalls: number }> {
   const targets = internal
     .filter((ic) => isOnRouteCandidate(ic.dPerp))
     .sort((a, b) => a.price - b.price || a.station.id.localeCompare(b.station.id))
     .slice(0, MAX_PRECISE);
 
-  const measured = await measureBatch(targets, ctx);
+  const { candidates: measured, routeCalls } = await measureBatch(targets, ctx);
   const onRoute = measured.filter((ic) => ic.precise && ic.tier === "ON_ROUTE");
-  return { onRoute, measured };
+  return { onRoute, measured, routeCalls };
 }
 
 /** 실측 결과를 후보 풀에 병합 — 같은 주유소는 실측값이 이긴다. */
@@ -382,6 +384,7 @@ export async function search(
   const prefix = deps.prefix ?? env.REDIS_KEY_PREFIX;
   const now = deps.now ?? new Date();
   const startedAt = now.getTime();
+  let routeCalls = 1;
 
   const warnings: Warning[] = [];
 
@@ -455,7 +458,8 @@ export async function search(
 
   // ─── STAGE 1 — 경로상 목록 (§7.2 STEP 6, 불변식 6a) ─────────────────────────
   onProgress?.({ type: "progress", step: "PRECISE" });
-  const { onRoute, measured: stage1Measured } = await findOnRouteCandidates(internal, measureCtx);
+  const { onRoute, measured: stage1Measured, routeCalls: stage1RouteCalls } = await findOnRouteCandidates(internal, measureCtx);
+  routeCalls += stage1RouteCalls;
   internal = mergeMeasured(internal, stage1Measured);
   const onRouteIds = new Set(onRoute.map((ic) => ic.station.id));
 
@@ -480,7 +484,15 @@ export async function search(
       stage: "ON_ROUTE",
       minutesNeededForOneResult: null,
     };
-    void logSearch(onRouteResult, { durationMs: Date.now() - startedAt });
+    void logSearch(onRouteResult, {
+      durationMs: Date.now() - startedAt,
+      fuel: input.vehicle.fuel,
+      filters: input.filters,
+      origin: input.origin,
+      destination: input.destination,
+      routeCalls,
+      jsonFallback: deps.jsonFallback,
+    }).catch(() => {});
     return onRouteResult;
   }
 
@@ -564,7 +576,9 @@ export async function search(
   // STEP9b — 정밀 계산. STAGE 1이 이미 잰 후보는 건너뛴다 (예산 이중 지출 방지).
   onProgress?.({ type: "progress", step: "PRECISE" });
   const unmeasured = preciseTargets.filter((ic) => !ic.precise);
-  internalStage2 = mergeMeasured(preciseTargets, await measureBatch(unmeasured, measureCtx));
+  const stage2Measurement = await measureBatch(unmeasured, measureCtx);
+  routeCalls += stage2Measurement.routeCalls;
+  internalStage2 = mergeMeasured(preciseTargets, stage2Measurement.candidates);
 
   // STEP10 — 최종 정리. A6·예산 재확인은 STAGE 2 후보에만 — 경로상은 이미 통과했다.
   internalStage2 = internalStage2.filter(
@@ -620,7 +634,15 @@ export async function search(
     minutesNeededForOneResult,
   };
 
-  void logSearch(result, { durationMs: now.getTime() - startedAt }).catch(() => {});
+  void logSearch(result, {
+    durationMs: now.getTime() - startedAt,
+    fuel: input.vehicle.fuel,
+    filters: input.filters,
+    origin: input.origin,
+    destination: input.destination,
+    routeCalls,
+    jsonFallback: deps.jsonFallback,
+  }).catch(() => {});
 
   return result;
 }

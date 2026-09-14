@@ -29,6 +29,20 @@
       "when": 1788660175755,
       "tag": "0003_phase_d_import_log_staging",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1789351081919,
+      "tag": "0004_mushy_warlock",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1789351516578,
+      "tag": "0005_oval_rocket_racer",
+      "breakpoints": true
     }
   ]
 }

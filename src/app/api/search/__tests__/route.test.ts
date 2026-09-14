@@ -76,6 +76,7 @@ describe("POST /api/search — Accept: application/json 폴백", () => {
     expect(res.status).toBe(200);
     expect(searchMock).toHaveBeenCalledTimes(1);
     expect(searchMock.mock.calls[0][1]).toBeUndefined(); // onProgress 없음
+    expect(searchMock.mock.calls[0][2]).toEqual({ jsonFallback: true });
 
     const body = await res.json();
     expect(body.searchId).toBe("s-1");
@@ -114,6 +115,7 @@ describe("POST /api/search — SSE (기본)", () => {
 
     const res = await POST(request(validBody()));
     expect(res.headers.get("content-type")).toContain("text/event-stream");
+    expect(searchMock.mock.calls.at(-1)![2]).toEqual({ jsonFallback: false });
 
     const text = await readSse(res);
     const types = eventTypes(text);

@@ -15,6 +15,9 @@ import {
   date,
   timestamp,
   index,
+  jsonb,
+  smallint,
+  uuid,
 } from "drizzle-orm/pg-core";
 
 // ─── refuel_point — 주유소 마스터 (§7.1, docs/MIGRATION-DB.md §5.1) ────────────
@@ -115,4 +118,46 @@ export const csvImportLog = pgTable("csv_import_log", {
   oilRows: integer("oil_rows"),
   lpgRows: integer("lpg_rows"),
   geocoded: integer("geocoded"),
+});
+
+// ─── 익명 이벤트 로그 (docs/ARCHITECTURE.md §7.3, Phase 11) ────────────────────
+
+export const searchEvent = pgTable(
+  "search_event",
+  {
+    id: uuid("id").primaryKey(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    fuel: text("fuel").notNull(),
+    filters: jsonb("filters").notNull(),
+    originCell: text("origin_cell").notNull(),
+    destCell: text("dest_cell").notNull(),
+    baseDistanceM: integer("base_distance_m").notNull(),
+    baseDurationS: integer("base_duration_s").notNull(),
+    t1Count: smallint("t1_count").notNull(),
+    t2Count: smallint("t2_count").notNull(),
+    t3Count: smallint("t3_count").notNull(),
+    expansionTriggered: boolean("expansion_triggered").notNull(),
+    finalRadiusM: integer("final_radius_m").notNull(),
+    referencePrice: integer("reference_price"),
+    refPriceSource: text("ref_price_source"),
+    routeCalls: smallint("route_calls").notNull(),
+    durationMs: integer("duration_ms").notNull(),
+    warnings: text("warnings").array(),
+    jsonFallback: boolean("json_fallback").notNull().default(false),
+  },
+  (table) => [
+    index("idx_search_event_created").on(table.createdAt),
+    index("idx_search_event_expand").on(table.expansionTriggered, table.createdAt),
+  ],
+);
+
+export const naviClickEvent = pgTable("navi_click_event", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  searchId: uuid("search_id").references(() => searchEvent.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  app: text("app").notNull(),
+  rank: smallint("rank").notNull(),
+  tier: text("tier").notNull(),
+  netSaving: integer("net_saving"),
+  detourDistanceM: integer("detour_distance_m"),
 });

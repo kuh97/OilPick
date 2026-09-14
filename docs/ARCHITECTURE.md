@@ -77,6 +77,7 @@ oilpick/
 │   │       ├── detour/route.ts
 │   │       ├── places/search/route.ts
 │   │       ├── stations/nearby/route.ts
+│   │       ├── stations/directions/route.ts
 │   │       ├── stations/[id]/route.ts
 │   │       ├── events/navi/route.ts
 │   │       └── cron/{import-prices,backfill-details}/route.ts
@@ -113,6 +114,7 @@ oilpick/
 │           ├── usePlacesSearch.ts
 │           ├── useNearbyStations.ts
 │           ├── useStationDetail.ts
+│           ├── useStationRoute.ts
 │           └── useDetour.ts
 ├── drizzle/                            # 생성된 마이그레이션 SQL — 커밋 대상
 ├── scripts/
@@ -176,7 +178,7 @@ oilpick/
 | `recommendation-service`  | **파이프라인 STEP 1~11 전체.** 진행 상황을 콜백으로 방출해 SSE로 흘려보냄                                |
 | `price-import-service`    | 유가 CSV 임포트 오케스트레이션 (decode→parse→게이트→지오코딩→스테이징→원자 스왑). cron·스크립트 공유    |
 | `detail-backfill-service` | 시설 정보 백필 (큐 조회→상세 API 병렬 호출→시설 컬럼 UPDATE). cron·스크립트 공유                         |
-| `event-service`           | 익명 검색·딥링크 이벤트 기록 (Phase 11 — 현재 스텁)                                                      |
+| `event-service`           | 익명 검색·딥링크 이벤트 기록 (Phase 11)                                                                  |
 
 ### 3.3 infra — 외부 시스템
 
@@ -619,6 +621,7 @@ Accept: application/json   → search(input)            // 콜백 없음 = 완�
 | `GET /api/places/search?q=`                      | 장소 자동완성 (F1)     | `{ places: [{ name, address, lat, lng }] }` 최대 5건                                                    |
 | `GET /api/stations/nearby?lat=&lng=&fuel=&sort=` | 내 주변 (F10)          | `{ stations: [...] }` 반경 `SEARCH_RADIUS`                                                              |
 | `GET /api/stations/:id`                          | 상세 보강              | `Candidate`에서 경로 의존 필드(`tier`·`perpDistanceM`·`detour`·`netSaving`·`scores`·`reason`)를 뺀 형태 |
+| `POST /api/stations/directions`                 | 주변 상세 지도 경로    | `{ stationId, origin }` → `WireBaseRoute`(현재 위치→주유소 실제 도로 경로) |
 | `POST /api/events/navi`                          | 딥링크 클릭 기록       | `204`                                                                                                   |
 | `GET /api/cron/import-prices`                    | 유가 CSV 임포트 (§9.3) | `200 { status, pricedOn, ... }` — 실패도 200                                                            |
 | `GET /api/cron/backfill-details`                 | 시설 정보 백필 (§9.3)  | `200 { limit, picked, updated, notFound, failed, remaining }`                                           |
@@ -721,8 +724,8 @@ SELECT round(avg(price_gasoline)) FROM refuel_point
 
 **개인 식별 가능 정보를 저장하지 않습니다.** 좌표는 반드시 2km 격자로 스냅한 뒤 저장합니다. 정책은 [`PRODUCT.md`](PRODUCT.md) §11.2.
 
-> 이 두 테이블과 기록 로직은 **Phase 11 범위이며 아직 구현하지 않았습니다** — `event-service`는
-> 현재 스텁입니다. 아래는 목표 스키마입니다.
+> 두 테이블과 기록 로직은 Phase 11에서 구현했습니다. 검색 이벤트의 `json_fallback`으로
+> 인앱 브라우저 폴백 사용 여부를 구분합니다.
 
 ```sql
 CREATE TABLE search_event (
@@ -743,7 +746,8 @@ CREATE TABLE search_event (
   ref_price_source    TEXT,
   route_calls         SMALLINT NOT NULL,
   duration_ms         INTEGER NOT NULL,
-  warnings            TEXT[]
+  warnings            TEXT[],
+  json_fallback       BOOLEAN NOT NULL DEFAULT FALSE
 );
 
 CREATE TABLE navi_click_event (
@@ -860,7 +864,7 @@ recommendation-service
   │      정렬 1차 키는 detour.precise — 실측군이 추정군보다 항상 위
   │   ═══▶ SSE: result
   │
-  └─▶ event-service.logSearch (비동기 · Phase 11 스텁)
+  └─▶ event-service.logSearch (비동기 · Phase 11)
 ```
 
 ### 9.2 딥링크 클릭
@@ -1066,7 +1070,7 @@ Client → domain/deeplink.build(app, origin, station, destination)
 - cron 인증 동작 (`CRON_SECRET`) — `POST /api/cron/sync-sigungu`, `Authorization` 불일치 시 401
 - `sigungu_avg_price`는 실제 오피넷 API(시도 16개 순회)로 동기화 검증 — 682행 upsert 확인
 
-`search_event`/`navi_click_event`(§7.3)는 Phase 6 범위가 아닙니다 — Phase 11에서 만듭니다.
+`search_event`/`navi_click_event`(§7.3)는 Phase 6 범위가 아닙니다 — Phase 11에서 구현했습니다.
 
 ---
 
@@ -1145,9 +1149,9 @@ Client → domain/deeplink.build(app, origin, station, destination)
 
 **의도적으로 범위를 좁힌 것들 — 정직하게 미룸**
 
-- **F10(내 주변)은 이번 Phase에서 빠짐.** PRODUCT.md §5.6이 "여기에 시간을 많이 쓰지 말라"고 명시한 대로, `useNearbyStations` 훅과 `/nearby` 화면은 다음으로 미룹니다. `GET /api/stations/nearby`는 Phase 8에서 이미 만들어져 있습니다.
+- **F10(내 주변)은 부품 재사용 범위로 구현함.** `useNearbyStations` 훅과 `/nearby` 화면은 주변 조회·정렬·상세 진입을 담당하고, 상세에서는 `useStationRoute`로 현재 위치→주유소의 실제 카카오 경로를 지도에 표시하며 카카오맵·네이버지도·티맵 목적지 안내도 제공합니다.
 - **A2(필터 때문에 0건) 진단을 단순화함.** PRODUCT.md §5.2는 "어떤 필터가 원인인지 특정"하라고 하지만, 이는 필터를 하나씩 빼며 재검색해야 해 오피넷 예산을 추가로 씁니다. 지금은 활성 필터가 있으면 "필터 초기화하고 다시 찾기" 하나만 제시합니다 — 원인 필터를 짚어주지는 않습니다.
-- **A1(확장해도 0건) 시 "목적지·출발지 근처 검색 제안"은 구현 안 함.** `/nearby`가 없어 제안할 화면 자체가 없습니다 — F10을 만들 때 같이 연결해야 합니다.
+- **A1(확장해도 0건) 시 출발지·목적지 근처 검색 제안은 아직 보류.** 현재는 결과 화면에서 현재 위치 주변 검색(`/nearby`)으로 안내합니다. 출발지·목적지 좌표를 기준으로 한 별도 주변 검색은 범위 밖입니다.
 - **모바일 딥링크는 스토어 폴백 없이 각 앱의 스킴만 시도합니다.** 앱 실행 성공 여부를 웹에서 신뢰성 있게 감지할 수 없어(타이머+visibility 방식은 iOS에서 정상 실행 후 복귀 시 거짓 "설치 오류"를 띄웠음), 미설치 시 무동작을 택했습니다. 모바일 화면에는 _"지도 앱은 설치되어 있어야 열 수 있습니다"_ 를 상시 노출하고, 데스크톱은 경유지 포함 웹 지도로 폴백합니다.
 - **네이버지도 `appname`은 운영 웹 페이지 URL(`https://oilpick.vercel.app`)을 사용합니다.** 테스트 fixture의 `com.example.oilpick`은 런타임 값이 아닙니다.
 - **지도만 실 브라우저에서 재확인 필요.** 실제 검색 결과 화면(헤더·배너·모드탭·카드·상세 추천 이유·전화번호·내비 버튼)은 실 API 키로 브라우저에서 끝까지 확인했습니다. 카카오맵만 이 세션의 샌드박스 브라우저에서 "지도를 불러오지 못했습니다"로 떴는데, 원인을 추적한 결과 스크립트 태그로 주입한 요청만 실패하고(같은 키로 `https://dapi.kakao.com/...`에 직접 접속하면 SDK가 정상 응답함) 최상위 네비게이션은 성공해, 코드 결함이 아니라 이 브라우저 도구의 서드파티 스크립트 주입 제한으로 보입니다. 실제 브라우저에서 재확인이 필요합니다.

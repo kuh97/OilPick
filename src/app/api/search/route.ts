@@ -66,7 +66,7 @@ export async function POST(request: Request) {
 
   if (wantsJson) {
     try {
-      const result = await search(input);
+      const result = await search(input, undefined, { jsonFallback: true });
       return NextResponse.json(serializeSearchResult(result));
     } catch (err) {
       const { code, message } = errorPayload(err);
@@ -76,7 +76,7 @@ export async function POST(request: Request) {
 
   const stream = createSseStream(async (controller) => {
     try {
-      const result = await search(input, (event) => controller.enqueue(progressFrame(event)));
+      const result = await search(input, (event) => controller.enqueue(progressFrame(event)), { jsonFallback: false });
       controller.enqueue(sseEvent("result", serializeSearchResult(result)));
     } catch (err) {
       controller.enqueue(sseEvent("error", errorPayload(err)));

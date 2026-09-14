@@ -34,4 +34,12 @@ describe("POST /api/events/navi", () => {
     expect(res.status).toBe(204);
     expect(logNaviClickMock).toHaveBeenCalledWith(validBody());
   });
+
+  it("이벤트 저장에 실패해도 내비게이션 요청은 204로 끝낸다", async () => {
+    logNaviClickMock.mockRejectedValueOnce(new Error("db unavailable"));
+
+    const res = await POST(request(validBody()));
+
+    expect(res.status).toBe(204);
+  });
 });

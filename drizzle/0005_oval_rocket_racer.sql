@@ -1,0 +1,1 @@
+ALTER TABLE "search_event" ADD COLUMN "json_fallback" boolean DEFAULT false NOT NULL;
