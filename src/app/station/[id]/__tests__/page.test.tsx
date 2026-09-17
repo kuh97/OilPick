@@ -258,6 +258,8 @@ describe("StationDetailView — 내 주변 목적지 안내", () => {
     expect(screen.getByText("3.2km")).toBeTruthy();
     expect(screen.getByText("약 8분")).toBeTruthy();
     expect(screen.getByRole("heading", { name: "가격" })).toBeTruthy();
+    expect(screen.getByText("45L 주유 시 예상 76,500원")).toBeTruthy();
+    expect(screen.getByText("SK에너지")).toBeTruthy();
     expect(await screen.findByText("카카오맵")).toBeTruthy();
     expect(screen.getByText("네이버지도")).toBeTruthy();
     expect(screen.getByText("티맵")).toBeTruthy();
