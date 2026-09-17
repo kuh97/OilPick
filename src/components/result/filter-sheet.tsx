@@ -89,7 +89,9 @@ export function FilterSheet({
             className="text-sm text-muted-foreground underline underline-offset-2"
             onClick={() => {
               setDraft(EMPTY_FILTERS);
-              setMaxDetourDraft(Math.min(DEFAULT_MAX_DETOUR_MINUTES, maxDetourCeiling));
+              setMaxDetourDraft(
+                Math.min(DEFAULT_MAX_DETOUR_MINUTES, maxDetourCeiling),
+              );
             }}
           >
             초기화
@@ -181,8 +183,9 @@ export function FilterSheet({
           </section>
 
           <p className="text-xs text-muted-foreground">
-            바꾼 뒤 &apos;적용&apos;을 누르면 조건에 맞는 주유소를 다시 찾아요. 운영시간 필터는
-            공공데이터에서 제공되지 않아 지원하지 않습니다.
+            바꾼 뒤 &apos;적용&apos;을 누르면 조건에 맞는 주유소를 다시 찾아요.
+            <br />
+            운영시간 필터는 공공데이터에서 제공되지 않아 지원하지 않습니다.
           </p>
         </div>
 
@@ -195,7 +198,8 @@ export function FilterSheet({
                 onClick={() => {
                   onApply(draft);
                   // 실제로 건드렸을 때만 — 안 건드린 필터 적용이 STAGE 2로 튕기지 않게.
-                  if (maxDetourDraft !== clampedMax) onApplyMaxDetourMinutes(maxDetourDraft);
+                  if (maxDetourDraft !== clampedMax)
+                    onApplyMaxDetourMinutes(maxDetourDraft);
                 }}
               />
             }
