@@ -110,7 +110,7 @@ export interface FetchRadiusOptions {
 
 /**
  * 반경 내 주유소 검색.
- * 반경은 오피넷 최대치(5000m) 고정.
+ * 반경은 내 주변 검색 설정(SEARCH_RADIUS)을 사용한다.
  */
 export async function fetchRadius(opts: FetchRadiusOptions): Promise<OpinetRadiusItem[]> {
   const certKey = opts.certKey ?? env.OPINET_CERT_KEY;

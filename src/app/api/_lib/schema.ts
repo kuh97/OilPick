@@ -89,8 +89,23 @@ export const NearbyQuerySchema = z.object({
   lng: z.coerce.number(),
   fuel: FuelSchema,
   sort: z.enum(["price", "distance"]).default("price"),
+  facilities: z.preprocess(
+    (value) => (typeof value === "string" && value.length > 0 ? value.split(",") : value),
+    z.array(FacilitySchema).default([]),
+  ),
+  brands: z.preprocess(
+    (value) => (typeof value === "string" && value.length > 0 ? value.split(",") : value),
+    z.array(z.string()).default([]),
+  ),
+  kpetroOnly: z.enum(["true", "false"]).default("false").transform((value) => value === "true"),
+  selfOnly: z.enum(["true", "false"]).default("false").transform((value) => value === "true"),
 });
 export type NearbyQuery = z.infer<typeof NearbyQuerySchema>;
+
+export const StationDetailQuerySchema = z.object({
+  fuel: FuelSchema.default("GASOLINE"),
+});
+export type StationDetailQuery = z.infer<typeof StationDetailQuerySchema>;
 
 export const PlaceSearchQuerySchema = z.object({
   q: z.string(),

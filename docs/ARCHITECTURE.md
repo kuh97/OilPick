@@ -16,7 +16,7 @@
                     │  · 홈 / 결과 / 상세 / 내주변   │
                     │  · Zustand store (+persist)   │
                     │  · lib/api 훅 (fetch 캡슐화)   │
-                    │  · 카카오맵 JS SDK (상세만)    │
+                    │  · 카카오맵 JS SDK (홈·내주변·상세) │
                     └───────────────┬──────────────┘
                                     │ HTTPS (SSE / REST)
                     ┌───────────────▼──────────────┐
@@ -619,8 +619,8 @@ Accept: application/json   → search(input)            // 콜백 없음 = 완�
 | 메서드 · 경로                                    | 용도               | 응답                                                                                                    |
 | ------------------------------------------------ | ------------------ | ------------------------------------------------------------------------------------------------------- |
 | `GET /api/places/search?q=`                      | 장소 자동완성 (F1)     | `{ places: [{ name, address, lat, lng }] }` 최대 5건                                                    |
-| `GET /api/stations/nearby?lat=&lng=&fuel=&sort=` | 내 주변 (F10)          | `{ stations: [...] }` 반경 `SEARCH_RADIUS`                                                              |
-| `GET /api/stations/:id`                          | 상세 보강              | `Candidate`에서 경로 의존 필드(`tier`·`perpDistanceM`·`detour`·`netSaving`·`scores`·`reason`)를 뺀 형태 |
+| `GET /api/stations/nearby?lat=&lng=&fuel=&sort=&facilities=&brands=&kpetroOnly=&selfOnly=` | 내 주변 (F10) | `{ stations: [...] }` 반경 `SEARCH_RADIUS`; 필터 쿼리는 선택 사항이며 우회 허용 시간은 없음 |
+| `GET /api/stations/:id?fuel=`                   | 상세 보강              | 요청 연료 가격을 포함한 `Candidate`에서 경로 의존 필드(`tier`·`perpDistanceM`·`detour`·`netSaving`·`scores`·`reason`)를 뺀 형태. `fuel` 기본값은 `GASOLINE` |
 | `POST /api/stations/directions`                 | 주변 상세 지도 경로    | `{ stationId, origin }` → `WireBaseRoute`(현재 위치→주유소 실제 도로 경로) |
 | `POST /api/events/navi`                          | 딥링크 클릭 기록       | `204`                                                                                                   |
 | `GET /api/cron/import-prices`                    | 유가 CSV 임포트 (§9.3) | `200 { status, pricedOn, ... }` — 실패도 200                                                            |
@@ -1149,7 +1149,7 @@ Client → domain/deeplink.build(app, origin, station, destination)
 
 **의도적으로 범위를 좁힌 것들 — 정직하게 미룸**
 
-- **F10(내 주변)은 부품 재사용 범위로 구현함.** `useNearbyStations` 훅과 `/nearby` 화면은 주변 조회·정렬·상세 진입을 담당하고, 상세에서는 `useStationRoute`로 현재 위치→주유소의 실제 카카오 경로를 지도에 표시하며 카카오맵·네이버지도·티맵 목적지 안내도 제공합니다.
+- **F10(내 주변)은 부품 재사용 범위로 구현함.** `useNearbyStations` 훅과 `/nearby` 화면은 주변 조회·가격 마커 지도·상세 진입을 담당하고, 상세에서는 `useStationRoute`로 현재 위치→주유소의 실제 카카오 경로를 지도에 표시하며 카카오맵·네이버지도·티맵 목적지 안내도 제공합니다.
 - **A2(필터 때문에 0건) 진단을 단순화함.** PRODUCT.md §5.2는 "어떤 필터가 원인인지 특정"하라고 하지만, 이는 필터를 하나씩 빼며 재검색해야 해 오피넷 예산을 추가로 씁니다. 지금은 활성 필터가 있으면 "필터 초기화하고 다시 찾기" 하나만 제시합니다 — 원인 필터를 짚어주지는 않습니다.
 - **A1(확장해도 0건) 시 출발지·목적지 근처 검색 제안은 아직 보류.** 현재는 결과 화면에서 현재 위치 주변 검색(`/nearby`)으로 안내합니다. 출발지·목적지 좌표를 기준으로 한 별도 주변 검색은 범위 밖입니다.
 - **모바일 딥링크는 스토어 폴백 없이 각 앱의 스킴만 시도합니다.** 앱 실행 성공 여부를 웹에서 신뢰성 있게 감지할 수 없어(타이머+visibility 방식은 iOS에서 정상 실행 후 복귀 시 거짓 "설치 오류"를 띄웠음), 미설치 시 무동작을 택했습니다. 모바일 화면에는 _"지도 앱은 설치되어 있어야 열 수 있습니다"_ 를 상시 노출하고, 데스크톱은 경유지 포함 웹 지도로 폴백합니다.

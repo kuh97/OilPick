@@ -1,7 +1,7 @@
 /**
  * 내 주변 (F10) — ARCHITECTURE.md §6.4·§10 Phase 8, PRODUCT.md §5.6.
  * 경로가 없으므로 tier·detour·netSaving·scores·reason은 계산하지 않습니다.
- * station-service는 bbox(사각형)로 조회하므로, SEARCH_RADIUS(5km) 원형 반경 밖으로
+ * station-service는 bbox(사각형)로 조회하므로, SEARCH_RADIUS(3km) 원형 반경 밖으로
  * 삐져나온 모서리 결과는 여기서 거리로 다시 걸러냅니다.
  */
 
@@ -18,7 +18,7 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const parsed = parseSearchParams(url, NearbyQuerySchema);
   if (!parsed.ok) return parsed.response;
-  const { lat, lng, fuel, sort } = parsed.data;
+  const { lat, lng, fuel, sort, facilities, brands, kpetroOnly, selfOnly } = parsed.data;
 
   const origin = wgs84(lat, lng);
   const originProjected = wgs84ToProjected(origin);
@@ -28,7 +28,7 @@ export async function GET(request: Request) {
     referencePoints: [originProjected],
     marginM: SEARCH_RADIUS,
     fuel,
-    filters: { facilities: [], brands: [], kpetroOnly: false, selfOnly: false },
+    filters: { facilities, brands, kpetroOnly, selfOnly },
     now,
   });
 
