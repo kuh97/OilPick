@@ -2,7 +2,7 @@
 
 /**
  * 필터 시트(F2·F6) — §5.2. 시설·브랜드·품질·셀프·우회 허용 시간.
- * "적용" 시 다섯 항목 모두 재검색을 유발한다 (불변식 8).
+ * 내 주변 화면에서는 우회 허용 시간만 숨기고 나머지 필터 UI를 재사용한다.
  */
 import { useState } from "react";
 import { SlidersHorizontal } from "lucide-react";
@@ -49,22 +49,31 @@ const BRAND_GROUPS: { label: string; codes: string[] }[] = [
   { label: "SK가스", codes: ["SKG"] },
 ];
 
-export function FilterSheet({
-  filters,
-  onApply,
-  maxDetourMinutes,
-  maxDetourCeiling,
-  onApplyMaxDetourMinutes,
-}: {
+type BaseFilterSheetProps = {
   filters: WireFilters;
   onApply: (filters: WireFilters) => void;
-  maxDetourMinutes: number;
-  maxDetourCeiling: number;
-  /** draft가 실제로 바뀌었을 때만 호출 — page.tsx가 이걸 STAGE 2 재검색으로 해석한다. */
-  onApplyMaxDetourMinutes: (minutes: number) => void;
-}) {
+};
+
+type FilterSheetProps =
+  | (BaseFilterSheetProps & {
+      /** 생략하면 결과 화면용으로 우회 허용 시간 필터를 표시한다. */
+      includeDetour?: true;
+      maxDetourMinutes: number;
+      maxDetourCeiling: number;
+      /** draft가 실제로 바뀌었을 때만 호출 — page.tsx가 이걸 STAGE 2 재검색으로 해석한다. */
+      onApplyMaxDetourMinutes: (minutes: number) => void;
+    })
+  | (BaseFilterSheetProps & {
+      includeDetour: false;
+    });
+
+export function FilterSheet(props: FilterSheetProps) {
+  const { filters, onApply } = props;
+  const detourProps = props.includeDetour === false ? null : props;
   const [draft, setDraft] = useState(filters);
-  const clampedMax = Math.min(maxDetourMinutes, maxDetourCeiling);
+  const clampedMax = detourProps
+    ? Math.min(detourProps.maxDetourMinutes, detourProps.maxDetourCeiling)
+    : 0;
   const [maxDetourDraft, setMaxDetourDraft] = useState(clampedMax);
 
   return (
@@ -73,7 +82,7 @@ export function FilterSheet({
         if (open) {
           // 열 때마다 현재 적용된 값으로 초기화
           setDraft(filters);
-          setMaxDetourDraft(clampedMax);
+          if (detourProps) setMaxDetourDraft(clampedMax);
         }
       }}
     >
@@ -89,9 +98,11 @@ export function FilterSheet({
             className="text-sm text-muted-foreground underline underline-offset-2"
             onClick={() => {
               setDraft(EMPTY_FILTERS);
-              setMaxDetourDraft(
-                Math.min(DEFAULT_MAX_DETOUR_MINUTES, maxDetourCeiling),
-              );
+              if (detourProps) {
+                setMaxDetourDraft(
+                  Math.min(DEFAULT_MAX_DETOUR_MINUTES, detourProps.maxDetourCeiling),
+                );
+              }
             }}
           >
             초기화
@@ -99,11 +110,13 @@ export function FilterSheet({
         </DrawerHeader>
 
         <div className="flex flex-col gap-5 px-4 pb-4">
-          <MaxDetourBar
-            value={maxDetourDraft}
-            ceilingMinutes={maxDetourCeiling}
-            onChange={setMaxDetourDraft}
-          />
+          {detourProps && (
+            <MaxDetourBar
+              value={maxDetourDraft}
+              ceilingMinutes={detourProps.maxDetourCeiling}
+              onChange={setMaxDetourDraft}
+            />
+          )}
 
           <section className="flex flex-col gap-2">
             <h3 className="text-sm font-semibold">시설</h3>
@@ -198,8 +211,9 @@ export function FilterSheet({
                 onClick={() => {
                   onApply(draft);
                   // 실제로 건드렸을 때만 — 안 건드린 필터 적용이 STAGE 2로 튕기지 않게.
-                  if (maxDetourDraft !== clampedMax)
-                    onApplyMaxDetourMinutes(maxDetourDraft);
+                  if (detourProps && maxDetourDraft !== clampedMax) {
+                    detourProps.onApplyMaxDetourMinutes(maxDetourDraft);
+                  }
                 }}
               />
             }

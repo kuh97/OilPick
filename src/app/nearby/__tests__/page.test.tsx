@@ -11,6 +11,34 @@ vi.mock("@/lib/api/useNearbyStations", () => ({
   useNearbyStations: useNearbyStationsMock,
 }));
 
+vi.mock("@/components/nearby-map", () => ({
+  NearbyMap: ({
+    stations,
+    onSelectStation,
+    onSearchAtPoint,
+  }: {
+    stations: Array<{ id: string; name: string; price: number }>;
+    onSelectStation: (stationId: string | null) => void;
+    onSearchAtPoint: (point: { lat: number; lng: number }) => void;
+  }) => (
+    <div data-testid="nearby-map" role="region" aria-label="주변 주유소 지도">
+      {stations.map((station) => (
+        <button
+          key={station.id}
+          type="button"
+          aria-label={`${station.name}, ${station.price.toLocaleString()}원/L`}
+          onClick={() => onSelectStation(station.id)}
+        >
+          {station.price.toLocaleString()}
+        </button>
+      ))}
+      <button type="button" onClick={() => onSearchAtPoint({ lat: 37.51, lng: 127.01 })}>
+        이 위치에서 다시 찾기
+      </button>
+    </div>
+  ),
+}));
+
 function mockGeolocation() {
   Object.defineProperty(window.navigator, "geolocation", {
     configurable: true,
@@ -27,7 +55,7 @@ afterEach(() => {
 });
 
 describe("NearbyPage — F10 내 주변 주유소", () => {
-  it("현재 위치 기준 목록과 가격·거리 정렬 탭을 보여준다", async () => {
+  it("현재 위치 기준 지도와 가격 마커를 보여주고 연료 선택을 유지한다", async () => {
     mockGeolocation();
     useNearbyStationsMock.mockReturnValue({
       stations: [{
@@ -64,13 +92,27 @@ describe("NearbyPage — F10 내 주변 주유소", () => {
     render(<NearbyPage />);
 
     expect(screen.getByText("내 주변 주유소")).toBeTruthy();
-    expect(screen.getByRole("tab", { name: "가격순" })).toBeTruthy();
-    expect(screen.getByRole("tab", { name: "거리순" })).toBeTruthy();
-    await waitFor(() => expect(screen.getByText("주변 주유소")).toBeTruthy());
-    expect(screen.getByText("현재 위치에서 0.8km")).toBeTruthy();
-    expect(useNearbyStationsMock).toHaveBeenCalledWith({ lat: 37.5, lng: 127.0 }, "GASOLINE");
+    expect(screen.getByRole("radio", { name: "휘발유" }).getAttribute("aria-checked")).toBe("true");
+    expect(screen.getByRole("button", { name: /필터/ })).toBeTruthy();
+    expect(screen.queryByText("현재 위치 기준 5km")).toBeNull();
+    expect(screen.queryByText(/곳을 찾았어요/)).toBeNull();
+    expect(screen.getByTestId("nearby-map")).toBeTruthy();
+    await waitFor(() => expect(screen.getByRole("button", { name: /주변 주유소, 1,700원\/L/ })).toBeTruthy());
+    expect(useNearbyStationsMock).toHaveBeenCalledWith(
+      { lat: 37.5, lng: 127.0 },
+      "GASOLINE",
+      { facilities: [], brands: [], kpetroOnly: false, selfOnly: false },
+    );
 
-    fireEvent.click(screen.getByRole("tab", { name: "거리순" }));
-    expect(screen.getAllByRole("heading", { level: 2 })[0].textContent).toBe("주변 주유소");
+    fireEvent.click(screen.getByRole("button", { name: /주변 주유소, 1,700원\/L/ }));
+    expect(screen.getByText("현재 위치에서 0km")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "상세 보기" }).getAttribute("href")).toBe("/station/A1");
+
+    fireEvent.click(screen.getByRole("button", { name: "이 위치에서 다시 찾기" }));
+    await waitFor(() => expect(useNearbyStationsMock).toHaveBeenLastCalledWith(
+      { lat: 37.51, lng: 127.01 },
+      "GASOLINE",
+      { facilities: [], brands: [], kpetroOnly: false, selfOnly: false },
+    ));
   });
 });

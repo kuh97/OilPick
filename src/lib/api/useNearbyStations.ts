@@ -5,7 +5,7 @@
  */
 
 import { useEffect, useState } from "react";
-import type { Fuel, WireNearbyStation } from "@/app/api/_lib/types";
+import type { Fuel, WireFilters, WireNearbyStation } from "@/app/api/_lib/types";
 
 export interface NearbyPoint {
   lat: number;
@@ -17,9 +17,17 @@ export interface NearbyApiError {
   message: string;
 }
 
+const EMPTY_FILTERS: WireFilters = {
+  facilities: [],
+  brands: [],
+  kpetroOnly: false,
+  selfOnly: false,
+};
+
 export function useNearbyStations(
   point: NearbyPoint | null,
   fuel: Fuel,
+  filters: WireFilters = EMPTY_FILTERS,
 ) {
   const [stations, setStations] = useState<WireNearbyStation[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -35,11 +43,15 @@ export function useNearbyStations(
       setError(null);
       setIsLoading(true);
       try {
-      const query = new URLSearchParams({
-        lat: String(requestedPoint.lat),
-        lng: String(requestedPoint.lng),
-        fuel,
-      });
+        const query = new URLSearchParams({
+          lat: String(requestedPoint.lat),
+          lng: String(requestedPoint.lng),
+          fuel,
+        });
+        if (filters.facilities.length > 0) query.set("facilities", filters.facilities.join(","));
+        if (filters.brands.length > 0) query.set("brands", filters.brands.join(","));
+        if (filters.kpetroOnly) query.set("kpetroOnly", "true");
+        if (filters.selfOnly) query.set("selfOnly", "true");
         const res = await fetch(`/api/stations/nearby?${query}`, { signal: controller.signal });
         if (!res.ok) {
           const body = (await res.json().catch(() => ({}))) as Partial<NearbyApiError>;
@@ -59,7 +71,7 @@ export function useNearbyStations(
 
     void run();
     return () => controller.abort();
-  }, [point, fuel]);
+  }, [point, fuel, filters]);
 
   return { stations, isLoading, error };
 }

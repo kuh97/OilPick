@@ -35,6 +35,24 @@ describe("useNearbyStations", () => {
     expect(result.current.stations[0].id).toBe("A1");
   });
 
+  it("기존 필터를 API 쿼리에 전달한다", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ stations: [] }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const filters = {
+      facilities: ["CAR_WASH" as const, "CVS" as const],
+      brands: ["SKE", "RTX"],
+      kpetroOnly: true,
+      selfOnly: true,
+    };
+    renderHook(() => useNearbyStations(POINT, "GASOLINE", filters));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    expect(fetchMock.mock.calls[0][0]).toBe(
+      "/api/stations/nearby?lat=37.5&lng=127&fuel=GASOLINE&facilities=CAR_WASH%2CCVS&brands=SKE%2CRTX&kpetroOnly=true&selfOnly=true",
+    );
+  });
+
   it("API 실패 시 오류를 반환한다", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(null, { status: 500 })));
 

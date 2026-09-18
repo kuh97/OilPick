@@ -67,7 +67,7 @@
 | 플랫폼        | **모바일 웹** (반응형 SPA). 네이티브 앱·PWA 아님                    |
 | 경로 API      | **카카오모빌리티 길찾기** (무료 일 10,000건)                        |
 | 장소 검색     | **카카오 로컬 API** 키워드 검색                                     |
-| 지도 렌더링   | **카카오맵 JS SDK** — 주유소 상세 화면에서만                        |
+| 지도 렌더링   | **카카오맵 JS SDK** — 홈·내 주변·주유소 상세 화면                       |
 | 주유소·가격   | **오피넷** — "과거 판매가격" CSV(전국 전수) + 상세정보 API(시설 백필) |
 | 데이터 전략   | **DB 마스터.** `refuel_point`를 일 1회 CSV 임포트로 채우고 검색은 DB만 조회 (MIGRATION-DB.md) |
 | 검색 API 형태 | **SSE 스트리밍** (`POST /api/search`) + **JSON 폴백** (§3.3)        |
@@ -506,3 +506,13 @@ pnpm db:migrate       # drizzle-kit
 ```
 
 패키지 추가 시 `pnpm add`를 씁니다. **`package.json`에 없는 패키지를 import하면 pnpm이 즉시 실패시킵니다** — 이걸 우회하려 하지 마십시오.
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->

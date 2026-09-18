@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import type React from "react";
 import localFont from "next/font/local";
-import Script from "next/script";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { MOBILE_UA_PATTERN } from "@/lib/mobile-ua-pattern";
@@ -41,16 +40,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           }}
         />
 
-        {/* 거의 모든 화면(홈/결과/주유소 상세)이 카카오맵을 쓴다 — LCP 후보인 지도가
-            하이드레이션 이후에야 SDK를 요청하며 생기는 워터폴을 없애기 위해, 하이드레이션을
-            기다리지 않고 HTML 파싱 단계부터 SDK를 미리 받아둔다. useKakaoLoader는
-            window.kakao.maps가 이미 있으면 새로 스크립트를 만들지 않고 그대로 재사용한다. */}
+        {/* 지도 컴포넌트의 useKakaoLoader가 SDK를 단일 경로로 로드한다. */}
         <link rel="preconnect" href="https://dapi.kakao.com" />
         <link rel="dns-prefetch" href="https://dapi.kakao.com" />
-        <Script
-          src={`https://dapi.kakao.com/v2/maps/sdk.js?appkey=${process.env.NEXT_PUBLIC_KAKAO_JS_KEY ?? ""}&autoload=false`}
-          strategy="beforeInteractive"
-        />
       </head>
       <body className="min-h-full flex flex-col">
         {children}
