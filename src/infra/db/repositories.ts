@@ -172,9 +172,8 @@ export async function findRefuelPointsByIds(
  * `fromRefuelPointRow`는 가격을 domain `RefuelPoint`에 포함시키지 않으므로(가격은
  * 검색 시점 값이라 station 엔티티가 아닌 Candidate가 들고 있음 — §7.1), 경로 없이
  * 상세만 필요한 GET /api/stations/:id(§6.4)는 이 함수를 씁니다.
- * `lastPrice`는 마지막으로 검색됐던 연료(`lastPriceProd`) 기준이라, 요청한 연료와
- * 다를 수 있습니다 — PRODUCT.md §5.6이 이 기능에 시간을 많이 쓰지 말라고 명시한 만큼
- * 현재는 이 한계를 그대로 노출합니다.
+ * 상세 API는 요청 연료의 CSV 가격 컬럼을 우선 사용하고, CSV 가격이 없을 때
+ * `lastPriceProd`가 요청 연료와 일치하는지 확인한 뒤 상세 스냅샷을 폴백으로 씁니다.
  */
 export async function findRefuelPointRowById(
   id: string,

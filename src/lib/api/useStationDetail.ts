@@ -6,13 +6,14 @@
 
 import { useEffect, useState } from "react";
 import type { WireStationSummary } from "@/app/api/_lib/types";
+import type { Fuel } from "@/domain/types";
 
 export interface ApiError {
   code: string;
   message: string;
 }
 
-export function useStationDetail(stationId: string | null) {
+export function useStationDetail(stationId: string | null, fuel: Fuel = "GASOLINE") {
   const [station, setStation] = useState<WireStationSummary | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
@@ -24,7 +25,7 @@ export function useStationDetail(stationId: string | null) {
     async function run() {
       setIsLoading(true);
       try {
-        const res = await fetch(`/api/stations/${stationId}`, { signal: controller.signal });
+        const res = await fetch(`/api/stations/${stationId}?fuel=${fuel}`, { signal: controller.signal });
         if (!res.ok) {
           const body = (await res.json().catch(() => ({}))) as Partial<ApiError>;
           setError({ code: body.code ?? "NOT_FOUND", message: body.message ?? "주유소를 찾을 수 없습니다." });
@@ -42,7 +43,7 @@ export function useStationDetail(stationId: string | null) {
 
     void run();
     return () => controller.abort();
-  }, [stationId]);
+  }, [stationId, fuel]);
 
   // 요청은 effect에서 시작하므로 첫 렌더에는 내부 isLoading이 아직 false다.
   // stationId가 있는데 결과와 오류가 모두 없으면 응답 대기 중으로 간주해

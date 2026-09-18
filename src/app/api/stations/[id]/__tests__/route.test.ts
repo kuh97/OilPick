@@ -60,7 +60,7 @@ describe("GET /api/stations/:id", () => {
     expect(res.status).toBe(404);
   });
 
-  it("경로 의존 필드 없이 DB의 lastPrice·priceTradedAt을 그대로 노출한다", async () => {
+  it("경로 의존 필드 없이 요청 연료와 일치하는 lastPrice·priceTradedAt을 노출한다", async () => {
     findRefuelPointRowByIdMock.mockResolvedValue(row());
     const res = await GET(new Request("https://example.com/api/stations/A0012345"), makeParams("A0012345"));
     expect(res.status).toBe(200);
@@ -89,7 +89,7 @@ describe("GET /api/stations/:id", () => {
     expect(body.priceUpdatedAt).toBe("2026-09-04T00:00:00.000Z");
   });
 
-  it("LPG 충전소는 CSV 폴백 시 price_lpg를 쓴다", async () => {
+  it("LPG 충전소는 CSV 폴백 시 요청한 fuel의 price_lpg를 쓴다", async () => {
     findRefuelPointRowByIdMock.mockResolvedValue(
       row({
         energyType: "LPG",
@@ -100,9 +100,33 @@ describe("GET /api/stations/:id", () => {
         pricedOn: "2026-09-04",
       }),
     );
-    const res = await GET(new Request("https://example.com/api/stations/A0012345"), makeParams("A0012345"));
+    const res = await GET(new Request("https://example.com/api/stations/A0012345?fuel=LPG"), makeParams("A0012345"));
     const body = await res.json();
     expect(body.price).toBe(1050);
+  });
+
+  it("다른 연료의 lastPrice 대신 요청한 연료의 CSV 가격을 반환한다", async () => {
+    findRefuelPointRowByIdMock.mockResolvedValue(
+      row({
+        lastPrice: 1877,
+        lastPriceProd: "D047",
+        priceGasoline: 1897,
+        priceDiesel: 1877,
+        pricedOn: "2026-09-04",
+      }),
+    );
+
+    const gasolineRes = await GET(
+      new Request("https://example.com/api/stations/A0012345?fuel=GASOLINE"),
+      makeParams("A0012345"),
+    );
+    expect((await gasolineRes.json()).price).toBe(1897);
+
+    const dieselRes = await GET(
+      new Request("https://example.com/api/stations/A0012345?fuel=DIESEL"),
+      makeParams("A0012345"),
+    );
+    expect((await dieselRes.json()).price).toBe(1877);
   });
 
   it("lastPrice·CSV 가격 둘 다 없으면 price는 null이다", async () => {

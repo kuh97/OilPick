@@ -25,6 +25,7 @@ export function StationDetailView({ id }: { id: string }) {
   const nearbyOrigin = useSearchStore((s) => s.nearbyOrigin);
   const result = useSearchStore((s) => s.result);
   const vehicle = useSearchStore((s) => s.vehicle);
+  const fuel = useSearchStore((s) => s.fuel);
   const mode = useSearchStore((s) => s.mode);
   const avoidHighway = useSearchStore((s) => s.avoidHighway);
   const rawCandidate = result?.candidates.find((c) => c.id === id) ?? null;
@@ -33,7 +34,7 @@ export function StationDetailView({ id }: { id: string }) {
     destination != null &&
     result != null &&
     rawCandidate != null;
-  const standaloneDetail = useStationDetail(hasSearchContext ? null : id);
+  const standaloneDetail = useStationDetail(hasSearchContext ? null : id, fuel);
   const stationRoute = useStationRoute(
     hasSearchContext || !nearbyOrigin ? null : id,
     nearbyOrigin,

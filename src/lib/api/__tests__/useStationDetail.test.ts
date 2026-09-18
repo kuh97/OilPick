@@ -16,19 +16,24 @@ describe("useStationDetail", () => {
   });
 
   it("성공하면 station을 반환한다", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ id: "A1", name: "테스트주유소", price: 1650 }), { status: 200 }),
+    );
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue(
-        new Response(JSON.stringify({ id: "A1", name: "테스트주유소", price: 1650 }), { status: 200 }),
-      ),
+      fetchMock,
     );
 
-    const { result } = renderHook(() => useStationDetail("A1"));
+    const { result } = renderHook(() => useStationDetail("A1", "DIESEL"));
     expect(result.current.isLoading).toBe(true);
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
     expect(result.current.station?.id).toBe("A1");
     expect(result.current.error).toBeNull();
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/stations/A1?fuel=DIESEL",
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    );
   });
 
   it("404면 error를 반환하고 station은 null이다", async () => {
