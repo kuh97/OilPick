@@ -145,4 +145,9 @@ describe("createSemaphore — 동시성 제한", () => {
     await Promise.all(tasks);
     expect(maxConcurrent).toBeLessThanOrEqual(2);
   });
+
+  it("limit가 0이어도 작업을 영원히 대기시키지 않는다", async () => {
+    const sem = createSemaphore(0);
+    await expect(sem.run(async () => "started")).resolves.toBe("started");
+  });
 });

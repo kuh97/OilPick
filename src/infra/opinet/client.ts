@@ -29,11 +29,14 @@ export interface Semaphore {
 }
 
 export function createSemaphore(limit: number): Semaphore {
+  // Vercel 환경변수가 비어 있으면 Number("")가 0이 된다. 동시성 0은
+  // 대기열에서 아무 작업도 시작하지 못하게 하므로 최소 1회는 보장한다.
+  const safeLimit = Number.isFinite(limit) && limit > 0 ? Math.floor(limit) : 1;
   let running = 0;
   const queue: Array<() => void> = [];
 
   function next() {
-    if (queue.length > 0 && running < limit) {
+    if (queue.length > 0 && running < safeLimit) {
       running++;
       queue.shift()!();
     }
@@ -42,7 +45,7 @@ export function createSemaphore(limit: number): Semaphore {
   return {
     async run<T>(fn: () => Promise<T>): Promise<T> {
       await new Promise<void>((resolve) => {
-        if (running < limit) {
+        if (running < safeLimit) {
           running++;
           resolve();
         } else {
