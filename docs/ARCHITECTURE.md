@@ -53,7 +53,7 @@
 | **SSE 스트리밍**           | 경유 경로 정밀 계산에 수 초가 걸립니다. 단계별 진행을 실제로 알려주지 않으면 [`PRODUCT.md`](PRODUCT.md) §10.3의 로딩 UI가 가짜 애니메이션이 됩니다                                       |
 | **SSE + JSON 폴백**        | 카카오톡 등 인앱 브라우저에서 스트림이 버퍼링되면 사용자가 아무것도 못 받습니다. **같은 서비스 함수를 콜백 없이 호출하면 그게 곧 REST 응답**이라 서버 추가 비용이 거의 없습니다 (§6.2.1) |
 | **서버리스 친화 드라이버** | Neon HTTP 드라이버 + Upstash REST. 인스턴스가 매 요청 새로 뜨므로 TCP 커넥션 풀이 무의미하고, 오히려 커넥션 고갈을 부릅니다                                                              |
-| **상태는 Zustand 하나**    | 검색 결과·`vehicle`·필터가 라우팅을 넘나듭니다. 서버 상태는 사실상 "검색 결과 1개"뿐이라 서버 상태 라이브러리를 두지 않습니다 ([`../AGENTS.md`](../AGENTS.md) §7.5)                      |
+| **사용자 상태는 Zustand 하나** | 검색 결과·`vehicle`·필터가 라우팅을 넘나듭니다. 사용자 검색 흐름은 기존처럼 Zustand가 소유합니다. 관리자 문의 목록은 상태별 커서 페이지와 재조회 캐시가 필요하므로 관리자 화면에 한해 TanStack Query를 사용합니다 |
 
 ---
 
@@ -623,6 +623,8 @@ Accept: application/json   → search(input)            // 콜백 없음 = 완�
 | `GET /api/stations/:id?fuel=`                   | 상세 보강              | 요청 연료 가격을 포함한 `Candidate`에서 경로 의존 필드(`tier`·`perpDistanceM`·`detour`·`netSaving`·`scores`·`reason`)를 뺀 형태. `fuel` 기본값은 `GASOLINE` |
 | `POST /api/stations/directions`                 | 주변 상세 지도 경로    | `{ stationId, origin }` → `WireBaseRoute`(현재 위치→주유소 실제 도로 경로) |
 | `POST /api/events/navi`                          | 딥링크 클릭 기록       | `204`                                                                                                   |
+| `GET /api/admin/feedback?status=&cursor=`        | 관리자 문의 목록       | 관리자 세션 필요. `{ items, nextCursor }` — 20건 단위 커서 페이지                                        |
+| `GET /api/admin/feedback/counts`                 | 관리자 문의 건수       | 관리자 세션 필요. `{ counts: { ALL, NEW, IN_PROGRESS, RESOLVED } }`                                       |
 | `GET /api/cron/import-prices`                    | 유가 CSV 임포트 (§9.3) | `200 { status, pricedOn, ... }` — 실패도 200                                                            |
 | `GET /api/cron/backfill-details`                 | 시설 정보 백필 (§9.3)  | `200 { limit, picked, updated, notFound, failed, remaining }`                                           |
 
@@ -635,6 +637,39 @@ Accept: application/json   → search(input)            // 콜백 없음 = 완�
   "tier": "T3",
   "netSaving": 3252,
   "detourDistanceM": 12400
+}
+```
+
+**`GET /api/admin/feedback` 관리자 문의 목록**
+
+`status`는 `NEW`·`IN_PROGRESS`·`RESOLVED` 중 하나이며 생략하면 전체 문의를 조회합니다.
+첫 요청은 `cursor`를 생략하고, 다음 요청부터 응답의 `nextCursor`를 그대로 전달합니다.
+커서는 `created_at DESC, id DESC` 정렬 위치를 담은 불투명 문자열이므로 클라이언트가
+커서 값을 계산하거나 수정하지 않습니다. 더 불러올 항목이 없으면 `nextCursor`는 `null`입니다.
+
+```json
+{
+  "items": [{
+    "id": "...",
+    "email": "user@example.com",
+    "subject": "시설 정보가 달라요",
+    "content": "세차장이 없어요.",
+    "stationId": "A0000001",
+    "searchId": null,
+    "status": "NEW",
+    "createdAt": "2026-10-19T01:02:03.000Z",
+    "resolvedAt": null
+  }],
+  "nextCursor": "opaque-cursor-or-null"
+}
+```
+
+`GET /api/admin/feedback/counts`는 목록과 분리된 공용 query로 관리합니다. 탭 숫자는
+목록 탭을 바꿀 때 다시 조회하지 않고 이 응답을 재사용합니다.
+
+```json
+{
+  "counts": { "ALL": 42, "NEW": 12, "IN_PROGRESS": 18, "RESOLVED": 12 }
 }
 ```
 

@@ -98,6 +98,13 @@ export const AdminLoginRequestSchema = z.object({
 });
 export type AdminLoginRequest = z.infer<typeof AdminLoginRequestSchema>;
 
+export const AdminFeedbackStatusSchema = z.enum(["NEW", "IN_PROGRESS", "RESOLVED"]);
+export const AdminFeedbackQuerySchema = z.object({
+  status: AdminFeedbackStatusSchema.optional(),
+  cursor: z.string().trim().min(1).max(512).optional(),
+});
+export type AdminFeedbackStatus = z.infer<typeof AdminFeedbackStatusSchema>;
+
 export const NearbyQuerySchema = z.object({
   lat: z.coerce.number(),
   lng: z.coerce.number(),

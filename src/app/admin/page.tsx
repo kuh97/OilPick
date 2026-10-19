@@ -1,4 +1,6 @@
 import { redirect } from "next/navigation";
+import { AdminFeedbackList } from "@/components/admin/admin-feedback-list";
+import { AdminQueryProvider } from "@/components/admin/admin-query-provider";
 import { requireAdminSession } from "@/lib/admin-session";
 
 export const dynamic = "force-dynamic";
@@ -11,6 +13,9 @@ export default async function AdminPage() {
       <p className="text-sm font-bold text-primary">OilPick Ops</p>
       <h1 className="mt-3 text-3xl font-extrabold tracking-tight">관리자 화면</h1>
       <p className="mt-3 text-sm text-muted-foreground">관리자 인증이 완료되었습니다.</p>
+      <AdminQueryProvider>
+        <AdminFeedbackList />
+      </AdminQueryProvider>
     </main>
   );
 }

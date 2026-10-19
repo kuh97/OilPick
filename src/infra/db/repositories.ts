@@ -7,7 +7,7 @@
  * BudgetStore 주입 패턴과 동일).
  */
 
-import { and, avg, count, desc, eq, gt, gte, inArray, isNull, lte, like, ne, sql } from "drizzle-orm";
+import { and, avg, count, desc, eq, gt, gte, inArray, isNull, lt, lte, like, ne, or, sql } from "drizzle-orm";
 import { getDb, type Db } from "./client";
 import { adminFeedback, refuelPoint, refuelPointStaging, csvImportLog } from "./schema";
 import { mapDetailItem, FUEL_TO_PRODCD } from "@/infra/opinet/mapper";
@@ -43,6 +43,61 @@ export async function insertAdminFeedback(
   db: Db = getDb(),
 ): Promise<void> {
   await db.insert(adminFeedback).values(input);
+}
+
+export type AdminFeedbackRow = typeof adminFeedback.$inferSelect;
+
+export interface AdminFeedbackCursor {
+  createdAt: Date;
+  id: string;
+}
+
+export async function listAdminFeedbackPage(
+  options: {
+    status?: string;
+    cursor?: AdminFeedbackCursor;
+    limit: number;
+  },
+  db: Db = getDb(),
+): Promise<AdminFeedbackRow[]> {
+  const cursorCondition = options.cursor
+    ? or(
+        lt(adminFeedback.createdAt, options.cursor.createdAt),
+        and(
+          eq(adminFeedback.createdAt, options.cursor.createdAt),
+          lt(adminFeedback.id, options.cursor.id),
+        ),
+      )
+    : undefined;
+  const conditions = [
+    options.status ? eq(adminFeedback.status, options.status) : undefined,
+    cursorCondition,
+  ].filter((condition): condition is NonNullable<typeof condition> => condition != null);
+
+  if (conditions.length === 0) {
+    return db
+      .select()
+      .from(adminFeedback)
+      .orderBy(desc(adminFeedback.createdAt), desc(adminFeedback.id))
+      .limit(options.limit);
+  }
+
+  return db
+    .select()
+    .from(adminFeedback)
+    .where(and(...conditions))
+    .orderBy(desc(adminFeedback.createdAt), desc(adminFeedback.id))
+    .limit(options.limit);
+}
+
+export async function countAdminFeedbackByStatus(
+  db: Db = getDb(),
+): Promise<Array<{ status: string; count: number }>> {
+  const rows = await db
+    .select({ status: adminFeedback.status, count: count() })
+    .from(adminFeedback)
+    .groupBy(adminFeedback.status);
+  return rows.map((row) => ({ status: row.status, count: Number(row.count) }));
 }
 
 export interface UpsertRefuelPointOptions {

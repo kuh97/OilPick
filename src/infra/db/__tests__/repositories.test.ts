@@ -15,6 +15,8 @@ import {
   getDetailBackfillProgress,
   updateDetailFields,
   markDetailSyncedEmpty,
+  listAdminFeedbackPage,
+  countAdminFeedbackByStatus,
   type RefuelPointRow,
 } from "../repositories";
 import type { Db } from "../client";
@@ -71,6 +73,55 @@ describe("toRefuelPointInsert — 순수 변환", () => {
   it("priceTradedAt은 항상 null (오피넷 응답에 기준시각 없음, §5.1)", () => {
     const row = toRefuelPointInsert(detailItem, { now: NOW });
     expect(row.priceTradedAt).toBeNull();
+  });
+});
+
+describe("listAdminFeedbackPage — DB 접근", () => {
+  it("상태·커서 조건과 안정적인 정렬을 적용하고 limit을 그대로 전달한다", async () => {
+    const limit = vi.fn().mockResolvedValue([]);
+    const orderBy = vi.fn(() => ({ limit }));
+    const where = vi.fn(() => ({ orderBy }));
+    const from = vi.fn(() => ({ where, orderBy }));
+    const select = vi.fn(() => ({ from }));
+    const cursor = { createdAt: NOW, id: "11111111-1111-4111-8111-111111111111" };
+
+    await listAdminFeedbackPage(
+      { status: "NEW", cursor, limit: 21 },
+      { select } as unknown as Db,
+    );
+
+    expect(select).toHaveBeenCalledTimes(1);
+    expect(where).toHaveBeenCalledTimes(1);
+    expect(orderBy).toHaveBeenCalledTimes(1);
+    expect(limit).toHaveBeenCalledWith(21);
+  });
+
+  it("조건이 없어도 createdAt과 id 내림차순 정렬을 적용한다", async () => {
+    const limit = vi.fn().mockResolvedValue([]);
+    const orderBy = vi.fn(() => ({ limit }));
+    const from = vi.fn(() => ({ orderBy }));
+    const select = vi.fn(() => ({ from }));
+
+    await listAdminFeedbackPage({ limit: 21 }, { select } as unknown as Db);
+
+    expect(orderBy).toHaveBeenCalledTimes(1);
+    expect(limit).toHaveBeenCalledWith(21);
+  });
+});
+
+describe("countAdminFeedbackByStatus — DB 접근", () => {
+  it("상태별 건수를 숫자로 변환해 반환한다", async () => {
+    const groupBy = vi.fn().mockResolvedValue([
+      { status: "NEW", count: "3" },
+      { status: "RESOLVED", count: 2 },
+    ]);
+    const from = vi.fn(() => ({ groupBy }));
+    const select = vi.fn(() => ({ from }));
+
+    await expect(countAdminFeedbackByStatus({ select } as unknown as Db)).resolves.toEqual([
+      { status: "NEW", count: 3 },
+      { status: "RESOLVED", count: 2 },
+    ]);
   });
 });
 
