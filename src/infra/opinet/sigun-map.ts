@@ -43,9 +43,14 @@ export interface SigunMapDeps {
 /** 오피넷 areaCode.do + avgSigunPrice.do로 매핑을 새로 만든다 (17회 호출). */
 export async function buildSigunMapFromOpinet(): Promise<Map<string, string>> {
   const areas = await fetchAreaCodes();
+  // fetchAvgSigunPrice 내부의 오피넷 세마포어가 동시성을 제한하므로,
+  // 시도별 조회를 순차 실행하지 않는다. 캐시 미스 시 17회가 순차로 쌓이면
+  // Vercel 함수의 300초 제한을 쉽게 압박한다.
+  const results = await Promise.all(
+    areas.map((area) => fetchAvgSigunPrice({ sido: area.AREA_CD })),
+  );
   const map = new Map<string, string>();
-  for (const area of areas) {
-    const items = await fetchAvgSigunPrice({ sido: area.AREA_CD });
+  for (const items of results) {
     for (const item of items) map.set(item.SIGUNNM, item.SIGUNCD);
   }
   return map;
@@ -75,7 +80,18 @@ export async function getSigunMap(deps: SigunMapDeps = {}): Promise<Map<string, 
     }
   }
 
-  const map = await buildSigunMapFromOpinet();
+  let map: Map<string, string>;
+  try {
+    map = await buildSigunMapFromOpinet();
+  } catch (err) {
+    // 기존 행의 sigun_cd는 import service가 보존한다. 새 행 일부의 매핑이
+    // 비어도 가격·좌표 임포트 전체를 300초 타임아웃으로 실패시키지 않는다.
+    console.warn(
+      "[sigun-map] 오피넷 지역코드 조회 실패 — 기존 매핑을 보존하고 이번 임포트를 계속합니다",
+      err instanceof Error ? err.message : String(err),
+    );
+    return new Map();
+  }
   if (map.size > 0) {
     // 캐시 저장이 임포트 전체를 막지 않도록 best-effort로 처리한다.
     await withTimeout(
