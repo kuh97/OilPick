@@ -8,6 +8,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { MapPin, Store, Wrench, Droplets } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { HelpDrawer } from "@/components/help-drawer";
 import { FuelSelect } from "@/components/fuel-select";
 import { FilterSheet } from "@/components/result/filter-sheet";
 import { NearbyMap } from "@/components/nearby-map";
@@ -179,7 +180,9 @@ export default function NearbyPage() {
           ← 홈
         </Link>
         <h1 className="text-base font-semibold">내 주변 주유소</h1>
-        <span aria-hidden />
+        <div className="justify-self-end">
+          <HelpDrawer stationId={selectedStation?.id} />
+        </div>
       </header>
 
       <section className="flex flex-col gap-3 rounded-xl border border-border bg-card p-3.5 shadow-[var(--shadow-sm)]">

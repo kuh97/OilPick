@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { TierBadge } from "@/components/result/tier-badge";
+import { HelpDrawer } from "@/components/help-drawer";
 import { brandName, type Tier } from "@/domain/types";
 import type { NaviApp } from "@/domain/deeplink";
 import type { WireStationSummary } from "@/app/api/_lib/types";
@@ -24,11 +25,15 @@ export function StationDetailHeader({
   backLabel,
   stationName,
   tier,
+  stationId,
+  searchId,
 }: {
   backHref: string;
   backLabel: string;
   stationName: string;
   tier?: Tier;
+  stationId?: string;
+  searchId?: string;
 }) {
   return (
     <header>
@@ -36,9 +41,12 @@ export function StationDetailHeader({
         <Link href={backHref} className="text-sm text-muted-foreground">
           ← {backLabel}
         </Link>
-        {tier && <TierBadge tier={tier} />}
+        <HelpDrawer stationId={stationId} searchId={searchId} />
       </div>
-      <h1 className="mt-3 text-xl font-bold">{stationName}</h1>
+      <h1 className="mt-3 flex flex-wrap items-center gap-2 text-xl font-bold">
+        <span>{stationName}</span>
+        {tier && <TierBadge tier={tier} />}
+      </h1>
     </header>
   );
 }

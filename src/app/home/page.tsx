@@ -9,6 +9,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowUpDown, Clock, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { HelpDrawer } from "@/components/help-drawer";
 import { Switch } from "@/components/ui/switch";
 import { PlaceAutocompleteInput } from "@/components/place-autocomplete";
 import { FuelSelect } from "@/components/fuel-select";
@@ -85,25 +86,28 @@ export default function HomePage() {
 
   return (
     <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-6 px-4 py-8">
-      <h1 className="flex items-center gap-2">
-        <svg viewBox="0 0 100 100" width="32" height="32" aria-hidden>
-          <rect width="100" height="100" rx="22" ry="22" fill="#3182F6" />
-          <g transform="translate(50,50) scale(0.8) translate(-50,-50)">
-            <path
-              d="M50 8 C33 30 22 46 22 64 C22 79.46 34.54 92 50 92 C65.46 92 78 79.46 78 64 C78 46 67 30 50 8 Z"
-              fill="#FFFFFF"
-            />
-            <g transform="translate(39,47) scale(0.42)">
+      <div className="flex items-center justify-between">
+        <h1 className="flex items-center gap-2">
+          <svg viewBox="0 0 100 100" width="32" height="32" aria-hidden>
+            <rect width="100" height="100" rx="22" ry="22" fill="#3182F6" />
+            <g transform="translate(50,50) scale(0.8) translate(-50,-50)">
               <path
                 d="M50 8 C33 30 22 46 22 64 C22 79.46 34.54 92 50 92 C65.46 92 78 79.46 78 64 C78 46 67 30 50 8 Z"
-                fill="#E8963C"
+                fill="#FFFFFF"
               />
+              <g transform="translate(39,47) scale(0.42)">
+                <path
+                  d="M50 8 C33 30 22 46 22 64 C22 79.46 34.54 92 50 92 C65.46 92 78 79.46 78 64 C78 46 67 30 50 8 Z"
+                  fill="#E8963C"
+                />
+              </g>
             </g>
-          </g>
-        </svg>
-        {/* eslint-disable-next-line @next/next/no-img-element -- 벡터 워드마크, next/image svg 최적화 미지원 */}
-        <img src="/brand/wordmark.svg" alt="오일픽" className="h-6 w-auto" />
-      </h1>
+          </svg>
+          {/* eslint-disable-next-line @next/next/no-img-element -- 벡터 워드마크, next/image svg 최적화 미지원 */}
+          <img src="/brand/wordmark.svg" alt="오일픽" className="h-6 w-auto" />
+        </h1>
+        <HelpDrawer />
+      </div>
       <p className="text-sm text-muted-foreground">
         경로에 딱 맞는 주유소를 찾아드려요
       </p>

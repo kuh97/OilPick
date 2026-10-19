@@ -8,6 +8,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { AlertTriangle, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { HelpDrawer } from "@/components/help-drawer";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { LoadingProgress } from "@/components/result/loading-progress";
 import { ExpansionBanner } from "@/components/result/expansion-banner";
@@ -210,13 +211,16 @@ export default function ResultPage() {
   return (
     <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-4 px-4 py-6">
       <header className="flex flex-col gap-1">
-        <Link
-          href="/home"
-          className="text-sm text-muted-foreground"
-          onClick={() => useSearchStore.getState().clearRoute()}
-        >
-          ← {origin.name ?? "출발지"} → {destination.name ?? "목적지"}
-        </Link>
+        <div className="flex items-center justify-between gap-2">
+          <Link
+            href="/home"
+            className="min-w-0 truncate text-sm text-muted-foreground"
+            onClick={() => useSearchStore.getState().clearRoute()}
+          >
+            ← {origin.name ?? "출발지"} → {destination.name ?? "목적지"}
+          </Link>
+          {!showFullScreenLoading && <HelpDrawer searchId={result?.searchId} />}
+        </div>
         {(result?.baseRoute ?? baseRoute) && (
           <p className="text-sm text-muted-foreground">
             기본 경로 {distanceMToKm((result?.baseRoute ?? baseRoute)!.distanceM)}km ·{" "}

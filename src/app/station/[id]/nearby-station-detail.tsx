@@ -66,6 +66,7 @@ export function NearbyStationDetail({
         backHref="/nearby"
         backLabel="내 주변 주유소"
         stationName={station.name}
+        stationId={station.id}
       />
 
       {origin && (
@@ -142,6 +143,7 @@ export function NearbyStationDetail({
       {origin && (
         <StationNaviButtons isMobile={isMobile} onClick={handleNaviClick} />
       )}
+
     </main>
   );
 }

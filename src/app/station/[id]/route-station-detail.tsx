@@ -126,6 +126,8 @@ export function RouteStationDetail({
         backLabel="검색 결과"
         stationName={candidate.name}
         tier={candidate.tier}
+        stationId={candidate.id}
+        searchId={result.searchId}
       />
 
       <RouteMap
@@ -202,6 +204,7 @@ export function RouteStationDetail({
       </Alert>
 
       <StationNaviButtons isMobile={isMobile} onClick={handleNaviClick} />
+
     </main>
   );
 }
