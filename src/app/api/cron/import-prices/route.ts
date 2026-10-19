@@ -25,15 +25,25 @@ export async function GET(request: Request): Promise<Response> {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
+  const startedAt = Date.now();
+  const mark = (step: string) => {
+    console.info(`[price-import] ${step} +${Date.now() - startedAt}ms`);
+  };
+
+  mark("start");
   let csvs: { oil: Buffer; lpg: Buffer };
   try {
     csvs = await getLatestPriceCsvs();
+    mark(`blob-read oil=${csvs.oil.byteLength} lpg=${csvs.lpg.byteLength}`);
   } catch (err) {
     const detail = err instanceof Error ? err.message : String(err);
+    mark(`blob-read-failed ${detail}`);
     await writeCsvImportLog({ pricedOn: null, status: "DOWNLOAD_FAILED", detail });
     return NextResponse.json({ status: "DOWNLOAD_FAILED", detail }, { status: 200 });
   }
 
+  mark("import-start");
   const result = await importPrices({ oilCsv: csvs.oil, lpgCsv: csvs.lpg });
+  mark(`import-end status=${result.status}`);
   return NextResponse.json(result, { status: 200 });
 }

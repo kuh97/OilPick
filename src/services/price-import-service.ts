@@ -75,11 +75,16 @@ export async function importPrices(
   input: PriceImportInput,
   deps: PriceImportDeps = {},
 ): Promise<PriceImportResult> {
+  const startedAt = Date.now();
+  const mark = (step: string) => {
+    console.info(`[price-import] ${step} +${Date.now() - startedAt}ms`);
+  };
   const db = deps.db ?? getDb();
   const prefix = deps.prefix ?? env.REDIS_KEY_PREFIX;
   const geocode = deps.geocode ?? geocodeStation;
 
   // ── STEP 1: 디코딩 + 파싱 (G1·G2는 여기서 throw) ──────────────────────────
+  mark("parse-start");
   let oilParsed: ReturnType<typeof parseOilCsv>;
   let lpgParsed: ReturnType<typeof parseLpgCsv>;
   try {
@@ -87,19 +92,24 @@ export async function importPrices(
     lpgParsed = parseLpgCsv(decodeEucKr(input.lpgCsv));
   } catch (err) {
     const { gate, detail } = classifyParseError(err instanceof Error ? err.message : String(err));
+    mark(`parse-failed gate=${gate}`);
     await writeCsvImportLog({ pricedOn: null, status: "GATE_FAILED", failedGate: gate, detail }, db);
     return { status: "GATE_FAILED", gate, detail, pricedOn: null };
   }
 
   const pricedOn = oilParsed.pricedOn;
+  mark(`parse-end oil=${oilParsed.rows.length} lpg=${lpgParsed.rows.length} pricedOn=${pricedOn}`);
 
   // ── STEP 2: DB 컨텍스트 조회 + 지역→SIGUNCD 매핑 ────────────────────────
+  mark("db-context-start");
   const [prev, existingCoords] = await Promise.all([
     getLastSuccessfulImport(db),
     getExistingStationCoords(db),
   ]);
+  mark(`db-context-end existing=${existingCoords.size}`);
 
   const sigunMap = deps.sigunMap ?? (await getSigunMap({ redis: deps.redis, prefix }));
+  mark(`sigun-map-end size=${sigunMap.size}`);
   const merged = mergeCsvRows(oilParsed.rows, lpgParsed.rows, sigunMap, pricedOn);
   for (const row of merged) {
     // 지역코드 API가 빈 응답을 주는 동안에도 기존 행의 매핑은 유지한다.
@@ -119,6 +129,7 @@ export async function importPrices(
     existingIds,
   };
   const gate = runGates(ctx);
+  mark(`gates-end ok=${gate.ok}`);
   if (!gate.ok) {
     await writeCsvImportLog(
       {
@@ -136,6 +147,7 @@ export async function importPrices(
 
   // ── STEP 4: 좌표 조달 — 신규 행 + 기존 좌표결손 행만 지오코딩 ────────────
   const needsGeocode = merged.filter((m) => existingCoords.get(m.uniId)?.lat == null);
+  mark(`geocode-start count=${needsGeocode.length}`);
   const geocoded = new Map<string, GeocodeResult>();
   const semaphore = createSemaphore(GEOCODE_CONCURRENCY);
   await Promise.all(
@@ -146,6 +158,7 @@ export async function importPrices(
       }),
     ),
   );
+  mark(`geocode-end count=${geocoded.size}`);
 
   // ── STEP 5: 스테이징 행 조립 (좌표 있는 행만) ───────────────────────────
   const staging: StagingRow[] = [];
@@ -178,10 +191,15 @@ export async function importPrices(
   }
 
   // ── STEP 6: 스테이징 적재 → 원자적 스왑 → 정리 ─────────────────────────
+  mark(`staging-start rows=${staging.length}`);
   await resetStaging(db);
+  mark("staging-reset-before-end");
   await loadStaging(staging, db);
+  mark("staging-load-end");
   await swapStagingToRefuelPoint(db);
+  mark("staging-swap-end");
   await resetStaging(db);
+  mark("staging-reset-after-end");
 
   // ── STEP 7: 이력 기록 ──────────────────────────────────────────────────
   await writeCsvImportLog(
@@ -194,6 +212,7 @@ export async function importPrices(
     },
     db,
   );
+  mark("log-write-end");
 
   return {
     status: "OK",
