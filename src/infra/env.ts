@@ -30,4 +30,7 @@ export const env = {
   get CRON_SECRET() { return required("CRON_SECRET"); },
   // Vercel Blob — 일일 CSV 임포트(Phase D). GitHub Actions가 쓰고 Cron이 읽는다.
   get BLOB_READ_WRITE_TOKEN() { return required("BLOB_READ_WRITE_TOKEN"); },
+  // 관리자 인증 — 누락 시 관리자 기능은 fail closed 한다.
+  get ADMIN_PASSWORD_HASH() { return process.env.ADMIN_PASSWORD_HASH; },
+  get ADMIN_SESSION_SECRET() { return process.env.ADMIN_SESSION_SECRET; },
 };

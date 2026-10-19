@@ -93,6 +93,11 @@ export const FeedbackRequestSchema = z.object({
 });
 export type FeedbackRequest = z.infer<typeof FeedbackRequestSchema>;
 
+export const AdminLoginRequestSchema = z.object({
+  password: z.string().min(1).max(200),
+});
+export type AdminLoginRequest = z.infer<typeof AdminLoginRequestSchema>;
+
 export const NearbyQuerySchema = z.object({
   lat: z.coerce.number(),
   lng: z.coerce.number(),
