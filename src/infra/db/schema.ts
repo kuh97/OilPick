@@ -161,3 +161,24 @@ export const naviClickEvent = pgTable("navi_click_event", {
   netSaving: integer("net_saving"),
   detourDistanceM: integer("detour_distance_m"),
 });
+
+// ─── admin_feedback — 사용자 문의 (docs/ADMIN-DASHBOARD.md §6) ───────────────
+//
+// 이메일과 문의 내용이 들어가므로 익명 이벤트 테이블과 분리합니다.
+// station_id/search_id는 화면에서 자동으로 붙인 참고 정보이며, 오래된 검색이나
+// 삭제된 주유소가 있어도 문의 저장 자체는 실패하지 않도록 외래 키를 두지 않습니다.
+export const adminFeedback = pgTable(
+  "admin_feedback",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    email: text("email").notNull(),
+    subject: text("subject").notNull(),
+    content: text("content").notNull(),
+    stationId: text("station_id"),
+    searchId: uuid("search_id"),
+    status: text("status").notNull().default("NEW"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+  },
+  (table) => [index("idx_admin_feedback_created").on(table.createdAt), index("idx_admin_feedback_status").on(table.status)],
+);

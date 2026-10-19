@@ -9,7 +9,7 @@
 
 import { and, avg, count, desc, eq, gt, gte, inArray, isNull, lte, like, ne, sql } from "drizzle-orm";
 import { getDb, type Db } from "./client";
-import { refuelPoint, refuelPointStaging, csvImportLog } from "./schema";
+import { adminFeedback, refuelPoint, refuelPointStaging, csvImportLog } from "./schema";
 import { mapDetailItem, FUEL_TO_PRODCD } from "@/infra/opinet/mapper";
 import type { OpinetDetailItem } from "@/infra/opinet/schema";
 import { wgs84, katec } from "@/domain/types";
@@ -36,6 +36,14 @@ function priceValueFor(row: RefuelPointRow, fuel: Fuel): number | null {
 
 export type RefuelPointInsert = typeof refuelPoint.$inferInsert;
 export type RefuelPointRow = typeof refuelPoint.$inferSelect;
+export type AdminFeedbackInsert = typeof adminFeedback.$inferInsert;
+
+export async function insertAdminFeedback(
+  input: Pick<AdminFeedbackInsert, "email" | "subject" | "content" | "stationId" | "searchId">,
+  db: Db = getDb(),
+): Promise<void> {
+  await db.insert(adminFeedback).values(input);
+}
 
 export interface UpsertRefuelPointOptions {
   /** 상세 조회를 촉발한 연료 — OIL_PRICE에서 가격 스냅샷을 골라내는 데 씀 */

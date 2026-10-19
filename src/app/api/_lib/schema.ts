@@ -84,6 +84,15 @@ export const NaviEventSchema = z.object({
 });
 export type NaviEvent = z.infer<typeof NaviEventSchema>;
 
+export const FeedbackRequestSchema = z.object({
+  email: z.string().trim().email().max(254),
+  subject: z.string().trim().min(1).max(120),
+  content: z.string().trim().min(1).max(4_000),
+  stationId: z.string().trim().min(1).max(100).optional(),
+  searchId: z.string().uuid().optional(),
+});
+export type FeedbackRequest = z.infer<typeof FeedbackRequestSchema>;
+
 export const NearbyQuerySchema = z.object({
   lat: z.coerce.number(),
   lng: z.coerce.number(),

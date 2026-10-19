@@ -43,6 +43,13 @@
       "when": 1789351516578,
       "tag": "0005_oval_rocket_racer",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1792409908450,
+      "tag": "0006_fixed_gamma_corps",
+      "breakpoints": true
     }
   ]
 }
