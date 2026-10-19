@@ -13,6 +13,21 @@ import { getRedis } from "@/infra/cache/redis";
 import { env } from "@/infra/env";
 
 const TTL_SECONDS = 60 * 60 * 24 * 30; // 30일
+const CACHE_TIMEOUT_MS = 3_000;
+
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((_, reject) => {
+        timer = setTimeout(() => reject(new Error("시군구 매핑 Redis 타임아웃")), timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
 
 function cacheKey(prefix: string): string {
   return `${prefix}:opinet:sigun-map`;
@@ -46,19 +61,27 @@ export async function getSigunMap(deps: SigunMapDeps = {}): Promise<Map<string, 
   const key = cacheKey(prefix);
 
   if (!deps.forceRefresh) {
-    const cached = await redis.get(key);
-    if (cached) {
-      try {
-        return new Map(Object.entries(JSON.parse(cached) as Record<string, string>));
-      } catch {
-        // 캐시 손상 — 아래에서 새로 만든다
+    try {
+      const cached = await withTimeout(redis.get(key) as Promise<string | null>, CACHE_TIMEOUT_MS);
+      if (cached) {
+        try {
+          return new Map(Object.entries(JSON.parse(cached) as Record<string, string>));
+        } catch {
+          // 캐시 손상 — 아래에서 새로 만든다
+        }
       }
+    } catch {
+      // Redis 장애·타임아웃은 오피넷 원본 조회로 폴백한다.
     }
   }
 
   const map = await buildSigunMapFromOpinet();
   if (map.size > 0) {
-    await redis.set(key, JSON.stringify(Object.fromEntries(map)), { ex: TTL_SECONDS });
+    // 캐시 저장이 임포트 전체를 막지 않도록 best-effort로 처리한다.
+    await withTimeout(
+      redis.set(key, JSON.stringify(Object.fromEntries(map)), { ex: TTL_SECONDS }),
+      CACHE_TIMEOUT_MS,
+    ).catch(() => undefined);
   }
   return map;
 }

@@ -36,7 +36,16 @@ async function main() {
     const res = await fetch(`${base}/api/cron/import-prices`, {
       headers: { Authorization: `Bearer ${secret}` },
     });
-    const body = await res.json().catch(() => ({}));
+    const bodyText = await res.text();
+    let body: unknown = bodyText;
+    try {
+      body = JSON.parse(bodyText) as unknown;
+    } catch {
+      // Vercel timeout 페이지 등 JSON이 아닌 응답은 원문을 그대로 보여준다.
+    }
+    if (!res.ok) {
+      throw new Error(`임포트 엔드포인트 실패: HTTP ${res.status} ${JSON.stringify(body)}`);
+    }
     ok(`${res.status} ${JSON.stringify(body)}`);
   } else {
     warn("APP_BASE_URL/CRON_SECRET 없음 — 임포트는 Vercel Cron 스케줄에 맡깁니다");

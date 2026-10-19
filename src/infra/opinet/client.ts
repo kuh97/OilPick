@@ -75,7 +75,15 @@ async function fetchWithTimeout(url: string, timeoutMs: number): Promise<Respons
   try {
     const res = await fetch(url, { signal: controller.signal });
     if (!res.ok) throw new Error(`오피넷 HTTP ${res.status}`);
-    return res;
+    // fetch()가 헤더만 받은 뒤 반환될 수 있으므로, 본문을 읽는 동안에도
+    // 같은 타임아웃을 유지한다. 서버리스에서 응답 본문이 멈추면 함수가
+    // Vercel maxDuration까지 붙잡히는 것을 막는다.
+    const body = await res.arrayBuffer();
+    return new Response(body, {
+      status: res.status,
+      statusText: res.statusText,
+      headers: res.headers,
+    });
   } finally {
     clearTimeout(timer);
   }

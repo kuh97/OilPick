@@ -257,7 +257,8 @@ export async function bulkUpsertFromCsv(
         brandCode: sql`excluded.brand_code`,
         energyType: sql`excluded.energy_type`,
         addressRoad: sql`excluded.address_road`,
-        sigunCd: sql`excluded.sigun_cd`,
+        // 시군구 매핑 API가 일시적으로 빈 응답을 주면 기존 매핑을 보존한다.
+        sigunCd: sql`coalesce(excluded.sigun_cd, ${refuelPoint.sigunCd})`,
         isSelf: sql`excluded.is_self`,
         pricedOn: sql`excluded.priced_on`,
         lastSeenOn: sql`excluded.last_seen_on`,
@@ -434,16 +435,22 @@ export async function getLatestImportLog(
 /** refuel_point 전체의 좌표 상태 — G6(ID 교집합)과 "좌표 없는 행만 지오코딩" 판정에 쓴다. */
 export async function getExistingStationCoords(
   db: Db = getDb(),
-): Promise<Map<string, { lat: number | null; lng: number | null; coordSource: string | null }>> {
+): Promise<Map<string, { lat: number | null; lng: number | null; coordSource: string | null; sigunCd?: string | null }>> {
   const rows = await db
     .select({
       id: refuelPoint.id,
       lat: refuelPoint.lat,
       lng: refuelPoint.lng,
       coordSource: refuelPoint.coordSource,
+      sigunCd: refuelPoint.sigunCd,
     })
     .from(refuelPoint);
-  return new Map(rows.map((r) => [r.id, { lat: r.lat, lng: r.lng, coordSource: r.coordSource }]));
+  return new Map(rows.map((r) => [r.id, {
+    lat: r.lat,
+    lng: r.lng,
+    coordSource: r.coordSource,
+    sigunCd: r.sigunCd,
+  }]));
 }
 
 export async function writeCsvImportLog(
@@ -502,7 +509,7 @@ export async function swapStagingToRefuelPoint(db: Db = getDb()): Promise<void> 
       brand_code = excluded.brand_code,
       energy_type = excluded.energy_type,
       address_road = excluded.address_road,
-      sigun_cd = excluded.sigun_cd,
+      sigun_cd = coalesce(excluded.sigun_cd, refuel_point.sigun_cd),
       is_self = excluded.is_self,
       priced_on = excluded.priced_on,
       last_seen_on = excluded.last_seen_on,

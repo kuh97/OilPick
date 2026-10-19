@@ -16,7 +16,13 @@ export async function fetchWithRetry(
     try {
       const res = await fetch(url, { headers, signal: controller.signal });
       if (!res.ok) throw new Error(`카카오 API HTTP ${res.status}`);
-      return res;
+      // 응답 헤더 이후 본문이 멈추는 경우도 호출 타임아웃에 포함한다.
+      const body = await res.arrayBuffer();
+      return new Response(body, {
+        status: res.status,
+        statusText: res.statusText,
+        headers: res.headers,
+      });
     } catch (err) {
       lastError = err;
     } finally {

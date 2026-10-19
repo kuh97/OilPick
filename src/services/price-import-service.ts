@@ -93,15 +93,21 @@ export async function importPrices(
 
   const pricedOn = oilParsed.pricedOn;
 
-  // ── STEP 2: 지역→SIGUNCD 매핑 + 병합 ─────────────────────────────────────
-  const sigunMap = deps.sigunMap ?? (await getSigunMap({ redis: deps.redis, prefix }));
-  const merged = mergeCsvRows(oilParsed.rows, lpgParsed.rows, sigunMap, pricedOn);
-
-  // ── STEP 3: DB 컨텍스트 조회 + 게이트 G3~G8 ─────────────────────────────
+  // ── STEP 2: DB 컨텍스트 조회 + 지역→SIGUNCD 매핑 ────────────────────────
   const [prev, existingCoords] = await Promise.all([
     getLastSuccessfulImport(db),
     getExistingStationCoords(db),
   ]);
+
+  const sigunMap = deps.sigunMap ?? (await getSigunMap({ redis: deps.redis, prefix }));
+  const merged = mergeCsvRows(oilParsed.rows, lpgParsed.rows, sigunMap, pricedOn);
+  for (const row of merged) {
+    // 지역코드 API가 빈 응답을 주는 동안에도 기존 행의 매핑은 유지한다.
+    const existingSigunCd = existingCoords.get(row.uniId)?.sigunCd;
+    if (row.sigunCd == null && existingSigunCd) row.sigunCd = existingSigunCd;
+  }
+
+  // ── STEP 3: 게이트 G3~G8 ───────────────────────────────────────────────
   const existingIds: ReadonlySet<string> = new Set(existingCoords.keys());
 
   const ctx: GateContext = {

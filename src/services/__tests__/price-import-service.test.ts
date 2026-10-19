@@ -53,7 +53,7 @@ function lpgCsv(count = 5, pricedOn = "20260905"): Buffer {
   return Buffer.from([header, meta, ...rows].join("\n"), "utf-8");
 }
 
-type CoordRow = { lat: number | null; lng: number | null; coordSource: string | null };
+type CoordRow = { lat: number | null; lng: number | null; coordSource: string | null; sigunCd?: string | null };
 
 /** 기존 마스터 좌표 맵 — 주유소 `oil`개 + 충전소 `lpg`개에 좌표를 채운다 (지오코딩 불필요 + G6 통과). */
 function coordsFor(oil = 100, lpg = 5): Map<string, CoordRow> {
@@ -114,6 +114,20 @@ describe("importPrices — 정상 경로", () => {
     expect(result.geocoded).toBe(1);
     expect(result.skippedNoCoord).toBe(1);
     expect(load.mock.calls[0][0]).toHaveLength(99); // 100 - 1 좌표실패
+  });
+
+  it("지역코드 API가 빈 응답이어도 기존 행의 시군구 코드를 유지한다", async () => {
+    getCoords.mockResolvedValue(new Map(
+      [...coordsFor(100)].map(([id, coord]) => [id, { ...coord, sigunCd: "1168" }]),
+    ));
+
+    const result = await importPrices(
+      { oilCsv: oilCsv(), lpgCsv: lpgCsv(0) },
+      { db: {} as never, sigunMap: new Map(), geocode: vi.fn() },
+    );
+
+    expect(result.status).toBe("OK");
+    expect(load.mock.calls[0][0][0]?.sigunCd).toBe("1168");
   });
 });
 
