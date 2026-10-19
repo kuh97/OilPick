@@ -100,6 +100,23 @@ export async function countAdminFeedbackByStatus(
   return rows.map((row) => ({ status: row.status, count: Number(row.count) }));
 }
 
+export async function updateAdminFeedbackStatus(
+  id: string,
+  status: string,
+  db: Db = getDb(),
+  now: Date = new Date(),
+): Promise<AdminFeedbackRow | undefined> {
+  const [row] = await db
+    .update(adminFeedback)
+    .set({
+      status,
+      resolvedAt: status === "RESOLVED" ? now : null,
+    })
+    .where(eq(adminFeedback.id, id))
+    .returning();
+  return row;
+}
+
 export interface UpsertRefuelPointOptions {
   /** 상세 조회를 촉발한 연료 — OIL_PRICE에서 가격 스냅샷을 골라내는 데 씀 */
   searchedFuel?: Fuel;

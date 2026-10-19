@@ -17,6 +17,7 @@ import {
   markDetailSyncedEmpty,
   listAdminFeedbackPage,
   countAdminFeedbackByStatus,
+  updateAdminFeedbackStatus,
   type RefuelPointRow,
 } from "../repositories";
 import type { Db } from "../client";
@@ -122,6 +123,36 @@ describe("countAdminFeedbackByStatus — DB 접근", () => {
       { status: "NEW", count: 3 },
       { status: "RESOLVED", count: 2 },
     ]);
+  });
+});
+
+describe("updateAdminFeedbackStatus — DB 접근", () => {
+  it("상태를 변경하고 완료 상태일 때 resolvedAt을 기록한다", async () => {
+    const returning = vi.fn().mockResolvedValue([{ id: "feedback-1", status: "RESOLVED" }]);
+    const where = vi.fn(() => ({ returning }));
+    const set = vi.fn(() => ({ where }));
+    const update = vi.fn(() => ({ set }));
+
+    await updateAdminFeedbackStatus(
+      "feedback-1",
+      "RESOLVED",
+      { update } as unknown as Db,
+      NOW,
+    );
+
+    expect(set).toHaveBeenCalledWith({ status: "RESOLVED", resolvedAt: NOW });
+    expect(returning).toHaveBeenCalledTimes(1);
+  });
+
+  it("완료 상태가 아니면 resolvedAt을 지운다", async () => {
+    const returning = vi.fn().mockResolvedValue([]);
+    const where = vi.fn(() => ({ returning }));
+    const set = vi.fn(() => ({ where }));
+    const update = vi.fn(() => ({ set }));
+
+    await updateAdminFeedbackStatus("feedback-1", "IN_PROGRESS", { update } as unknown as Db, NOW);
+
+    expect(set).toHaveBeenCalledWith({ status: "IN_PROGRESS", resolvedAt: null });
   });
 });
 

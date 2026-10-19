@@ -5,22 +5,30 @@ import {
   encodeAdminFeedbackCursor,
   getAdminFeedbackCounts,
   getAdminFeedbackList,
+  updateAdminFeedbackStatus,
 } from "../admin-feedback-service";
 
-const { countAdminFeedbackByStatusMock, listAdminFeedbackPageMock } = vi.hoisted(() => ({
+const {
+  countAdminFeedbackByStatusMock,
+  listAdminFeedbackPageMock,
+  updateAdminFeedbackStatusMock,
+} = vi.hoisted(() => ({
   countAdminFeedbackByStatusMock: vi.fn(),
   listAdminFeedbackPageMock: vi.fn(),
+  updateAdminFeedbackStatusMock: vi.fn(),
 }));
 
 vi.mock("@/infra/db/repositories", () => ({
   countAdminFeedbackByStatus: (...args: unknown[]) => countAdminFeedbackByStatusMock(...args),
   listAdminFeedbackPage: (...args: unknown[]) => listAdminFeedbackPageMock(...args),
+  updateAdminFeedbackStatus: (...args: unknown[]) => updateAdminFeedbackStatusMock(...args),
 }));
 
 beforeEach(() => {
   countAdminFeedbackByStatusMock.mockReset();
   countAdminFeedbackByStatusMock.mockResolvedValue([]);
   listAdminFeedbackPageMock.mockReset();
+  updateAdminFeedbackStatusMock.mockReset();
 });
 
 describe("admin-feedback-service", () => {
@@ -132,5 +140,45 @@ describe("admin-feedback-service", () => {
       IN_PROGRESS: 2,
       RESOLVED: 5,
     });
+  });
+
+  it("상태 변경 결과를 관리자 화면용 DTO로 변환한다", async () => {
+    const now = new Date("2026-10-19T03:04:05.000Z");
+    updateAdminFeedbackStatusMock.mockResolvedValueOnce({
+      id: "feedback-1",
+      email: "user@example.com",
+      subject: "제목",
+      content: "내용",
+      stationId: null,
+      searchId: null,
+      status: "RESOLVED",
+      createdAt: new Date("2026-10-19T01:02:03.000Z"),
+      resolvedAt: now,
+    });
+
+    await expect(
+      updateAdminFeedbackStatus({
+        id: "feedback-1",
+        status: "RESOLVED",
+        db: {} as Db,
+        now,
+      }),
+    ).resolves.toEqual({
+      id: "feedback-1",
+      email: "user@example.com",
+      subject: "제목",
+      content: "내용",
+      stationId: null,
+      searchId: null,
+      status: "RESOLVED",
+      createdAt: "2026-10-19T01:02:03.000Z",
+      resolvedAt: "2026-10-19T03:04:05.000Z",
+    });
+    expect(updateAdminFeedbackStatusMock).toHaveBeenCalledWith(
+      "feedback-1",
+      "RESOLVED",
+      {},
+      now,
+    );
   });
 });

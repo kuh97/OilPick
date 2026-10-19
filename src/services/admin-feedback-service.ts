@@ -3,6 +3,7 @@
 import {
   countAdminFeedbackByStatus,
   listAdminFeedbackPage,
+  updateAdminFeedbackStatus as updateAdminFeedbackStatusRow,
   type AdminFeedbackCursor,
   type AdminFeedbackRow,
 } from "@/infra/db/repositories";
@@ -159,6 +160,21 @@ export async function getAdminFeedbackList(
 
 export async function getAdminFeedbackCounts(deps: { db?: Db } = {}): Promise<AdminFeedbackCounts> {
   return toAdminFeedbackCounts(await countAdminFeedbackByStatus(deps.db));
+}
+
+export async function updateAdminFeedbackStatus(options: {
+  id: string;
+  status: AdminFeedbackStatus;
+  db?: Db;
+  now?: Date;
+}): Promise<AdminFeedbackDto | null> {
+  const row = await updateAdminFeedbackStatusRow(
+    options.id,
+    options.status,
+    options.db,
+    options.now,
+  );
+  return row ? toAdminFeedbackDto(row) : null;
 }
 
 function toAdminFeedbackCounts(

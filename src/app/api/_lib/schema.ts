@@ -99,6 +99,9 @@ export const AdminLoginRequestSchema = z.object({
 export type AdminLoginRequest = z.infer<typeof AdminLoginRequestSchema>;
 
 export const AdminFeedbackStatusSchema = z.enum(["NEW", "IN_PROGRESS", "RESOLVED"]);
+export const AdminFeedbackStatusUpdateSchema = z.object({
+  status: AdminFeedbackStatusSchema,
+});
 export const AdminFeedbackQuerySchema = z.object({
   status: AdminFeedbackStatusSchema.optional(),
   cursor: z.string().trim().min(1).max(512).optional(),
