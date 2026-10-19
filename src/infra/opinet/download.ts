@@ -15,7 +15,7 @@
  * Blob에 파일 직접 업로드).
  */
 
-import { chromium, type BrowserContext, type Page } from "playwright";
+import { chromium, type Browser, type BrowserContext, type Page } from "playwright";
 
 const PAGE_URL = "https://www.opinet.co.kr/user/opdown/opDownload.do";
 /** 전국 일일 파일 생성이 "수 분" 걸림(§7) — 넉넉히 잡는다 */
@@ -44,16 +44,8 @@ export async function downloadPriceCsv(date?: string): Promise<DownloadedCsv> {
     args: ["--no-sandbox", "--disable-dev-shm-usage"],
   });
   try {
-    const ctx = await browser.newContext({ acceptDownloads: true, locale: "ko-KR" });
-    ctx.setDefaultTimeout(30_000);
-    // 이미지·폰트·미디어는 받지 않는다 — 오피넷 페이지에 로드가 안 끝나는 리소스가 섞여 있어
-    // waitUntil을 'commit'으로 두고 필요한 요소만 명시적으로 기다린다.
-    await ctx.route("**/*", (route) => {
-      const t = route.request().resourceType();
-      return t === "image" || t === "font" || t === "media" ? route.abort() : route.continue();
-    });
-    const oil = await downloadWithRetry(ctx, "OIL", yyyymmdd);
-    const lpg = await downloadWithRetry(ctx, "LPG", yyyymmdd);
+    const oil = await downloadWithRetry(browser, "OIL", yyyymmdd);
+    const lpg = await downloadWithRetry(browser, "LPG", yyyymmdd);
     return { oil, lpg };
   } finally {
     await browser.close();
@@ -61,13 +53,16 @@ export async function downloadPriceCsv(date?: string): Promise<DownloadedCsv> {
 }
 
 async function downloadWithRetry(
-  ctx: BrowserContext,
+  browser: Browser,
   kind: CsvKind,
   yyyymmdd: string,
 ): Promise<Buffer> {
   let lastError: unknown;
 
   for (let attempt = 1; attempt <= DOWNLOAD_ATTEMPTS; attempt += 1) {
+    // OpiNet NetFunnel/세션 상태가 직전 요청에서 꼬이면 새 page만으로는
+    // 복구되지 않는다. 유종별·재시도별로 컨텍스트를 새로 만든다.
+    const ctx = await createDownloadContext(browser);
     const page = await ctx.newPage();
     // fn_Download(6)이 띄우는 confirm("...수 분의 처리 시간...") 자동 수락
     page.on("dialog", (d) => void d.accept().catch(() => {}));
@@ -84,12 +79,25 @@ async function downloadWithRetry(
       }
     } finally {
       await page.close().catch(() => {});
+      await ctx.close().catch(() => {});
     }
   }
 
   throw new Error(
     `${kind} ${yyyymmdd} 다운로드 실패 — ${DOWNLOAD_ATTEMPTS}회 시도 모두 실패: ${errorMessage(lastError)}`,
   );
+}
+
+async function createDownloadContext(browser: Browser): Promise<BrowserContext> {
+  const ctx = await browser.newContext({ acceptDownloads: true, locale: "ko-KR" });
+  ctx.setDefaultTimeout(30_000);
+  // 이미지·폰트·미디어는 받지 않는다 — 오피넷 페이지에 로드가 안 끝나는 리소스가 섞여 있어
+  // waitUntil을 'commit'으로 두고 필요한 요소만 명시적으로 기다린다.
+  await ctx.route("**/*", (route) => {
+    const t = route.request().resourceType();
+    return t === "image" || t === "font" || t === "media" ? route.abort() : route.continue();
+  });
+  return ctx;
 }
 
 async function downloadOne(
