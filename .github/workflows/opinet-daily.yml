@@ -6,7 +6,7 @@ name: 오피넷 유가 CSV 일일 수급
 
 on:
   schedule:
-    - cron: "0 20 * * *" # 05:00 KST (UTC+9)
+    - cron: "0 22 * * *" # 07:00 KST (UTC+9)
   workflow_dispatch:
     inputs:
       date:
@@ -21,7 +21,8 @@ jobs:
   download:
     name: 다운로드 → Blob → 임포트 트리거
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # 유종별 4분 대기 × 2회 재시도와 Playwright 설치 시간을 포함한다.
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
@@ -44,3 +45,11 @@ jobs:
           APP_BASE_URL: ${{ secrets.APP_BASE_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: pnpm data:download-csv ${{ github.event.inputs.date }}
+
+      - name: Upload Opinet diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: opinet-download-debug-${{ github.run_id }}
+          path: opinet-debug-*.png
+          if-no-files-found: ignore

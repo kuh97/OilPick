@@ -15,11 +15,14 @@
  * Blob에 파일 직접 업로드).
  */
 
-import { chromium, type Page } from "playwright";
+import { chromium, type BrowserContext, type Page } from "playwright";
 
 const PAGE_URL = "https://www.opinet.co.kr/user/opdown/opDownload.do";
 /** 전국 일일 파일 생성이 "수 분" 걸림(§7) — 넉넉히 잡는다 */
 const DOWNLOAD_TIMEOUT_MS = 240_000;
+/** 오피넷 다운로드는 간헐적으로 브라우저 download 이벤트를 누락하므로 1회 재시도한다. */
+const DOWNLOAD_ATTEMPTS = 2;
+const DOWNLOAD_RETRY_DELAY_MS = 5_000;
 
 export type CsvKind = "OIL" | "LPG";
 
@@ -49,19 +52,67 @@ export async function downloadPriceCsv(date?: string): Promise<DownloadedCsv> {
       const t = route.request().resourceType();
       return t === "image" || t === "font" || t === "media" ? route.abort() : route.continue();
     });
-    const page = await ctx.newPage();
-    // fn_Download(6)이 띄우는 confirm("...수 분의 처리 시간...") 자동 수락
-    page.on("dialog", (d) => void d.accept().catch(() => {}));
-
-    const oil = await downloadOne(page, "OIL", yyyymmdd);
-    const lpg = await downloadOne(page, "LPG", yyyymmdd);
+    const oil = await downloadWithRetry(ctx, "OIL", yyyymmdd);
+    const lpg = await downloadWithRetry(ctx, "LPG", yyyymmdd);
     return { oil, lpg };
   } finally {
     await browser.close();
   }
 }
 
-async function downloadOne(page: Page, kind: CsvKind, yyyymmdd: string): Promise<Buffer> {
+async function downloadWithRetry(
+  ctx: BrowserContext,
+  kind: CsvKind,
+  yyyymmdd: string,
+): Promise<Buffer> {
+  let lastError: unknown;
+
+  for (let attempt = 1; attempt <= DOWNLOAD_ATTEMPTS; attempt += 1) {
+    const page = await ctx.newPage();
+    // fn_Download(6)이 띄우는 confirm("...수 분의 처리 시간...") 자동 수락
+    page.on("dialog", (d) => void d.accept().catch(() => {}));
+
+    try {
+      return await downloadOne(page, kind, yyyymmdd, attempt);
+    } catch (error) {
+      lastError = error;
+      console.warn(
+        `⚠ ${kind} ${yyyymmdd} 다운로드 실패 (${attempt}/${DOWNLOAD_ATTEMPTS}): ${errorMessage(error)}`,
+      );
+      if (attempt < DOWNLOAD_ATTEMPTS) {
+        await new Promise((resolve) => setTimeout(resolve, DOWNLOAD_RETRY_DELAY_MS));
+      }
+    } finally {
+      await page.close().catch(() => {});
+    }
+  }
+
+  throw new Error(
+    `${kind} ${yyyymmdd} 다운로드 실패 — ${DOWNLOAD_ATTEMPTS}회 시도 모두 실패: ${errorMessage(lastError)}`,
+  );
+}
+
+async function downloadOne(
+  page: Page,
+  kind: CsvKind,
+  yyyymmdd: string,
+  attempt: number,
+): Promise<Buffer> {
+  try {
+    return await downloadOneInternal(page, kind, yyyymmdd);
+  } catch (error) {
+    const diagnostics = await collectDiagnostics(page, kind, yyyymmdd, attempt);
+    throw new Error(
+      `${kind} ${yyyymmdd} 다운로드 실패: ${errorMessage(error)} — ${diagnostics}`,
+    );
+  }
+}
+
+async function downloadOneInternal(
+  page: Page,
+  kind: CsvKind,
+  yyyymmdd: string,
+): Promise<Buffer> {
   await page.goto(PAGE_URL, { waitUntil: "commit", timeout: 30_000 });
   await page.waitForSelector("#span_start_date_picker", { timeout: 30_000 });
 
@@ -89,6 +140,30 @@ async function downloadOne(page: Page, kind: CsvKind, yyyymmdd: string): Promise
     );
   }
   return buf;
+}
+
+async function collectDiagnostics(
+  page: Page,
+  kind: CsvKind,
+  yyyymmdd: string,
+  attempt: number,
+): Promise<string> {
+  const screenshotPath = `opinet-debug-${kind.toLowerCase()}-${yyyymmdd}-attempt-${attempt}.png`;
+  const [title, bodyText] = await Promise.all([
+    page.title().catch(() => "(title unavailable)"),
+    page
+      .locator("body")
+      .innerText({ timeout: 3_000 })
+      .catch(() => "(body unavailable)"),
+  ]);
+  await page.screenshot({ path: screenshotPath, fullPage: true }).catch(() => {});
+
+  const compactBody = bodyText.replace(/\s+/g, " ").trim().slice(0, 500);
+  return `url=${page.url()} title=${JSON.stringify(title)} body=${JSON.stringify(compactBody)} screenshot=${screenshotPath}`;
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 /** KST 기준 "어제" 날짜를 YYYYMMDD로. (테스트를 위해 now 주입 가능) */
