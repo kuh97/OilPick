@@ -8,6 +8,7 @@ node_modules/
 
 # ── Next.js 빌드 ──────────────────────────
 .next/
+.next-e2e/
 out/
 
 # ── 검증 데이터 (용량 크고 공개 데이터) ────
@@ -36,6 +37,7 @@ opinet-debug-*.png
 
 # ── 테스트 커버리지 ────────────────────────
 coverage/
+test-results/
 
 # ── pnpm 워크스페이스 잠금파일 (scripts/ 자체 관리) ─
 scripts/node_modules/
