@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { requireAdminSessionMock, updateAdminFeedbackStatusMock } = vi.hoisted(() => ({
+const { deleteAdminFeedbackMock, requireAdminSessionMock, updateAdminFeedbackStatusMock } = vi.hoisted(() => ({
+  deleteAdminFeedbackMock: vi.fn(),
   requireAdminSessionMock: vi.fn(),
   updateAdminFeedbackStatusMock: vi.fn(),
 }));
@@ -9,10 +10,11 @@ vi.mock("@/lib/admin-session", () => ({
   requireAdminSession: requireAdminSessionMock,
 }));
 vi.mock("@/services/admin-feedback-service", () => ({
+  deleteAdminFeedback: deleteAdminFeedbackMock,
   updateAdminFeedbackStatus: updateAdminFeedbackStatusMock,
 }));
 
-import { PATCH } from "../route";
+import { DELETE, PATCH } from "../route";
 
 function params(id = "feedback-1") {
   return { params: Promise.resolve({ id }) };
@@ -20,6 +22,7 @@ function params(id = "feedback-1") {
 
 describe("PATCH /api/admin/feedback/:id", () => {
   beforeEach(() => {
+    deleteAdminFeedbackMock.mockReset();
     requireAdminSessionMock.mockReset();
     updateAdminFeedbackStatusMock.mockReset();
   });
@@ -89,6 +92,42 @@ describe("PATCH /api/admin/feedback/:id", () => {
         method: "PATCH",
         body: JSON.stringify({ status: "IN_PROGRESS" }),
       }),
+      params("unknown"),
+    );
+
+    expect(response.status).toBe(404);
+    expect(await response.json()).toEqual({
+      code: "NOT_FOUND",
+      message: "문의를 찾을 수 없습니다.",
+    });
+  });
+
+  it("인증되지 않은 요청은 문의를 삭제하지 않고 401을 반환한다", async () => {
+    requireAdminSessionMock.mockResolvedValue(false);
+
+    const response = await DELETE(new Request("https://example.com/api/admin/feedback/feedback-1"), params());
+
+    expect(response.status).toBe(401);
+    expect(deleteAdminFeedbackMock).not.toHaveBeenCalled();
+  });
+
+  it("인증된 요청은 문의를 삭제한다", async () => {
+    requireAdminSessionMock.mockResolvedValue(true);
+    deleteAdminFeedbackMock.mockResolvedValue(true);
+
+    const response = await DELETE(new Request("https://example.com/api/admin/feedback/feedback-1"), params());
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ ok: true });
+    expect(deleteAdminFeedbackMock).toHaveBeenCalledWith({ id: "feedback-1" });
+  });
+
+  it("없는 문의는 삭제하지 않고 404를 반환한다", async () => {
+    requireAdminSessionMock.mockResolvedValue(true);
+    deleteAdminFeedbackMock.mockResolvedValue(false);
+
+    const response = await DELETE(
+      new Request("https://example.com/api/admin/feedback/unknown"),
       params("unknown"),
     );
 

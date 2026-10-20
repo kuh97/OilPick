@@ -641,6 +641,7 @@ Accept: application/json   → search(input)            // 콜백 없음 = 완�
 | `POST /api/events/navi`                          | 딥링크 클릭 기록       | `204`                                                                                                   |
 | `GET /api/admin/feedback?status=&cursor=`        | 관리자 문의 목록       | 관리자 세션 필요. `{ items, nextCursor }` — 20건 단위 커서 페이지                                        |
 | `GET /api/admin/feedback/counts`                 | 관리자 문의 건수       | 관리자 세션 필요. `{ counts: { ALL, NEW, IN_PROGRESS, RESOLVED } }`                                       |
+| `DELETE /api/admin/feedback/:id`                 | 관리자 문의 삭제       | 관리자 세션 필요. 성공 시 `{ ok: true }`                                                                   |
 | `GET /api/admin/dashboard?range=24h\|7d\|30d`    | 관리자 운영·검색 지표  | 관리자 세션 필요. `range` 생략 시 `24h`. 가격·백필·검색·내비 집계 DTO                                            |
 | `GET /api/cron/import-prices`                    | 유가 CSV 임포트 (§9.3) | `200 { status, pricedOn, ... }` — 실패도 200                                                            |
 | `GET /api/cron/backfill-details`                 | 시설 정보 백필 (§9.3)  | `200 { limit, picked, updated, notFound, failed, remaining }`                                           |
@@ -688,6 +689,15 @@ Accept: application/json   → search(input)            // 콜백 없음 = 완�
 {
   "counts": { "ALL": 42, "NEW": 12, "IN_PROGRESS": 18, "RESOLVED": 12 }
 }
+```
+
+**`DELETE /api/admin/feedback/:id` 관리자 문의 삭제**
+
+관리자 세션이 필요하며, 삭제할 문의가 없으면 `404`를 반환합니다. 삭제는 복구할 수 없으므로
+관리자 화면에서 확인창을 거친 뒤 호출합니다.
+
+```json
+{ "ok": true }
 ```
 
 **`GET /api/admin/dashboard?range=24h|7d|30d` 관리자 운영·검색 지표**

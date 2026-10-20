@@ -48,8 +48,9 @@ const FEEDBACK = {
   resolvedAt: null as string | null,
 };
 
-test("관리자 로그인 → 문의 목록 확인 → 문의 상태 변경", async ({ page }) => {
+test("관리자 로그인 → 문의 목록 확인 → 문의 상태 변경 및 삭제", async ({ page }) => {
   let feedbackStatus = FEEDBACK.status;
+  let feedbackDeleted = false;
   let loginPayload: unknown;
 
   await page.route("**/api/admin/login", async (route) => {
@@ -62,7 +63,10 @@ test("관리자 로그인 → 문의 목록 확인 → 문의 상태 변경", as
   await page.route("**/api/admin/feedback**", async (route) => {
     const url = new URL(route.request().url());
     if (url.pathname.endsWith("/counts")) {
-      await route.fulfill({ contentType: "application/json", body: JSON.stringify(FEEDBACK_COUNTS) });
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify(feedbackDeleted ? { counts: { ALL: 0, NEW: 0, IN_PROGRESS: 0, RESOLVED: 0 } } : FEEDBACK_COUNTS),
+      });
       return;
     }
 
@@ -76,9 +80,20 @@ test("관리자 로그인 → 문의 목록 확인 → 문의 상태 변경", as
       return;
     }
 
+    if (route.request().method() === "DELETE") {
+      feedbackDeleted = true;
+      await route.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true }) });
+      return;
+    }
+
     await route.fulfill({
       contentType: "application/json",
-      body: JSON.stringify({ items: [{ ...FEEDBACK, status: feedbackStatus, resolvedAt: feedbackStatus === "RESOLVED" ? "2026-10-20T00:01:00.000Z" : null }], nextCursor: null }),
+      body: JSON.stringify({
+        items: feedbackDeleted
+          ? []
+          : [{ ...FEEDBACK, status: feedbackStatus, resolvedAt: feedbackStatus === "RESOLVED" ? "2026-10-20T00:01:00.000Z" : null }],
+        nextCursor: null,
+      }),
     });
   });
 
@@ -101,4 +116,8 @@ test("관리자 로그인 → 문의 목록 확인 → 문의 상태 변경", as
   await page.getByRole("menuitemradio", { name: "처리 완료" }).click();
 
   await expect(page.getByRole("button", { name: "E2E 문의 상태 변경" })).toContainText("처리 완료");
+
+  page.once("dialog", (dialog) => dialog.accept());
+  await page.getByRole("button", { name: "E2E 문의 삭제" }).click();
+  await expect(page.getByText("E2E 문의")).not.toBeVisible();
 });

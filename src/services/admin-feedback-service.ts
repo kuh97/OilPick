@@ -2,6 +2,7 @@
 
 import {
   countAdminFeedbackByStatus,
+  deleteAdminFeedback as deleteAdminFeedbackRow,
   listAdminFeedbackPage,
   updateAdminFeedbackStatus as updateAdminFeedbackStatusRow,
   type AdminFeedbackCursor,
@@ -175,6 +176,10 @@ export async function updateAdminFeedbackStatus(options: {
     options.now,
   );
   return row ? toAdminFeedbackDto(row) : null;
+}
+
+export async function deleteAdminFeedback(options: { id: string; db?: Db }): Promise<boolean> {
+  return deleteAdminFeedbackRow(options.id, options.db);
 }
 
 function toAdminFeedbackCounts(

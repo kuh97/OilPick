@@ -117,6 +117,17 @@ export async function updateAdminFeedbackStatus(
   return row;
 }
 
+export async function deleteAdminFeedback(
+  id: string,
+  db: Db = getDb(),
+): Promise<boolean> {
+  const rows = await db
+    .delete(adminFeedback)
+    .where(eq(adminFeedback.id, id))
+    .returning({ id: adminFeedback.id });
+  return rows.length > 0;
+}
+
 export interface UpsertRefuelPointOptions {
   /** 상세 조회를 촉발한 연료 — OIL_PRICE에서 가격 스냅샷을 골라내는 데 씀 */
   searchedFuel?: Fuel;

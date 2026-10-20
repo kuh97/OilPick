@@ -186,6 +186,29 @@ describe("updateAdminFeedbackStatus — DB 접근", () => {
   });
 });
 
+describe("deleteAdminFeedback — DB 접근", () => {
+  it("삭제된 문의가 있으면 true를 반환한다", async () => {
+    const returning = vi.fn().mockResolvedValue([{ id: "feedback-1" }]);
+    const where = vi.fn(() => ({ returning }));
+    const deleteMock = vi.fn(() => ({ where }));
+
+    const { deleteAdminFeedback } = await import("../repositories");
+    await expect(deleteAdminFeedback("feedback-1", { delete: deleteMock } as unknown as Db)).resolves.toBe(true);
+    expect(deleteMock).toHaveBeenCalledTimes(1);
+    expect(where).toHaveBeenCalledTimes(1);
+    expect(returning).toHaveBeenCalledWith({ id: expect.anything() });
+  });
+
+  it("일치하는 문의가 없으면 false를 반환한다", async () => {
+    const returning = vi.fn().mockResolvedValue([]);
+    const where = vi.fn(() => ({ returning }));
+    const deleteMock = vi.fn(() => ({ where }));
+
+    const { deleteAdminFeedback } = await import("../repositories");
+    await expect(deleteAdminFeedback("missing", { delete: deleteMock } as unknown as Db)).resolves.toBe(false);
+  });
+});
+
 describe("fromRefuelPointRow — 순수 변환", () => {
   const baseRow: RefuelPointRow = {
     id: "A0009916",

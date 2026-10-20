@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Db } from "@/infra/db/client";
 import {
   ADMIN_FEEDBACK_PAGE_SIZE,
+  deleteAdminFeedback,
   encodeAdminFeedbackCursor,
   getAdminFeedbackCounts,
   getAdminFeedbackList,
@@ -10,16 +11,19 @@ import {
 
 const {
   countAdminFeedbackByStatusMock,
+  deleteAdminFeedbackMock,
   listAdminFeedbackPageMock,
   updateAdminFeedbackStatusMock,
 } = vi.hoisted(() => ({
   countAdminFeedbackByStatusMock: vi.fn(),
+  deleteAdminFeedbackMock: vi.fn(),
   listAdminFeedbackPageMock: vi.fn(),
   updateAdminFeedbackStatusMock: vi.fn(),
 }));
 
 vi.mock("@/infra/db/repositories", () => ({
   countAdminFeedbackByStatus: (...args: unknown[]) => countAdminFeedbackByStatusMock(...args),
+  deleteAdminFeedback: (...args: unknown[]) => deleteAdminFeedbackMock(...args),
   listAdminFeedbackPage: (...args: unknown[]) => listAdminFeedbackPageMock(...args),
   updateAdminFeedbackStatus: (...args: unknown[]) => updateAdminFeedbackStatusMock(...args),
 }));
@@ -27,6 +31,7 @@ vi.mock("@/infra/db/repositories", () => ({
 beforeEach(() => {
   countAdminFeedbackByStatusMock.mockReset();
   countAdminFeedbackByStatusMock.mockResolvedValue([]);
+  deleteAdminFeedbackMock.mockReset();
   listAdminFeedbackPageMock.mockReset();
   updateAdminFeedbackStatusMock.mockReset();
 });
@@ -180,5 +185,12 @@ describe("admin-feedback-service", () => {
       {},
       now,
     );
+  });
+
+  it("문의 삭제 결과를 반환한다", async () => {
+    deleteAdminFeedbackMock.mockResolvedValueOnce(true);
+
+    await expect(deleteAdminFeedback({ id: "feedback-1", db: {} as Db })).resolves.toBe(true);
+    expect(deleteAdminFeedbackMock).toHaveBeenCalledWith("feedback-1", {});
   });
 });
