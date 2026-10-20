@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { AdminDashboard } from "@/components/admin/admin-dashboard";
 import { AdminFeedbackList } from "@/components/admin/admin-feedback-list";
 import { AdminQueryProvider } from "@/components/admin/admin-query-provider";
 import { requireAdminSession } from "@/lib/admin-session";
@@ -14,6 +15,7 @@ export default async function AdminPage() {
       <h1 className="mt-3 text-3xl font-extrabold tracking-tight">관리자 화면</h1>
       <p className="mt-3 text-sm text-muted-foreground">관리자 인증이 완료되었습니다.</p>
       <AdminQueryProvider>
+        <AdminDashboard />
         <AdminFeedbackList />
       </AdminQueryProvider>
     </main>
