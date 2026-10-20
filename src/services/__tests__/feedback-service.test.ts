@@ -2,10 +2,17 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Db } from "@/infra/db/client";
 import { FeedbackRateLimitError, submitFeedback } from "../feedback-service";
 
-const { insertAdminFeedbackMock } = vi.hoisted(() => ({ insertAdminFeedbackMock: vi.fn() }));
+const { insertAdminFeedbackMock, sendFeedbackNotificationMock } = vi.hoisted(() => ({
+  insertAdminFeedbackMock: vi.fn(),
+  sendFeedbackNotificationMock: vi.fn(),
+}));
 
 vi.mock("@/infra/db/repositories", () => ({
   insertAdminFeedback: (...args: unknown[]) => insertAdminFeedbackMock(...args),
+}));
+
+vi.mock("@/infra/email/resend", () => ({
+  sendFeedbackNotification: (...args: unknown[]) => sendFeedbackNotificationMock(...args),
 }));
 
 interface FakeRedis {
@@ -34,6 +41,8 @@ describe("feedback-service", () => {
   beforeEach(() => {
     insertAdminFeedbackMock.mockReset();
     insertAdminFeedbackMock.mockResolvedValue(undefined);
+    sendFeedbackNotificationMock.mockReset();
+    sendFeedbackNotificationMock.mockResolvedValue(undefined);
   });
 
   it("요청 제한을 확인하고 문의를 DB 저장 형식으로 넘긴다", async () => {
@@ -53,6 +62,7 @@ describe("feedback-service", () => {
       { ...INPUT, stationId: "station-1", searchId: "11111111-1111-4111-8111-111111111111" },
       db,
     );
+    expect(sendFeedbackNotificationMock).toHaveBeenCalledWith(INPUT);
   });
 
   it("제한을 넘으면 문의를 저장하지 않는다", async () => {
@@ -71,6 +81,19 @@ describe("feedback-service", () => {
 
     expect(insertAdminFeedbackMock).toHaveBeenCalledOnce();
     expect(errorSpy).toHaveBeenCalledWith("[feedback] 요청 제한 확인 실패");
+    expect(errorSpy.mock.calls.flat().join(" ")).not.toContain(INPUT.email);
+    expect(errorSpy.mock.calls.flat().join(" ")).not.toContain(INPUT.content);
+    errorSpy.mockRestore();
+  });
+
+  it("이메일 알림이 실패해도 이미 저장한 문의 접수는 성공한다", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    sendFeedbackNotificationMock.mockRejectedValueOnce(new Error("email provider unavailable"));
+
+    await expect(submitFeedback(INPUT, { redis: fakeRedis(), prefix: "test" })).resolves.toBeUndefined();
+
+    expect(insertAdminFeedbackMock).toHaveBeenCalledOnce();
+    expect(errorSpy).toHaveBeenCalledWith("[feedback] 문의 이메일 알림 실패");
     expect(errorSpy.mock.calls.flat().join(" ")).not.toContain(INPUT.email);
     expect(errorSpy.mock.calls.flat().join(" ")).not.toContain(INPUT.content);
     errorSpy.mockRestore();

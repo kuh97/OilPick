@@ -33,4 +33,8 @@ export const env = {
   // 관리자 인증 — 누락 시 관리자 기능은 fail closed 한다.
   get ADMIN_PASSWORD_HASH() { return process.env.ADMIN_PASSWORD_HASH; },
   get ADMIN_SESSION_SECRET() { return process.env.ADMIN_SESSION_SECRET; },
+  // 문의 이메일 알림 — 세 값이 모두 있을 때만 Resend 알림을 보낸다.
+  get RESEND_API_KEY() { return process.env.RESEND_API_KEY; },
+  get FEEDBACK_NOTIFY_EMAIL() { return process.env.FEEDBACK_NOTIFY_EMAIL; },
+  get FEEDBACK_FROM_EMAIL() { return process.env.FEEDBACK_FROM_EMAIL; },
 };

@@ -420,6 +420,22 @@ SSE를 닫지 않습니다.
 
 ---
 
+### 5.6 Resend 문의 이메일 알림
+
+`POST /api/feedback`는 문의를 DB에 먼저 저장한 뒤, 아래 세 환경변수가 모두 설정된 경우에만
+Resend 이메일 API(`https://api.resend.com/emails`)로 관리자 알림을 보냅니다. API 키는 서버에서만
+사용하며 `FEEDBACK_FROM_EMAIL`은 Resend에서 인증한 발신자 주소여야 합니다.
+
+| 환경변수 | 용도 |
+| --- | --- |
+| `RESEND_API_KEY` | Resend 서버 인증 키 |
+| `FEEDBACK_NOTIFY_EMAIL` | 관리자 알림 수신 주소 |
+| `FEEDBACK_FROM_EMAIL` | 인증된 발신자 주소 |
+
+알림 메일의 `reply_to`는 문의자가 입력한 이메일로 설정합니다. Resend 호출이 실패해도 DB에 이미
+저장된 문의의 접수 응답은 실패시키지 않으며, 메일 발송 실패만 서버 로그에 남깁니다. 사용자에게
+별도 자동 회신 메일은 보내지 않습니다.
+
 ## 6. API Contract
 
 **모든 엔드포인트는 서버에서만 외부 API 키를 사용합니다.** 클라이언트는 이 계약만 압니다.

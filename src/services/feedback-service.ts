@@ -3,6 +3,7 @@
 import { getRedis } from "@/infra/cache/redis";
 import { env } from "@/infra/env";
 import { insertAdminFeedback } from "@/infra/db/repositories";
+import { sendFeedbackNotification } from "@/infra/email/resend";
 import type { Db } from "@/infra/db/client";
 import type { RedisLike } from "./route-service";
 
@@ -22,6 +23,7 @@ export interface SubmitFeedbackDeps {
   redis?: Pick<RedisLike, "incrby" | "expire">;
   prefix?: string;
   now?: Date;
+  sendNotification?: (input: FeedbackInput) => Promise<void>;
 }
 
 export class FeedbackRateLimitError extends Error {
@@ -72,4 +74,12 @@ export async function submitFeedback(input: FeedbackInput, deps: SubmitFeedbackD
     },
     deps.db,
   );
+
+  try {
+    await (deps.sendNotification ?? sendFeedbackNotification)(input);
+  } catch {
+    // 문의 저장은 성공했으므로 이메일 제공업체 장애가 접수를 막지 않게 합니다.
+    // 이메일·제목·내용은 로그에 남기지 않습니다.
+    console.error("[feedback] 문의 이메일 알림 실패");
+  }
 }
