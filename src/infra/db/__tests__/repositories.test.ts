@@ -15,6 +15,7 @@ import {
   getDetailBackfillProgress,
   updateDetailFields,
   markDetailSyncedEmpty,
+  getLatestImportLog,
   listAdminFeedbackPage,
   countAdminFeedbackByStatus,
   updateAdminFeedbackStatus,
@@ -123,6 +124,35 @@ describe("countAdminFeedbackByStatus — DB 접근", () => {
       { status: "NEW", count: 3 },
       { status: "RESOLVED", count: 2 },
     ]);
+  });
+});
+
+describe("getLatestImportLog — DB 접근", () => {
+  it("최근 임포트의 운영 상태와 행 수를 반환한다", async () => {
+    const limit = vi.fn().mockResolvedValue([{
+      pricedOn: "2026-10-19",
+      status: "OK",
+      startedAt: NOW,
+      failedGate: null,
+      detail: null,
+      oilRows: 10_245,
+      lpgRows: 1_842,
+      geocoded: 3,
+    }]);
+    const orderBy = vi.fn(() => ({ limit }));
+    const from = vi.fn(() => ({ orderBy }));
+    const select = vi.fn(() => ({ from }));
+
+    await expect(getLatestImportLog({ select } as unknown as Db)).resolves.toEqual({
+      pricedOn: "2026-10-19",
+      status: "OK",
+      startedAt: NOW,
+      failedGate: null,
+      detail: null,
+      oilRows: 10_245,
+      lpgRows: 1_842,
+      geocoded: 3,
+    });
   });
 });
 

@@ -107,6 +107,9 @@ export const AdminFeedbackQuerySchema = z.object({
   cursor: z.string().trim().min(1).max(512).optional(),
 });
 export type AdminFeedbackStatus = z.infer<typeof AdminFeedbackStatusSchema>;
+export const AdminDashboardQuerySchema = z.object({
+  range: z.enum(["24h", "7d"]).default("24h"),
+});
 
 export const NearbyQuerySchema = z.object({
   lat: z.coerce.number(),

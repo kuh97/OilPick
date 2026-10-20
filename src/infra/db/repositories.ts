@@ -499,12 +499,26 @@ export async function getLastSuccessfulImport(
 /** 가장 최근 임포트 이력 1건 (상태 무관) — 결과 화면 "가격 기준일자" 배너용. */
 export async function getLatestImportLog(
   db: Db = getDb(),
-): Promise<{ pricedOn: string | null; status: string; startedAt: Date } | undefined> {
+): Promise<{
+  pricedOn: string | null;
+  status: string;
+  startedAt: Date;
+  failedGate: string | null;
+  detail: string | null;
+  oilRows: number | null;
+  lpgRows: number | null;
+  geocoded: number | null;
+} | undefined> {
   const [row] = await db
     .select({
       pricedOn: csvImportLog.pricedOn,
       status: csvImportLog.status,
       startedAt: csvImportLog.startedAt,
+      failedGate: csvImportLog.failedGate,
+      detail: csvImportLog.detail,
+      oilRows: csvImportLog.oilRows,
+      lpgRows: csvImportLog.lpgRows,
+      geocoded: csvImportLog.geocoded,
     })
     .from(csvImportLog)
     .orderBy(desc(csvImportLog.id))
