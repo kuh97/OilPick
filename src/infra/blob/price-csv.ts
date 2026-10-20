@@ -7,6 +7,7 @@
  */
 
 import { put, list } from "@vercel/blob";
+import { randomUUID } from "node:crypto";
 import { env } from "@/infra/env";
 
 const LATEST_OIL = "opinet/latest/oil.csv";
@@ -27,11 +28,22 @@ async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T
   }
 }
 
-async function fetchBlobBytes(url: string): Promise<Buffer> {
+function withCacheBust(url: string, cacheBust: string): string {
+  const parsed = new URL(url);
+  parsed.searchParams.set("oilpick_cache_bust", cacheBust);
+  return parsed.toString();
+}
+
+async function fetchBlobBytes(url: string, cacheBust: string): Promise<Buffer> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), BLOB_TIMEOUT_MS);
   try {
-    const res = await fetch(url, { signal: controller.signal });
+    // `latest` is overwritten at a fixed public pathname. A unique query is
+    // required because Vercel Blob's public URL is served through its CDN.
+    const res = await fetch(withCacheBust(url, cacheBust), {
+      cache: "no-store",
+      signal: controller.signal,
+    });
     if (!res.ok) throw new Error(`Vercel Blob HTTP ${res.status}`);
     return Buffer.from(await res.arrayBuffer());
   } finally {
@@ -47,6 +59,9 @@ export async function putPriceCsvs(oil: Buffer, lpg: Buffer, dateYyyymmdd: strin
     addRandomSuffix: false,
     allowOverwrite: true,
     contentType: "text/csv",
+    // Keep stale public-CDN responses short-lived as a fallback for readers
+    // that do not use the cache-busting query parameter.
+    cacheControlMaxAge: 60,
   };
   await Promise.all([
     put(LATEST_OIL, oil, opts),
@@ -57,7 +72,9 @@ export async function putPriceCsvs(oil: Buffer, lpg: Buffer, dateYyyymmdd: strin
 }
 
 /** `latest` CSV 2개를 바이트로 가져온다. 없으면 throw (임포트는 DOWNLOAD_FAILED로 기록). */
-export async function getLatestPriceCsvs(): Promise<{ oil: Buffer; lpg: Buffer }> {
+export async function getLatestPriceCsvs(
+  cacheBust: string = randomUUID(),
+): Promise<{ oil: Buffer; lpg: Buffer }> {
   const { blobs } = await withTimeout(
     list({ prefix: "opinet/latest/", token: env.BLOB_READ_WRITE_TOKEN }),
     BLOB_TIMEOUT_MS,
@@ -68,8 +85,8 @@ export async function getLatestPriceCsvs(): Promise<{ oil: Buffer; lpg: Buffer }
     throw new Error("Blob opinet/latest/ 에 oil.csv 또는 lpg.csv가 없습니다");
   }
   const [oil, lpg] = await Promise.all([
-    fetchBlobBytes(oilBlob.url),
-    fetchBlobBytes(lpgBlob.url),
+    fetchBlobBytes(oilBlob.url, cacheBust),
+    fetchBlobBytes(lpgBlob.url, cacheBust),
   ]);
   return { oil, lpg };
 }
