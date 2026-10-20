@@ -10,12 +10,18 @@ import type { RedisLike } from "./route-service";
 const FEEDBACK_RATE_LIMIT = 30;
 const FEEDBACK_RATE_WINDOW_SECONDS = 60 * 60;
 
+export type FeedbackSource = "HOME" | "NEARBY" | "NEARBY_DETAIL" | "SEARCH" | "SEARCH_DETAIL";
+
 export interface FeedbackInput {
   email: string;
   subject: string;
   content: string;
+  feedbackSource?: FeedbackSource;
   stationId?: string;
+  stationName?: string;
   searchId?: string;
+  originName?: string;
+  destinationName?: string;
 }
 
 export interface SubmitFeedbackDeps {
@@ -69,8 +75,12 @@ export async function submitFeedback(input: FeedbackInput, deps: SubmitFeedbackD
       email: input.email,
       subject: input.subject,
       content: input.content,
+      feedbackSource: input.feedbackSource ?? null,
       stationId: input.stationId ?? null,
+      stationName: input.stationName ?? null,
       searchId: input.searchId ?? null,
+      originName: input.originName ?? null,
+      destinationName: input.destinationName ?? null,
     },
     deps.db,
   );

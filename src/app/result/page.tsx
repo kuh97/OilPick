@@ -219,7 +219,14 @@ export default function ResultPage() {
           >
             ← {origin.name ?? "출발지"} → {destination.name ?? "목적지"}
           </Link>
-          {!showFullScreenLoading && <HelpDrawer searchId={result?.searchId} />}
+          {!showFullScreenLoading && (
+            <HelpDrawer
+              feedbackSource="SEARCH"
+              searchId={result?.searchId}
+              originName={origin.name}
+              destinationName={destination.name}
+            />
+          )}
         </div>
         {(result?.baseRoute ?? baseRoute) && (
           <p className="text-sm text-muted-foreground">

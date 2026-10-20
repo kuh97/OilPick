@@ -672,8 +672,12 @@ Accept: application/json   → search(input)            // 콜백 없음 = 완�
     "email": "user@example.com",
     "subject": "시설 정보가 달라요",
     "content": "세차장이 없어요.",
+    "feedbackSource": "SEARCH",
     "stationId": "A0000001",
+    "stationName": "오일픽 주유소",
     "searchId": null,
+    "originName": "성남시청",
+    "destinationName": "춘천역",
     "status": "NEW",
     "createdAt": "2026-10-19T01:02:03.000Z",
     "resolvedAt": null
@@ -681,6 +685,14 @@ Accept: application/json   → search(input)            // 콜백 없음 = 완�
   "nextCursor": "opaque-cursor-or-null"
 }
 ```
+
+문의가 작성될 때 화면에 표시된 장소 이름을 `stationName`·`originName`·
+`destinationName`으로 함께 저장합니다. 이 값은 관리자 문의의 사람이 읽을 수 있는
+맥락을 위한 스냅샷이며, 익명 `search_event`에는 저장하지 않습니다. 기존 문의처럼
+이름이 없는 행은 `null`입니다. `feedbackSource`는 문의를 연 화면을
+`HOME`(홈)·`NEARBY`(내 위치)·`NEARBY_DETAIL`(내 위치 > 카드 상세)·
+`SEARCH`(검색)·`SEARCH_DETAIL`(검색 > 카드 상세)로 구분합니다. `stationId`·`searchId`는
+기술적인 추적 정보로만 관리자 화면의 상세 영역에 표시합니다.
 
 `GET /api/admin/feedback/counts`는 목록과 분리된 공용 query로 관리합니다. 탭 숫자는
 목록 탭을 바꿀 때 다시 조회하지 않고 이 응답을 재사용합니다.

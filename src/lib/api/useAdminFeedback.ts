@@ -5,14 +5,19 @@ import { useCallback } from "react";
 
 export type AdminFeedbackStatus = "NEW" | "IN_PROGRESS" | "RESOLVED";
 export type AdminFeedbackStatusFilter = AdminFeedbackStatus | "ALL";
+export type AdminFeedbackSource = "HOME" | "NEARBY" | "NEARBY_DETAIL" | "SEARCH" | "SEARCH_DETAIL";
 
 export interface AdminFeedbackItem {
   id: string;
   email: string;
   subject: string;
   content: string;
+  feedbackSource: AdminFeedbackSource | null;
   stationId: string | null;
+  stationName: string | null;
   searchId: string | null;
+  originName: string | null;
+  destinationName: string | null;
   status: AdminFeedbackStatus;
   createdAt: string;
   resolvedAt: string | null;
@@ -27,6 +32,16 @@ function isAdminFeedbackStatus(value: unknown): value is AdminFeedbackStatus {
   return value === "NEW" || value === "IN_PROGRESS" || value === "RESOLVED";
 }
 
+function isAdminFeedbackSource(value: unknown): value is AdminFeedbackSource {
+  return (
+    value === "HOME" ||
+    value === "NEARBY" ||
+    value === "NEARBY_DETAIL" ||
+    value === "SEARCH" ||
+    value === "SEARCH_DETAIL"
+  );
+}
+
 function isNullableString(value: unknown): value is string | null {
   return value === null || typeof value === "string";
 }
@@ -39,8 +54,12 @@ function isAdminFeedbackItem(value: unknown): value is AdminFeedbackItem {
     typeof item.email === "string" &&
     typeof item.subject === "string" &&
     typeof item.content === "string" &&
+    (item.feedbackSource === null || isAdminFeedbackSource(item.feedbackSource)) &&
     isNullableString(item.stationId) &&
+    isNullableString(item.stationName) &&
     isNullableString(item.searchId) &&
+    isNullableString(item.originName) &&
+    isNullableString(item.destinationName) &&
     isAdminFeedbackStatus(item.status) &&
     typeof item.createdAt === "string" &&
     isNullableString(item.resolvedAt)

@@ -7,8 +7,19 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-async function openDialog() {
-  render(<FeedbackDialog stationId="station-1" searchId="11111111-1111-4111-8111-111111111111" />);
+async function openDialog(props: {
+  feedbackSource?: "HOME" | "NEARBY" | "NEARBY_DETAIL" | "SEARCH" | "SEARCH_DETAIL";
+  stationName?: string;
+  originName?: string;
+  destinationName?: string;
+} = {}) {
+  render(
+    <FeedbackDialog
+      stationId="station-1"
+      searchId="11111111-1111-4111-8111-111111111111"
+      {...props}
+    />,
+  );
   fireEvent.click(screen.getByRole("button", { name: "서비스 문의" }));
   await screen.findByRole("dialog");
 }
@@ -23,7 +34,15 @@ describe("FeedbackDialog", () => {
   it("문의 폼을 열고 주유소·검색 정보를 함께 전송한다", async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ ok: true }), { status: 201 }));
     vi.stubGlobal("fetch", fetchMock);
-    await openDialog();
+    await openDialog({
+      feedbackSource: "SEARCH_DETAIL",
+      stationName: "오일픽 주유소",
+      originName: "성남시청",
+      destinationName: "춘천역",
+    });
+    expect(screen.getByText("문의 경로: 검색 > 카드 상세")).toBeTruthy();
+    expect(screen.getByText("성남시청 → 춘천역")).toBeTruthy();
+    expect(screen.getByText("주유소: 오일픽 주유소")).toBeTruthy();
     fillForm();
 
     const form = screen.getByRole("button", { name: "문의 보내기" }).closest("form");
@@ -39,8 +58,12 @@ describe("FeedbackDialog", () => {
           email: "user@example.com",
           subject: "시설 정보 오류",
           content: "세차장이 실제와 달라요.",
+          feedbackSource: "SEARCH_DETAIL",
           stationId: "station-1",
+          stationName: "오일픽 주유소",
           searchId: "11111111-1111-4111-8111-111111111111",
+          originName: "성남시청",
+          destinationName: "춘천역",
         }),
       }),
     );

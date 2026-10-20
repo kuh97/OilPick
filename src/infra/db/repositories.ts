@@ -39,7 +39,18 @@ export type RefuelPointRow = typeof refuelPoint.$inferSelect;
 export type AdminFeedbackInsert = typeof adminFeedback.$inferInsert;
 
 export async function insertAdminFeedback(
-  input: Pick<AdminFeedbackInsert, "email" | "subject" | "content" | "stationId" | "searchId">,
+  input: Pick<
+    AdminFeedbackInsert,
+    | "email"
+    | "subject"
+    | "content"
+    | "feedbackSource"
+    | "stationId"
+    | "stationName"
+    | "searchId"
+    | "originName"
+    | "destinationName"
+  >,
   db: Db = getDb(),
 ): Promise<void> {
   await db.insert(adminFeedback).values(input);

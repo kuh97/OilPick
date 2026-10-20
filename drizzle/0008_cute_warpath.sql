@@ -1,0 +1,1 @@
+ALTER TABLE "admin_feedback" ADD COLUMN "feedback_source" text;

@@ -13,8 +13,12 @@ vi.mock("@/lib/api/useAdminFeedback", () => ({
         email: "user@example.com",
         subject: "문의 제목",
         content: "문의 내용",
+        feedbackSource: "SEARCH_DETAIL",
         stationId: null,
+        stationName: "오일픽 주유소",
         searchId: null,
+        originName: "성남시청",
+        destinationName: "춘천역",
         status: "NEW",
         createdAt: "2026-10-19T01:02:03.000Z",
         resolvedAt: null,
@@ -67,6 +71,9 @@ describe("AdminFeedbackList", () => {
     const cardText = card.textContent ?? "";
     expect(cardText.indexOf("user@example.com")).toBeLessThan(cardText.indexOf("문의 제목"));
     expect(cardText.indexOf("문의 제목")).toBeLessThan(cardText.indexOf("문의 내용"));
+    expect(cardText).toContain("성남시청 → 춘천역");
+    expect(cardText).toContain("문의 경로: 검색 > 카드 상세");
+    expect(cardText).toContain("오일픽 주유소");
 
     fireEvent.click(screen.getByRole("button", { name: "문의 제목 삭제" }));
 

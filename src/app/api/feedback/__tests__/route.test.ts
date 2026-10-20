@@ -25,8 +25,12 @@ function validBody() {
     email: " user@example.com ",
     subject: " 주유소 정보가 달라요 ",
     content: " 세차장이 있다고 표시되지만 현장에는 없어요. ",
+    feedbackSource: "SEARCH",
     stationId: "station-1",
+    stationName: "오일픽 주유소",
     searchId: "11111111-1111-4111-8111-111111111111",
+    originName: "성남시청",
+    destinationName: "춘천역",
   };
 }
 
@@ -52,8 +56,12 @@ describe("POST /api/feedback", () => {
       email: "user@example.com",
       subject: "주유소 정보가 달라요",
       content: "세차장이 있다고 표시되지만 현장에는 없어요.",
+      feedbackSource: "SEARCH",
       stationId: "station-1",
+      stationName: "오일픽 주유소",
       searchId: "11111111-1111-4111-8111-111111111111",
+      originName: "성남시청",
+      destinationName: "춘천역",
     });
   });
 

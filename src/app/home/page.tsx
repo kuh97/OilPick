@@ -106,7 +106,7 @@ export default function HomePage() {
           {/* eslint-disable-next-line @next/next/no-img-element -- 벡터 워드마크, next/image svg 최적화 미지원 */}
           <img src="/brand/wordmark.svg" alt="오일픽" className="h-6 w-auto" />
         </h1>
-        <HelpDrawer />
+        <HelpDrawer feedbackSource="HOME" />
       </div>
       <p className="text-sm text-muted-foreground">
         경로에 딱 맞는 주유소를 찾아드려요

@@ -18,15 +18,24 @@ import {
   DrawerTrigger,
 } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
+import type { FeedbackSource } from "@/lib/api/useFeedback";
 
 type HelpView = "menu" | "faq";
 
 export function HelpDrawer({
+  feedbackSource,
   stationId,
+  stationName,
   searchId,
+  originName,
+  destinationName,
 }: {
+  feedbackSource?: FeedbackSource;
   stationId?: string;
+  stationName?: string;
   searchId?: string;
+  originName?: string;
+  destinationName?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [view, setView] = useState<HelpView>("menu");
@@ -136,8 +145,12 @@ export function HelpDrawer({
         showTrigger={false}
         open={feedbackOpen}
         onOpenChange={setFeedbackOpen}
+        feedbackSource={feedbackSource}
         stationId={stationId}
+        stationName={stationName}
         searchId={searchId}
+        originName={originName}
+        destinationName={destinationName}
       />
     </>
   );

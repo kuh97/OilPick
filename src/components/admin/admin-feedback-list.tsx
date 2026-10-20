@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import {
   useAdminFeedback,
   type AdminFeedbackItem,
+  type AdminFeedbackSource,
   type AdminFeedbackStatus,
   type AdminFeedbackStatusFilter,
 } from "@/lib/api/useAdminFeedback";
@@ -38,6 +39,14 @@ const STATUS_CLASS_NAME: Record<AdminFeedbackStatus, string> = {
   RESOLVED: "bg-success text-success-foreground",
 };
 
+const SOURCE_LABEL: Record<AdminFeedbackSource, string> = {
+  HOME: "홈",
+  NEARBY: "내 위치",
+  NEARBY_DETAIL: "내 위치 > 카드 상세",
+  SEARCH: "검색",
+  SEARCH_DETAIL: "검색 > 카드 상세",
+};
+
 function formatDate(value: string): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "날짜 없음";
@@ -45,6 +54,11 @@ function formatDate(value: string): string {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(date);
+}
+
+function formatRoute(originName: string | null, destinationName: string | null): string | null {
+  if (!originName && !destinationName) return null;
+  return `${originName ?? "출발지"} → ${destinationName ?? "목적지"}`;
 }
 
 function FeedbackCard({
@@ -62,6 +76,9 @@ function FeedbackCard({
 }) {
   const [isStatusMenuOpen, setIsStatusMenuOpen] = useState(false);
   const statusMenuRef = useRef<HTMLDivElement>(null);
+  const route = formatRoute(feedback.originName, feedback.destinationName);
+  const hasContext = Boolean(feedback.feedbackSource || route || feedback.stationName);
+  const hasTraceInfo = Boolean(feedback.stationId || feedback.searchId);
 
   useEffect(() => {
     if (!isStatusMenuOpen) return;
@@ -152,12 +169,23 @@ function FeedbackCard({
         </div>
       </div>
       <p className="mt-5 whitespace-pre-wrap text-sm leading-6 text-foreground">{feedback.content}</p>
-      {feedback.stationId || feedback.searchId ? (
-        <p className="mt-4 border-t border-border pt-3 text-xs text-muted-foreground">
-          {feedback.stationId ? `주유소: ${feedback.stationId}` : null}
-          {feedback.stationId && feedback.searchId ? " · " : null}
-          {feedback.searchId ? `검색: ${feedback.searchId}` : null}
-        </p>
+      {hasContext || hasTraceInfo ? (
+        <div className="mt-4 border-t border-border pt-3 text-xs text-muted-foreground">
+          {feedback.feedbackSource ? <p>문의 경로: {SOURCE_LABEL[feedback.feedbackSource]}</p> : null}
+          {route ? <p>검색 경로: {route}</p> : null}
+          {feedback.stationName ? (
+            <p className={route || feedback.feedbackSource ? "mt-1" : undefined}>주유소: {feedback.stationName}</p>
+          ) : null}
+          {hasTraceInfo ? (
+            <details className="mt-2">
+              <summary className="cursor-pointer select-none">추적 정보</summary>
+              <div className="mt-2 space-y-1 break-all font-mono text-[11px]">
+                {feedback.stationId ? <p>주유소 ID: {feedback.stationId}</p> : null}
+                {feedback.searchId ? <p>검색 ID: {feedback.searchId}</p> : null}
+              </div>
+            </details>
+          ) : null}
+        </div>
       ) : null}
     </article>
   );

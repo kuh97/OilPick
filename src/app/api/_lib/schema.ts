@@ -88,8 +88,12 @@ export const FeedbackRequestSchema = z.object({
   email: z.string().trim().email().max(254),
   subject: z.string().trim().min(1).max(120),
   content: z.string().trim().min(1).max(4_000),
+  feedbackSource: z.enum(["HOME", "NEARBY", "NEARBY_DETAIL", "SEARCH", "SEARCH_DETAIL"]).optional(),
   stationId: z.string().trim().min(1).max(100).optional(),
+  stationName: z.string().trim().min(1).max(200).optional(),
   searchId: z.string().uuid().optional(),
+  originName: z.string().trim().min(1).max(200).optional(),
+  destinationName: z.string().trim().min(1).max(200).optional(),
 });
 export type FeedbackRequest = z.infer<typeof FeedbackRequestSchema>;
 

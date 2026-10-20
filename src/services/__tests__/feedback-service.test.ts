@@ -33,8 +33,12 @@ const INPUT = {
   email: "user@example.com",
   subject: "주유소 정보 오류",
   content: "세차장 정보가 실제와 달라요.",
+  feedbackSource: "SEARCH" as const,
   stationId: "station-1",
+  stationName: "오일픽 주유소",
   searchId: "11111111-1111-4111-8111-111111111111",
+  originName: "성남시청",
+  destinationName: "춘천역",
 };
 
 describe("feedback-service", () => {

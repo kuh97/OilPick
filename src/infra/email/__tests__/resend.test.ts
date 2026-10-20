@@ -5,8 +5,12 @@ const INPUT = {
   email: "user@example.com",
   subject: "<제목>",
   content: "첫 줄\n<script>alert('x')</script>",
+  feedbackSource: "SEARCH" as const,
   stationId: "station-1",
+  stationName: "오일픽 주유소",
   searchId: null,
+  originName: "성남시청",
+  destinationName: "춘천역",
 };
 
 describe("sendFeedbackNotification", () => {
@@ -49,6 +53,9 @@ describe("sendFeedbackNotification", () => {
       subject: "[OilPick 문의] <제목>",
     });
     expect(body.text).toContain(INPUT.content);
+    expect(body.text).toContain("경로: 성남시청 → 춘천역");
+    expect(body.text).toContain("문의 경로: 검색");
+    expect(body.text).toContain("주유소: 오일픽 주유소");
     expect(body.html).toContain("&lt;제목&gt;");
     expect(body.html).not.toContain("<script>");
   });

@@ -11,14 +11,19 @@ import {
 import type { Db } from "@/infra/db/client";
 
 export type AdminFeedbackStatus = "NEW" | "IN_PROGRESS" | "RESOLVED";
+export type AdminFeedbackSource = "HOME" | "NEARBY" | "NEARBY_DETAIL" | "SEARCH" | "SEARCH_DETAIL";
 
 export interface AdminFeedbackDto {
   id: string;
   email: string;
   subject: string;
   content: string;
+  feedbackSource: AdminFeedbackSource | null;
   stationId: string | null;
+  stationName: string | null;
   searchId: string | null;
+  originName: string | null;
+  destinationName: string | null;
   status: AdminFeedbackStatus;
   createdAt: string;
   resolvedAt: string | null;
@@ -43,6 +48,13 @@ export interface GetAdminFeedbackListOptions {
 }
 
 const FEEDBACK_STATUSES: AdminFeedbackStatus[] = ["NEW", "IN_PROGRESS", "RESOLVED"];
+const FEEDBACK_SOURCES: AdminFeedbackSource[] = [
+  "HOME",
+  "NEARBY",
+  "NEARBY_DETAIL",
+  "SEARCH",
+  "SEARCH_DETAIL",
+];
 export const ADMIN_FEEDBACK_PAGE_SIZE = 20;
 
 interface AdminFeedbackCursorPayload {
@@ -55,14 +67,24 @@ function toFeedbackStatus(value: string): AdminFeedbackStatus {
   return FEEDBACK_STATUSES.includes(value as AdminFeedbackStatus) ? (value as AdminFeedbackStatus) : "NEW";
 }
 
+function toFeedbackSource(value: string | null): AdminFeedbackSource | null {
+  return value && FEEDBACK_SOURCES.includes(value as AdminFeedbackSource)
+    ? (value as AdminFeedbackSource)
+    : null;
+}
+
 function toAdminFeedbackDto(row: AdminFeedbackRow): AdminFeedbackDto {
   return {
     id: row.id,
     email: row.email,
     subject: row.subject,
     content: row.content,
+    feedbackSource: toFeedbackSource(row.feedbackSource),
     stationId: row.stationId,
+    stationName: row.stationName ?? null,
     searchId: row.searchId,
+    originName: row.originName ?? null,
+    destinationName: row.destinationName ?? null,
     status: toFeedbackStatus(row.status),
     createdAt: row.createdAt.toISOString(),
     resolvedAt: row.resolvedAt?.toISOString() ?? null,

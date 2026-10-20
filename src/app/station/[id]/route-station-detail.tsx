@@ -125,9 +125,12 @@ export function RouteStationDetail({
         backHref="/result"
         backLabel="검색 결과"
         stationName={candidate.name}
+        feedbackSource="SEARCH_DETAIL"
         tier={candidate.tier}
         stationId={candidate.id}
         searchId={result.searchId}
+        originName={origin.name}
+        destinationName={destination.name}
       />
 
       <RouteMap

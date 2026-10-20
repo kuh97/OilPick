@@ -13,21 +13,36 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { useFeedback } from "@/lib/api/useFeedback";
+import { useFeedback, type FeedbackSource } from "@/lib/api/useFeedback";
 
 const EMPTY_FORM = { email: "", subject: "", content: "" };
+const FEEDBACK_SOURCE_LABEL: Record<FeedbackSource, string> = {
+  HOME: "홈",
+  NEARBY: "내 위치",
+  NEARBY_DETAIL: "내 위치 > 카드 상세",
+  SEARCH: "검색",
+  SEARCH_DETAIL: "검색 > 카드 상세",
+};
 
 export function FeedbackDialog({
   buttonLabel = "서비스 문의",
+  feedbackSource,
   stationId,
+  stationName,
   searchId,
+  originName,
+  destinationName,
   showTrigger = true,
   open: controlledOpen,
   onOpenChange,
 }: {
   buttonLabel?: string;
+  feedbackSource?: FeedbackSource;
   stationId?: string;
+  stationName?: string;
   searchId?: string;
+  originName?: string;
+  destinationName?: string;
   showTrigger?: boolean;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
@@ -39,6 +54,9 @@ export function FeedbackDialog({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { submitFeedback } = useFeedback();
   const open = controlledOpen ?? internalOpen;
+  const routeLabel = originName || destinationName
+    ? `${originName ?? "출발지"} → ${destinationName ?? "목적지"}`
+    : null;
 
   function setOpen(nextOpen: boolean) {
     if (controlledOpen === undefined) setInternalOpen(nextOpen);
@@ -56,8 +74,12 @@ export function FeedbackDialog({
       email: form.email.trim(),
       subject: form.subject.trim(),
       content: form.content.trim(),
-      stationId,
-      searchId,
+      ...(feedbackSource ? { feedbackSource } : {}),
+      ...(stationId ? { stationId } : {}),
+      ...(stationName ? { stationName } : {}),
+      ...(searchId ? { searchId } : {}),
+      ...(originName ? { originName } : {}),
+      ...(destinationName ? { destinationName } : {}),
     };
 
     if (!payload.email || !payload.subject || !payload.content) {
@@ -114,6 +136,24 @@ export function FeedbackDialog({
               <DialogTitle>서비스 문의</DialogTitle>
               <DialogDescription>불편한 점이나 잘못된 정보를 알려주세요.</DialogDescription>
             </DialogHeader>
+
+            {feedbackSource || routeLabel || stationName ? (
+              <div
+                aria-label="문의에 포함되는 검색 정보"
+                className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm"
+              >
+                <p className="text-xs text-muted-foreground">문의에 포함되는 정보</p>
+                {feedbackSource ? (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    문의 경로: {FEEDBACK_SOURCE_LABEL[feedbackSource]}
+                  </p>
+                ) : null}
+                {routeLabel ? <p className="mt-1 font-medium">{routeLabel}</p> : null}
+                {stationName ? (
+                  <p className="mt-1 text-xs text-muted-foreground">주유소: {stationName}</p>
+                ) : null}
+              </div>
+            ) : null}
 
             {error && (
               <Alert variant="destructive">

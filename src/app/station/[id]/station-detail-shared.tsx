@@ -13,6 +13,7 @@ import { HelpDrawer } from "@/components/help-drawer";
 import { brandName, type Tier } from "@/domain/types";
 import type { NaviApp } from "@/domain/deeplink";
 import type { WireStationSummary } from "@/app/api/_lib/types";
+import type { FeedbackSource } from "@/lib/api/useFeedback";
 
 export const NAVI_APPS: { app: NaviApp; label: string; appName?: string }[] = [
   { app: "KAKAO", label: "카카오맵" },
@@ -24,16 +25,22 @@ export function StationDetailHeader({
   backHref,
   backLabel,
   stationName,
+  feedbackSource,
   tier,
   stationId,
   searchId,
+  originName,
+  destinationName,
 }: {
   backHref: string;
   backLabel: string;
   stationName: string;
+  feedbackSource?: FeedbackSource;
   tier?: Tier;
   stationId?: string;
   searchId?: string;
+  originName?: string;
+  destinationName?: string;
 }) {
   return (
     <header>
@@ -41,7 +48,14 @@ export function StationDetailHeader({
         <Link href={backHref} className="text-sm text-muted-foreground">
           ← {backLabel}
         </Link>
-        <HelpDrawer stationId={stationId} searchId={searchId} />
+        <HelpDrawer
+          stationId={stationId}
+          stationName={stationName}
+          feedbackSource={feedbackSource}
+          searchId={searchId}
+          originName={originName}
+          destinationName={destinationName}
+        />
       </div>
       <h1 className="mt-3 flex flex-wrap items-center gap-2 text-xl font-bold">
         <span>{stationName}</span>

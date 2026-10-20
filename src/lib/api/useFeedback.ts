@@ -1,11 +1,17 @@
 "use client";
 
+export type FeedbackSource = "HOME" | "NEARBY" | "NEARBY_DETAIL" | "SEARCH" | "SEARCH_DETAIL";
+
 export interface FeedbackPayload {
   email: string;
   subject: string;
   content: string;
+  feedbackSource?: FeedbackSource;
   stationId?: string;
+  stationName?: string;
   searchId?: string;
+  originName?: string;
+  destinationName?: string;
 }
 
 export interface FeedbackError {
