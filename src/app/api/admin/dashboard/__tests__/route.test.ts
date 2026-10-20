@@ -28,11 +28,21 @@ describe("GET /api/admin/dashboard", () => {
   });
 
   it("잘못된 기간은 인증 확인보다 먼저 400을 반환한다", async () => {
-    const response = await GET(new Request("https://example.com/api/admin/dashboard?range=30d"));
+    const response = await GET(new Request("https://example.com/api/admin/dashboard?range=90d"));
 
     expect(response.status).toBe(400);
     expect(requireAdminSessionMock).not.toHaveBeenCalled();
     expect(response.headers.get("cache-control")).toBe("no-store");
+  });
+
+  it("30일 기간을 인증된 요청에서 서비스에 넘긴다", async () => {
+    requireAdminSessionMock.mockResolvedValue(true);
+    getAdminDashboardMock.mockResolvedValue({ range: "30d", search: { completedCount: 0 } });
+
+    const response = await GET(new Request("https://example.com/api/admin/dashboard?range=30d"));
+
+    expect(response.status).toBe(200);
+    expect(getAdminDashboardMock).toHaveBeenCalledWith({ range: "30d" });
   });
 
   it("인증된 요청은 선택한 기간을 서비스에 넘기고 no-store 응답을 반환한다", async () => {

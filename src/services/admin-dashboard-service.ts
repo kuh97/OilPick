@@ -4,7 +4,7 @@ import { getDetailBackfillProgress, getLatestImportLog } from "@/infra/db/reposi
 import { getAdminSearchMetrics, type AdminSearchMetrics } from "@/infra/db/admin-metrics";
 import type { Db } from "@/infra/db/client";
 
-export type AdminDashboardRange = "24h" | "7d";
+export type AdminDashboardRange = "24h" | "7d" | "30d";
 
 export interface AdminDashboard {
   range: AdminDashboardRange;
@@ -82,7 +82,9 @@ function buildTierCounts(metrics: AdminSearchMetrics): Record<"ON_ROUTE" | "DETO
 }
 
 function durationForRange(range: AdminDashboardRange): number {
-  return range === "24h" ? 24 * 60 * 60 * 1_000 : 7 * 24 * 60 * 60 * 1_000;
+  if (range === "24h") return 24 * 60 * 60 * 1_000;
+  if (range === "7d") return 7 * 24 * 60 * 60 * 1_000;
+  return 30 * 24 * 60 * 60 * 1_000;
 }
 
 export async function getAdminDashboard(

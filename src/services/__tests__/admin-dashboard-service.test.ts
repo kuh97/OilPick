@@ -121,4 +121,10 @@ describe("getAdminDashboard", () => {
     });
     expect(result.navi.clickRate).toBe(0);
   });
+
+  it("30일 기간은 현재 시각에서 30일 전부터 집계한다", async () => {
+    await getAdminDashboard({ range: "30d", now: NOW });
+
+    expect(getAdminSearchMetricsMock).toHaveBeenCalledWith(new Date("2026-09-20T00:00:00.000Z"), undefined);
+  });
 });

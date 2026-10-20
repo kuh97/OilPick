@@ -77,6 +77,15 @@ describe("AdminDashboard", () => {
     expect(useAdminDashboardMock).toHaveBeenLastCalledWith("7d");
   });
 
+  it("30일 버튼을 제공하고 선택한 기간으로 지표 훅을 다시 사용한다", () => {
+    render(<AdminDashboard />);
+
+    fireEvent.click(screen.getByRole("button", { name: "30일" }));
+
+    expect(screen.getByRole("button", { name: "30일" }).getAttribute("aria-pressed")).toBe("true");
+    expect(useAdminDashboardMock).toHaveBeenLastCalledWith("30d");
+  });
+
   it("데이터가 없으면 평균과 비율을 대시로 표시한다", () => {
     useAdminDashboardMock.mockReturnValue({
       dashboard: {

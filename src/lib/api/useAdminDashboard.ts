@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 
-export type AdminDashboardRange = "24h" | "7d";
+export type AdminDashboardRange = "24h" | "7d" | "30d";
 
 export interface AdminDashboardData {
   range: AdminDashboardRange;
@@ -64,7 +64,7 @@ function isNullableString(value: unknown): value is string | null {
 
 function isAdminDashboardData(value: unknown): value is AdminDashboardData {
   if (!isRecord(value)) return false;
-  if (value.range !== "24h" && value.range !== "7d") return false;
+  if (value.range !== "24h" && value.range !== "7d" && value.range !== "30d") return false;
   if (!isRecord(value.period) || typeof value.period.since !== "string" || typeof value.period.until !== "string") {
     return false;
   }

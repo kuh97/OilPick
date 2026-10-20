@@ -9,6 +9,7 @@ import { useAdminFeedbackCounts } from "@/lib/api/useAdminFeedbackCounts";
 const RANGE_OPTIONS: Array<{ value: AdminDashboardRange; label: string }> = [
   { value: "24h", label: "24시간" },
   { value: "7d", label: "7일" },
+  { value: "30d", label: "30일" },
 ];
 
 const IMPORT_STATUS_LABEL: Record<string, string> = {
@@ -65,6 +66,12 @@ function formatDuration(value: number | null): string {
   if (value == null) return "—";
   if (value < 1_000) return `${Math.round(value)}ms`;
   return `${(value / 1_000).toFixed(1)}초`;
+}
+
+function formatRangeLabel(range: AdminDashboardRange): string {
+  if (range === "24h") return "최근 24시간";
+  if (range === "7d") return "최근 7일";
+  return "최근 30일";
 }
 
 function MetricCard({ label, value, detail }: { label: string; value: string; detail?: string }) {
@@ -131,7 +138,7 @@ function DashboardContent({
       <dl className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <MetricCard label="새 문의" value={newFeedbackCount == null ? "—" : formatNumber(newFeedbackCount)} detail="현재 새 문의 상태" />
         <MetricCard label="가격 기준일" value={latestImport?.pricedOn ?? "—"} detail={latestImport?.status === "OK" ? "최근 임포트 정상" : "최근 임포트 상태 확인 필요"} />
-        <MetricCard label="완료된 검색" value={formatNumber(search.completedCount)} detail={dashboard.range === "24h" ? "최근 24시간" : "최근 7일"} />
+        <MetricCard label="완료된 검색" value={formatNumber(search.completedCount)} detail={formatRangeLabel(dashboard.range)} />
         <MetricCard label="결과 0건" value={formatRate(search.zeroResultRate, search.completedCount > 0)} />
         <MetricCard label="T3 우회 추천" value={formatRate(search.t3Rate, search.completedCount > 0)} />
         <MetricCard label="내비 버튼 클릭률" value={formatRate(navi.clickRate, search.completedCount > 0)} detail="실제 앱 실행 성공률 아님" />

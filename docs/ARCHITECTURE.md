@@ -625,7 +625,7 @@ Accept: application/json   → search(input)            // 콜백 없음 = 완�
 | `POST /api/events/navi`                          | 딥링크 클릭 기록       | `204`                                                                                                   |
 | `GET /api/admin/feedback?status=&cursor=`        | 관리자 문의 목록       | 관리자 세션 필요. `{ items, nextCursor }` — 20건 단위 커서 페이지                                        |
 | `GET /api/admin/feedback/counts`                 | 관리자 문의 건수       | 관리자 세션 필요. `{ counts: { ALL, NEW, IN_PROGRESS, RESOLVED } }`                                       |
-| `GET /api/admin/dashboard?range=24h\|7d`         | 관리자 운영·검색 지표  | 관리자 세션 필요. `range` 생략 시 `24h`. 가격·백필·검색·내비 집계 DTO                                            |
+| `GET /api/admin/dashboard?range=24h\|7d\|30d`    | 관리자 운영·검색 지표  | 관리자 세션 필요. `range` 생략 시 `24h`. 가격·백필·검색·내비 집계 DTO                                            |
 | `GET /api/cron/import-prices`                    | 유가 CSV 임포트 (§9.3) | `200 { status, pricedOn, ... }` — 실패도 200                                                            |
 | `GET /api/cron/backfill-details`                 | 시설 정보 백필 (§9.3)  | `200 { limit, picked, updated, notFound, failed, remaining }`                                           |
 
@@ -674,9 +674,9 @@ Accept: application/json   → search(input)            // 콜백 없음 = 완�
 }
 ```
 
-**`GET /api/admin/dashboard?range=24h|7d` 관리자 운영·검색 지표**
+**`GET /api/admin/dashboard?range=24h|7d|30d` 관리자 운영·검색 지표**
 
-`range`는 현재 시각부터 과거 24시간 또는 7일을 검색 이벤트 집계에 사용합니다.
+`range`는 현재 시각부터 과거 24시간, 7일 또는 30일을 검색 이벤트 집계에 사용합니다.
 가격 임포트와 시설 백필 상태는 최근 실행·전체 큐 현황을 반환합니다. 비율은 `0~1`이며,
 검색이 없으면 비율은 `0`, 평균값은 `null`입니다. 내비 클릭률의 분자는 선택 기간 내
 완료된 검색 중 내비 버튼을 한 번 이상 누른 검색의 수입니다.
