@@ -16,6 +16,7 @@ import {
   useNearbyStations,
   type NearbyPoint,
 } from "@/lib/api/useNearbyStations";
+import { reverseGeocode } from "@/lib/api/reverseGeocode";
 import {
   distanceM as projectedDistanceM,
   wgs84ToProjected,
@@ -112,6 +113,7 @@ export default function NearbyPage() {
   const setFuel = useSearchStore((s) => s.setFuel);
   const setFilters = useSearchStore((s) => s.setFilters);
   const setNearbyOrigin = useSearchStore((s) => s.setNearbyOrigin);
+  const nearbyOrigin = useSearchStore((s) => s.nearbyOrigin);
   const [currentLocation, setCurrentLocation] = useState<NearbyPoint | null>(
     null,
   );
@@ -161,6 +163,9 @@ export default function NearbyPage() {
         setCurrentLocation(nextPoint);
         setSearchCenter(nextPoint);
         setNearbyOrigin(nextPoint);
+        void reverseGeocode(wgs84(nextPoint.lat, nextPoint.lng)).then((name) => {
+          if (name) setNearbyOrigin({ ...nextPoint, name });
+        });
       },
       () => {
         setNearbyOrigin(null);
@@ -181,7 +186,13 @@ export default function NearbyPage() {
         </Link>
         <h1 className="text-base font-semibold">내 주변 주유소</h1>
         <div className="justify-self-end">
-          <HelpDrawer stationId={selectedStation?.id} />
+          <HelpDrawer
+            feedbackSource="NEARBY"
+            stationId={selectedStation?.id}
+            stationName={selectedStation?.name}
+            originName={nearbyOrigin?.name}
+            destinationName={selectedStation?.name}
+          />
         </div>
       </header>
 

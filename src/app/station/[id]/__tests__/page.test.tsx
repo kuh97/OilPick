@@ -247,13 +247,13 @@ describe("StationDetailView — 내 주변 목적지 안내", () => {
   it("현재 위치와 도착지를 표시하고 카카오·네이버·티맵 목적지 버튼을 제공한다", async () => {
     stubUserAgent("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15");
     useSearchStore.setState({
-      nearbyOrigin: wgs84AsPoint(37.42, 127.12),
+      nearbyOrigin: { ...wgs84AsPoint(37.42, 127.12), name: "서울 테스트구 테스트로 1" },
       result: null,
     });
 
     renderPage();
 
-    expect(screen.getByText("내 위치 → 도착지")).toBeTruthy();
+    expect(screen.getByText("서울 테스트구 테스트로 1 → 도착지")).toBeTruthy();
     expect(screen.getByRole("heading", { name: "거리" })).toBeTruthy();
     expect(screen.getByText("3.2km")).toBeTruthy();
     expect(screen.getByText("약 8분")).toBeTruthy();

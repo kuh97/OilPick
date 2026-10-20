@@ -40,6 +40,7 @@ export function NearbyStationDetail({
 }) {
   const isMobile = useIsMobile();
   const stationPoint = wgs84(station.lat, station.lng);
+  const originName = origin?.name ?? "내 위치";
 
   function handleNaviClick(app: NaviApp, appName?: string) {
     if (!origin) return;
@@ -47,7 +48,7 @@ export function NearbyStationDetail({
       app,
       origin: wgs84(origin.lat, origin.lng),
       destination: stationPoint,
-      originName: "내 위치",
+      originName,
       destinationName: station.name,
       appName,
     };
@@ -66,12 +67,15 @@ export function NearbyStationDetail({
         backHref="/nearby"
         backLabel="내 주변 주유소"
         stationName={station.name}
+        feedbackSource="NEARBY_DETAIL"
         stationId={station.id}
+        originName={originName}
+        destinationName={station.name}
       />
 
       {origin && (
         <section className="rounded-xl border border-border bg-card px-3.5 py-3 text-sm shadow-[var(--shadow-sm)]">
-          <p className="font-medium">내 위치 → 도착지</p>
+          <p className="font-medium">{originName} → 도착지</p>
           <p className="mt-1 truncate text-xs text-muted-foreground">
             현재 위치에서 {station.name}까지
           </p>

@@ -11,6 +11,10 @@ vi.mock("@/lib/api/useNearbyStations", () => ({
   useNearbyStations: useNearbyStationsMock,
 }));
 
+vi.mock("@/lib/api/reverseGeocode", () => ({
+  reverseGeocode: vi.fn().mockResolvedValue("서울 테스트구 테스트로 1"),
+}));
+
 vi.mock("@/components/nearby-map", () => ({
   NearbyMap: ({
     stations,
