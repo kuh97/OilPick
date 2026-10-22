@@ -47,9 +47,8 @@ export function estimateDetourDurationS(detourDistanceM: number): number {
  * ΔT 4~17분). `max(0, …)` 클램프(불변식 5)가 이 신호를 0으로 눌러버리기 때문에,
  * ΔD만 보는 판정(배지 재판정·최단거리 점수)은 "우회 없음"이라고 거짓말을 합니다.
  *
- * 시간을 AVG_SPEED로 거리 환산해 둘 중 큰 값을 쓰면, 기존 거리 기준 임계값
- * (F × T1_MAX 등)을 그대로 재사용하면서 시간 신호를 잃지 않습니다 — 새 임계값을
- * 표본 부족 상태로 추정할 필요가 없습니다 (PRODUCT.md §6.5).
+ * 시간을 AVG_SPEED로 거리 환산해 둘 중 큰 값을 쓰면, 거리와 시간 신호를 함께 반영할 수
+ * 있습니다. 이 파생값은 최단거리 점수에만 사용합니다 (PRODUCT.md §6.5).
  */
 export function effectiveDetourDistanceM(detourDistanceM: number, detourDurationS: number): number {
   return Math.max(detourDistanceM, (detourDurationS / 3600) * AVG_SPEED * 1000);

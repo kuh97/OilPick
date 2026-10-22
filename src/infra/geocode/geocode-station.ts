@@ -3,7 +3,8 @@
  * docs/MIGRATION-DB.md §4. Phase A 최초 구축(scripts/import-price-csv.ts)과
  * Phase D 일일 갱신(services/price-import-service.ts)이 공유합니다.
  *
- * 실측 오차: 주소검색 중앙값 15m · 최대 74m ≪ T1_MAX(500m) — 티어 분류 영향 없음.
+ * 실측 오차: 주소검색 중앙값 15m · 최대 74m. 경로상 판정의 거리 허용값(1.5km)보다 작아
+ * 후보 판정에 미치는 영향이 제한적입니다.
  */
 
 import { geocodeAddress, fetchPlaces } from "@/infra/kakao/local";

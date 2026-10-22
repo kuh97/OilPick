@@ -2,8 +2,8 @@
  * 카카오모빌리티 길찾기 (경유지 0~1개).
  * 타임아웃·재시도 — ARCHITECTURE.md §5.4
  *
- * 기본 경로(R₀): timeout 5s, retry 1회 (기본값)
- * 경유 경로(R_s): timeout 5s, retry 0회 — 호출자가 retries: 0을 넘깁니다
+ * 기본 경로(R₀ᵖ): timeout 5s, retry 1회 (기본값)
+ * 경유 경로(R_sᵖ): timeout 5s, retry 0회 — 호출자가 retries: 0을 넘깁니다
  */
 
 import { env } from "@/infra/env";
@@ -38,7 +38,8 @@ function toKakaoCoord(p: WGS84Point): string {
 }
 
 /**
- * 길찾기 호출. 복수 경로를 반환해도 첫 번째(권장) 경로만 씁니다 (PRODUCT.md §6.1).
+ * 길찾기 호출. 한 요청의 응답에서는 `routes[0]`을 사용하며, 검색의
+ * RECOMMEND·TIME·DISTANCE 비교는 recommendation-service가 별도 요청으로 수행합니다.
  */
 export async function fetchDirections(
   opts: FetchDirectionsOptions,

@@ -163,7 +163,7 @@ oilpick/
 | `params.ts`   | 튜닝 파라미터 상수. 값의 정본은 [`PRODUCT.md`](PRODUCT.md) §9                                                                             |
 | `types.ts`    | `WGS84Point` / `KatecPoint` / `ProjectedPoint` / `RefuelPoint` / `Candidate` / `SearchResult` 등. **좌표 타입은 서로 대입 불가하게 분리** |
 | `geo.ts`      | WGS84 ↔ 투영좌표 변환, `pointToPolylineDistance`(`d_perp`), bbox 계산, 격자 스냅                                                          |
-| `tier.ts`     | `d_perp` → T1/T2/T3/제외 분류                                                                                                             |
+| `tier.ts`     | 실측 `ΔT`·`ΔD` → `ON_ROUTE`/`DETOUR` 배지 판정 (`d_perp`는 회랑·기준가 표본에만 사용)             |
 | `pricing.ts`  | `computeReferencePrice`, `netSaving`, `computeScores`, `removeOutliers`                                                                   |
 | `reason.ts`   | 추천 이유 템플릿 6분기. **LLM 금지**                                                                                                      |
 | `deeplink.ts` | 카카오맵·네이버지도·티맵 URL 생성                                                                                                         |
@@ -300,7 +300,7 @@ JSON API로 한 번에 받을 수 없지만, "과거 판매가격" CSV가 전국
 
 **왜 카카오인가**
 
-1. **무료 쿼터가 압도적** — 기본 경로 1회에 더해 T3 회랑 후보와 우회 후보를 실측할 수 있습니다
+1. **무료 쿼터가 압도적** — 기본 경로를 최대 3개 우선순위로 조회한 뒤 T3 회랑 후보와 우회 후보를 실측할 수 있습니다
 2. **TMAP은 요금 절벽이 위험** — 무료 일 1,000건, 초과 시 정액 Lite 월 220만원
 3. **네이버 Directions 15는 월 3,000건**(일 100)이라 경유지 계산에 쓸 수 없음
 
@@ -313,7 +313,7 @@ JSON API로 한 번에 받을 수 없지만, "과거 판매가격" CSV가 전국
 
 **응답 → 도메인 매핑 (`infra/kakao/mapper.ts`)**
 
-길찾기 응답은 `routes[0].sections[].roads[].vertexes`(경도·위도가 평탄화된 배열, `[lng, lat, lng, lat, ...]` 순서)를 순서대로 이어붙여 `BaseRoute.polyline`을 만듭니다. 기본 경로(R₀)·경유 경로(R_s) 모두 같은 구조라 매핑 함수를 공유합니다. `result_code !== 0`이면 경로 탐색 실패로 간주해 에러를 던집니다 — 그 라운드만 실패 처리하는 것은 `route-service`(Phase 7)의 몫입니다.
+길찾기 응답은 `routes[0].sections[].roads[].vertexes`(경도·위도가 평탄화된 배열, `[lng, lat, lng, lat, ...]` 순서)를 순서대로 이어붙여 `BaseRoute.polyline`을 만듭니다. 기본 경로(R₀ᵖ)와 경유 경로(R_sᵖ) 모두 같은 구조라 매핑 함수를 공유합니다. `result_code !== 0`이면 경로 탐색 실패로 간주해 에러를 던집니다 — 그 라운드만 실패 처리하는 것은 `route-service`(Phase 7)의 몫입니다.
 
 | 카카오 (길찾기)               | 도메인 (`BaseRoute`) | 비고                             |
 | ----------------------------- | -------------------- | -------------------------------- |
@@ -446,7 +446,7 @@ Resend 이메일 API(`https://api.resend.com/emails`)로 관리자 알림을 보
 
 ```ts
 type Fuel = "GASOLINE" | "DIESEL" | "LPG";
-type Tier = "T1" | "T2" | "T3";
+type Tier = "ON_ROUTE" | "DETOUR";
 type Facility = "CAR_WASH" | "MAINTENANCE" | "CVS";
 type Mode = "balanced" | "minCost" | "minDistance";
 type RefPriceSource = "MEDIAN_T1T2" | "SIGUNGU_AVG";
@@ -488,6 +488,7 @@ interface Candidate {
     precise: boolean; // ★ false면 UI에서 "약 N km ▸"로 표시
     distanceM: number; // ΔD (m)
     durationS: number; // ΔT (s)
+    tollWon?: number; // 경유로 추가되는 통행료(원, 정보 표시 전용)
   };
   netSaving: number; // 원. 음수 가능
   estimatedCost: number; // Q × P_s
@@ -498,12 +499,12 @@ interface Candidate {
 
 interface SearchResult {
   searchId: string; // 익명. 딥링크 이벤트 연결용
-  baseRoute: { distanceM: number; durationS: number; polyline: Point[] };
+  baseRoute: { distanceM: number; durationS: number; tollWon?: number; polyline: Point[] };
   // baseRoute는 이전 클라이언트 호환용 대표(RECOMMEND 우선) 경로.
   // 후보 탐색에 실제 사용한 고유 경로 전체는 아래 배열이다.
   baseRoutes: Array<{
     priority: "RECOMMEND" | "TIME" | "DISTANCE";
-    route: { distanceM: number; durationS: number; polyline: Point[] };
+    route: { distanceM: number; durationS: number; tollWon?: number; polyline: Point[] };
   }>;
   expansion: {
     triggered: boolean; // 최종 목록에 T3(d_perp > T2_MAX)가 남았는가
@@ -513,6 +514,8 @@ interface SearchResult {
   refPriceSource: RefPriceSource | null;
   candidates: Candidate[];
   warnings: Warning[];
+  stage: "ON_ROUTE" | "DETOUR"; // STAGE 1 경로상 목록 또는 STAGE 2 우회 목록
+  minutesNeededForOneResult: number | null; // STAGE 2 0건일 때 최소 우회 허용 시간(분)
 }
 
 interface Warning {
@@ -574,7 +577,8 @@ event: progress
 data: {"step":"PRECISE"}
 
 event: result
-data: {"searchId":"...","baseRoute":{...},"baseRoutes":[...],"candidates":[...]}
+data: {"searchId":"...","baseRoute":{...},"baseRoutes":[...],"candidates":[...],
+       "stage":"DETOUR","minutesNeededForOneResult":null}
 ```
 
 **`progress.radiusM`의 의미 — 헷갈리기 쉬움**
@@ -636,7 +640,7 @@ Accept: application/json   → search(input)            // 콜백 없음 = 완�
 
 // Response
 { "distanceM": 12400, "durationS": 1080, "precise": true, "netSaving": 3252,
-  "polyline": [{ "lat": 37.42, "lng": 127.12 }, ...] }
+  "tollWon": 0, "polyline": [{ "lat": 37.42, "lng": 127.12 }, ...] }
 ```
 
 카카오 경로 API 1회(경유 경로). `routePriority`는 이 후보가 선택된 기본 경로 버전과 같아야 하며,
@@ -668,7 +672,7 @@ Accept: application/json   → search(input)            // 콜백 없음 = 완�
   "searchId": "...",
   "app": "KAKAO",
   "rank": 1,
-  "tier": "T3",
+  "tier": "DETOUR",
   "netSaving": 3252,
   "detourDistanceM": 12400
 }
