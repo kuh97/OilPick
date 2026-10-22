@@ -99,6 +99,24 @@ describe("recomputeAndSort — 실측군 우선 (AGENTS.md §5 불변식 4)", ()
     const sorted = recomputeAndSort([pricey, cheap], vehicle, 1900, "minCost");
     expect(sorted.map((c) => c.id)).toEqual(["CHEAP", "PRICEY"]);
   });
+
+  it("경로상 후보는 더 싼 우회 후보보다 먼저 보여준다", () => {
+    const onRoute = candidate({
+      id: "ON_ROUTE",
+      price: 1900,
+      tier: "ON_ROUTE",
+      detour: { precise: true, distanceM: 0, durationS: 0 },
+    });
+    const cheapDetour = candidate({
+      id: "CHEAP_DETOUR",
+      price: 1500,
+      tier: "DETOUR",
+      detour: { precise: true, distanceM: 5000, durationS: 600 },
+    });
+
+    const sorted = recomputeAndSort([cheapDetour, onRoute], { efficiency: 10, refuelAmount: 45, timeValue: 200 }, 1900, "minCost");
+    expect(sorted.map((c) => c.id)).toEqual(["ON_ROUTE", "CHEAP_DETOUR"]);
+  });
 });
 
 // 단대오거리역→모란역 실측(2026-09-08) — 1~14분대 근거리 후보 옆에 30~45분짜리가

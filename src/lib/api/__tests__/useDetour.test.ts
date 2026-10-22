@@ -11,6 +11,7 @@ const INPUT: FetchDetourInput = {
   priceStation: 1650,
   referencePrice: 1210,
   avoidHighway: false,
+  routePriority: "TIME",
 };
 
 afterEach(() => {
@@ -39,6 +40,7 @@ describe("useDetour", () => {
     expect(detour).toEqual({ distanceM: 12400, durationS: 1080, precise: true, netSaving: 3252, polyline });
     expect(result.current.error).toBeNull();
     expect(result.current.isLoading).toBe(false);
+    expect(JSON.parse(vi.mocked(fetch).mock.calls[0][1]!.body as string).routePriority).toBe("TIME");
   });
 
   it("실패하면 null을 반환하고 error를 남긴다", async () => {

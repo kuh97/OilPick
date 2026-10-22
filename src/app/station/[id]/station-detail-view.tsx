@@ -61,6 +61,7 @@ export function StationDetailView({ id }: { id: string }) {
         priceStation: candidate!.price,
         referencePrice: result?.referencePrice ?? candidate!.price,
         avoidHighway,
+        routePriority: candidate!.routePriority ?? "RECOMMEND",
       });
       if (!cancelled && res) setDetour(res);
     }

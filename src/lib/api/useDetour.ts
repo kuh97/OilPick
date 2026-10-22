@@ -6,7 +6,11 @@
  */
 
 import { useCallback, useState } from "react";
-import type { WirePoint, WireVehicle } from "@/app/api/_lib/types";
+import type {
+  RoutePriority,
+  WirePoint,
+  WireVehicle,
+} from "@/app/api/_lib/types";
 import type { ApiError } from "./useStationDetail";
 
 export interface DetourResult {
@@ -29,34 +33,47 @@ export interface FetchDetourInput {
   referencePrice: number;
   /** 검색 때 쓴 값과 같아야 한다 — 기본 경로와 비교 대상이 어긋나면 안 됨. */
   avoidHighway: boolean;
+  /** 후보가 선택된 기본 경로 버전으로 다시 계산한다. */
+  routePriority?: RoutePriority;
 }
 
 export function useDetour() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
 
-  const fetchDetour = useCallback(async (input: FetchDetourInput): Promise<DetourResult | null> => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const res = await fetch("/api/detour", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(input),
-      });
-      if (!res.ok) {
-        const body = (await res.json().catch(() => ({}))) as Partial<ApiError>;
-        setError({ code: body.code ?? "INTERNAL_ERROR", message: body.message ?? "정밀 계산에 실패했습니다." });
+  const fetchDetour = useCallback(
+    async (input: FetchDetourInput): Promise<DetourResult | null> => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const res = await fetch("/api/detour", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(input),
+        });
+        if (!res.ok) {
+          const body = (await res
+            .json()
+            .catch(() => ({}))) as Partial<ApiError>;
+          setError({
+            code: body.code ?? "INTERNAL_ERROR",
+            message: body.message ?? "정밀 계산에 실패했습니다.",
+          });
+          return null;
+        }
+        return (await res.json()) as DetourResult;
+      } catch {
+        setError({
+          code: "NETWORK_ERROR",
+          message: "정밀 계산에 실패했습니다.",
+        });
         return null;
+      } finally {
+        setIsLoading(false);
       }
-      return (await res.json()) as DetourResult;
-    } catch {
-      setError({ code: "NETWORK_ERROR", message: "정밀 계산에 실패했습니다." });
-      return null;
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+    },
+    [],
+  );
 
   return { fetchDetour, isLoading, error };
 }

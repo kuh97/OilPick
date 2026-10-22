@@ -17,16 +17,25 @@ import { ResultCard } from "@/components/result/result-card";
 import { CalcAssumptionsFooter } from "@/components/result/calc-assumptions-footer";
 import { FilterSheet } from "@/components/result/filter-sheet";
 import { useSearchStore, type ProgressStep } from "@/store/search-store";
-import { useSearchStream, type SearchStreamInput } from "@/lib/api/useSearchStream";
+import {
+  useSearchStream,
+  type SearchStreamInput,
+} from "@/lib/api/useSearchStream";
 import { recomputeAndSort } from "@/lib/recompute-candidates";
-import { distanceMToKm, durationSToMin, maxDetourCeilingMinutes } from "@/domain/pricing";
+import {
+  distanceMToKm,
+  durationSToMin,
+  maxDetourCeilingMinutes,
+} from "@/domain/pricing";
 import type { WireFilters, WireWarning } from "@/app/api/_lib/types";
 
 function WarningBanner({ warning }: { warning: WireWarning }) {
   return (
     <Alert variant="warning">
       <AlertTriangle aria-hidden />
-      <AlertDescription className="text-warning-foreground">{warning.message}</AlertDescription>
+      <AlertDescription className="text-warning-foreground">
+        {warning.message}
+      </AlertDescription>
     </Alert>
   );
 }
@@ -42,7 +51,8 @@ function FacilityCoverageBanner() {
     <Alert variant="info">
       <Info aria-hidden />
       <AlertDescription className="text-info-foreground">
-        시설 정보가 확인된 주유소만 표시돼요. 데이터 보강이 진행 중이라 실제로는 더 많을 수 있어요.
+        시설 정보가 확인된 주유소만 표시돼요. 데이터 보강이 진행 중이라 실제로는
+        더 많을 수 있어요.
       </AlertDescription>
     </Alert>
   );
@@ -83,7 +93,8 @@ export default function ResultPage() {
   const [lastStep, setLastStep] = useState<ProgressStep>("ROUTE");
   if (progressStep && progressStep !== lastStep) setLastStep(progressStep);
   const [lastRadiusM, setLastRadiusM] = useState<number | undefined>(undefined);
-  if (expandRadiusM != null && expandRadiusM !== lastRadiusM) setLastRadiusM(expandRadiusM);
+  if (expandRadiusM != null && expandRadiusM !== lastRadiusM)
+    setLastRadiusM(expandRadiusM);
 
   // 검색이 끝나는 순간(마지막 단계 → 결과) 로딩 화면이 너무 순식간에 사라지면 사용자가
   // 진행 과정을 못 본다 — 결과가 도착해도 잠깐(500ms) 마지막 단계가 다 채워진 모습을
@@ -135,14 +146,22 @@ export default function ResultPage() {
   // 상세→뒤로가기 리마운트 후에도 같은 조건이면 재검색을 건너뛴다.
   useEffect(() => {
     if (!origin || !destination) return;
-    const key = JSON.stringify({ origin, destination, fuel, filters, avoidHighway, detourIntent });
+    const key = JSON.stringify({
+      origin,
+      destination,
+      fuel,
+      filters,
+      avoidHighway,
+      detourIntent,
+    });
     if (useSearchStore.getState().lastSearchKey === key) return;
     useSearchStore.getState().setLastSearchKey(key);
     runSearch(detourIntent);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [origin, destination, fuel, filters, avoidHighway, detourIntent]);
 
-  const referencePrice = result?.referencePrice ?? partial?.referencePrice ?? null;
+  const referencePrice =
+    result?.referencePrice ?? partial?.referencePrice ?? null;
   const expansion = result?.expansion ?? partial?.expansion ?? null;
 
   const displayCandidates = useMemo(() => {
@@ -150,7 +169,7 @@ export default function ResultPage() {
     return recomputeAndSort(rawCandidates, vehicle, referencePrice, mode);
   }, [result, partial, vehicle, referencePrice, mode]);
 
-  // STAGE 1에서 끝났으면 "조금 우회하면 더 싼 곳 보기" 버튼만 노출한다 (§6.6).
+  // 어느 비교 경로에서든 경로상 후보가 있으면 우회 시간은 적용 대상이 아니다.
   const isOnRouteStage = result?.stage === "ON_ROUTE";
 
   const hasActiveFilters =
@@ -163,7 +182,8 @@ export default function ResultPage() {
   const minutesNeededForOneResult = result?.minutesNeededForOneResult ?? null;
   const maxDetourCeiling = baseRoute ? maxDetourCeilingMinutes(baseRoute) : 30;
   const canRelaxMaxDetour =
-    minutesNeededForOneResult != null && minutesNeededForOneResult <= maxDetourCeiling;
+    minutesNeededForOneResult != null &&
+    minutesNeededForOneResult <= maxDetourCeiling;
   const defaultFilters: WireFilters = {
     facilities: [],
     brands: [],
@@ -174,8 +194,12 @@ export default function ResultPage() {
   if (!origin || !destination) {
     return (
       <main className="mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-center gap-4 px-4 py-16 text-center">
-        <p className="text-sm text-muted-foreground">검색 컨텍스트가 없습니다. 홈에서 먼저 검색해주세요.</p>
-        <Button render={<Link href="/home" />} nativeButton={false}>홈으로</Button>
+        <p className="text-sm text-muted-foreground">
+          검색 컨텍스트가 없습니다. 홈에서 먼저 검색해주세요.
+        </p>
+        <Button render={<Link href="/home" />} nativeButton={false}>
+          홈으로
+        </Button>
       </main>
     );
   }
@@ -187,14 +211,26 @@ export default function ResultPage() {
         <div className="flex gap-2">
           <Button
             variant="outline"
-            render={<Link href="/home" onClick={() => useSearchStore.getState().clearRoute()} />}
+            render={
+              <Link
+                href="/home"
+                onClick={() => useSearchStore.getState().clearRoute()}
+              />
+            }
             nativeButton={false}
           >
             홈으로
           </Button>
           <Button
             onClick={() => {
-              const key = JSON.stringify({ origin, destination, fuel, filters, avoidHighway, detourIntent });
+              const key = JSON.stringify({
+                origin,
+                destination,
+                fuel,
+                filters,
+                avoidHighway,
+                detourIntent,
+              });
               useSearchStore.getState().setLastSearchKey(key);
               runSearch(detourIntent);
             }}
@@ -230,7 +266,8 @@ export default function ResultPage() {
         </div>
         {(result?.baseRoute ?? baseRoute) && (
           <p className="text-sm text-muted-foreground">
-            기본 경로 {distanceMToKm((result?.baseRoute ?? baseRoute)!.distanceM)}km ·{" "}
+            기본 경로{" "}
+            {distanceMToKm((result?.baseRoute ?? baseRoute)!.distanceM)}km ·{" "}
             {durationSToMin((result?.baseRoute ?? baseRoute)!.durationS)}분
           </p>
         )}
@@ -252,56 +289,79 @@ export default function ResultPage() {
 
           <div className="flex items-center justify-between gap-2">
             <ModeTabs value={mode} onChange={setMode} />
-            <FilterSheet
-              filters={filters}
-              onApply={setFilters}
-              maxDetourMinutes={maxDetourMinutes}
-              maxDetourCeiling={maxDetourCeiling}
-              onApplyMaxDetourMinutes={(minutes) => {
-                // 필터에서 우회 허용 시간 적용 = STAGE 2를 이 예산으로 보겠다는 의사표시.
-                setMaxDetourMinutes(minutes);
-                setDetourIntent({ maxDetourMinutes: minutes });
-              }}
-            />
+            {isOnRouteStage ? (
+              <FilterSheet
+                filters={filters}
+                onApply={setFilters}
+                includeDetour={false}
+              />
+            ) : (
+              <FilterSheet
+                filters={filters}
+                onApply={setFilters}
+                maxDetourMinutes={maxDetourMinutes}
+                maxDetourCeiling={maxDetourCeiling}
+                onApplyMaxDetourMinutes={(minutes) => {
+                  setMaxDetourMinutes(minutes);
+                  setDetourIntent({ maxDetourMinutes: minutes });
+                }}
+              />
+            )}
           </div>
 
           {displayCandidates.length === 0 ? (
             <div className="flex flex-col items-center gap-3 py-12 text-center">
               {hasActiveFilters ? (
                 <>
-                  <p className="text-sm text-muted-foreground">선택하신 필터 조건에 맞는 주유소가 없습니다.</p>
-                  <Button variant="outline" onClick={() => setFilters(defaultFilters)}>
+                  <p className="text-sm text-muted-foreground">
+                    선택하신 필터 조건에 맞는 주유소가 없습니다.
+                  </p>
+                  <Button
+                    variant="outline"
+                    onClick={() => setFilters(defaultFilters)}
+                  >
                     필터 초기화하고 다시 찾기
                   </Button>
                 </>
               ) : minutesNeededForOneResult != null ? (
                 <>
                   <p className="text-sm text-muted-foreground">
-                    우회 허용 시간({maxDetourMinutes}분) 안에 드는 주유소가 없습니다.
+                    우회 허용 시간({maxDetourMinutes}분) 안에 드는 주유소가
+                    없습니다.
                   </p>
                   {canRelaxMaxDetour ? (
                     <Button
                       variant="outline"
                       onClick={() => {
                         setMaxDetourMinutes(minutesNeededForOneResult);
-                        setDetourIntent({ maxDetourMinutes: minutesNeededForOneResult });
+                        setDetourIntent({
+                          maxDetourMinutes: minutesNeededForOneResult,
+                        });
                       }}
                     >
                       우회 허용 시간을 {minutesNeededForOneResult}분으로 늘리기
                     </Button>
                   ) : (
                     <p className="text-xs text-muted-foreground">
-                      허용 시간을 최대({maxDetourCeiling}분)로 늘려도 이 경로에는 조건에 맞는 주유소가 없습니다.
+                      허용 시간을 최대({maxDetourCeiling}분)로 늘려도 이
+                      경로에는 조건에 맞는 주유소가 없습니다.
                     </p>
                   )}
                 </>
               ) : (
                 <>
-                  <p className="text-sm text-muted-foreground">이 경로에서는 조건에 맞는 주유소를 찾지 못했습니다.</p>
+                  <p className="text-sm text-muted-foreground">
+                    이 경로에서는 조건에 맞는 주유소를 찾지 못했습니다.
+                  </p>
                   <div className="flex flex-col gap-2">
                     <Button
                       variant="outline"
-                      render={<Link href="/home" onClick={() => useSearchStore.getState().clearRoute()} />}
+                      render={
+                        <Link
+                          href="/home"
+                          onClick={() => useSearchStore.getState().clearRoute()}
+                        />
+                      }
                       nativeButton={false}
                     >
                       다른 경로로 다시 찾기
@@ -321,23 +381,14 @@ export default function ResultPage() {
             <ul className="flex flex-col gap-2">
               {displayCandidates.map((c, i) => (
                 <li key={c.id}>
-                  <ResultCard rank={i + 1} candidate={c} referencePrice={referencePrice} />
+                  <ResultCard
+                    rank={i + 1}
+                    candidate={c}
+                    referencePrice={referencePrice}
+                  />
                 </li>
               ))}
             </ul>
-          )}
-
-          {/* 누르면 STAGE 2 실행 — 펼치는 행위가 곧 우회 의향 (§5.3 ⑥). */}
-          {isOnRouteStage && (
-            <Button
-              variant="outline"
-              className="w-full"
-              onClick={() =>
-                setDetourIntent({ maxDetourMinutes: Math.min(maxDetourMinutes, maxDetourCeiling) })
-              }
-            >
-              조금 우회하면 더 싼 곳 보기
-            </Button>
           )}
 
           {result && (

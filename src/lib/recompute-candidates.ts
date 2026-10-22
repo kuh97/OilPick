@@ -8,7 +8,12 @@
  * 등 문구 생성에 필요한 입력이 wire SearchResult에 없어, 검색 시점의 문구를 그대로 둔다.
  */
 
-import { netSaving, totalCost, computeScores, scoreByMode } from "@/domain/pricing";
+import {
+  netSaving,
+  totalCost,
+  computeScores,
+  scoreByMode,
+} from "@/domain/pricing";
 import type { WireCandidate, WireVehicle, Mode } from "@/app/api/_lib/types";
 
 export function recomputeCandidate(
@@ -23,9 +28,15 @@ export function recomputeCandidate(
     efficiencyKmPerL: vehicle.efficiency,
   };
   const estimatedCost = totalCost(args);
-  const scores = computeScores({ ...args, detourDurationS: candidate.detour.durationS, timeValuePerMin: vehicle.timeValue });
+  const scores = computeScores({
+    ...args,
+    detourDurationS: candidate.detour.durationS,
+    timeValuePerMin: vehicle.timeValue,
+  });
   const netSavingWon =
-    referencePrice != null ? netSaving({ ...args, priceRefWon: referencePrice }) : candidate.netSaving;
+    referencePrice != null
+      ? netSaving({ ...args, priceRefWon: referencePrice })
+      : candidate.netSaving;
 
   return { ...candidate, estimatedCost, scores, netSaving: netSavingWon };
 }
@@ -43,8 +54,15 @@ export function recomputeAndSort(
   referencePrice: number | null,
   mode: Mode,
 ): WireCandidate[] {
-  const recomputed = candidates.map((c) => recomputeCandidate(c, vehicle, referencePrice));
+  const recomputed = candidates.map((c) =>
+    recomputeCandidate(c, vehicle, referencePrice),
+  );
   return [...recomputed].sort((a, b) => {
+    // 실측으로 확인된 경로상 후보만 비용과 무관하게 우회 후보보다 먼저 보여준다.
+    // 경유 경로 실패로 추정 tier만 남은 후보는 확정 경로상으로 취급하지 않는다.
+    const aOnRoute = a.tier === "ON_ROUTE" && a.detour.precise;
+    const bOnRoute = b.tier === "ON_ROUTE" && b.detour.precise;
+    if (aOnRoute !== bOnRoute) return Number(bOnRoute) - Number(aOnRoute);
     const byPrecise = Number(b.detour.precise) - Number(a.detour.precise);
     if (byPrecise !== 0) return byPrecise;
     return referencePrice == null
@@ -52,4 +70,3 @@ export function recomputeAndSort(
       : scoreByMode(a.scores, mode) - scoreByMode(b.scores, mode);
   });
 }
-

@@ -63,10 +63,14 @@ export function RouteStationDetail({
   const distanceM = detour?.distanceM ?? candidate.detour.distanceM;
   const durationS = detour?.durationS ?? candidate.detour.durationS;
   const netSavingValue = detour?.netSaving ?? candidate.netSaving;
+  const selectedBaseRoute =
+    result.baseRoutes?.find(
+      ({ priority }) => priority === (candidate.routePriority ?? "RECOMMEND"),
+    )?.route ?? result.baseRoute;
   // 총 통행료 = 기본 경로 통행료 + 이 우회로 추가되는 분. 델타만 보여주면 기본 경로가
   // 이미 유료도로면 통행료가 없는 것처럼 보인다(2026-09-08). 둘 다 알 때만 합산.
   const additionalTollWon = detour?.tollWon ?? candidate.detour.tollWon;
-  const baseTollWon = result.baseRoute.tollWon;
+  const baseTollWon = selectedBaseRoute.tollWon;
   const totalTollWon =
     baseTollWon != null && additionalTollWon != null
       ? baseTollWon + additionalTollWon
@@ -134,7 +138,7 @@ export function RouteStationDetail({
       />
 
       <RouteMap
-        baseRoutePolyline={result.baseRoute.polyline}
+        baseRoutePolyline={selectedBaseRoute.polyline}
         viaRoutePolyline={detour?.polyline}
         station={{ lat: candidate.lat, lng: candidate.lng }}
         origin={origin}
@@ -207,7 +211,6 @@ export function RouteStationDetail({
       </Alert>
 
       <StationNaviButtons isMobile={isMobile} onClick={handleNaviClick} />
-
     </main>
   );
 }
