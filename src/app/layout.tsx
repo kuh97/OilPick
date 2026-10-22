@@ -1,20 +1,10 @@
 import type { Metadata, Viewport } from "next";
 import type React from "react";
-import localFont from "next/font/local";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { MOBILE_UA_PATTERN } from "@/lib/mobile-ua-pattern";
 import { SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "@/lib/site";
 import "./globals.css";
-
-// docs/DESIGN.md §3이 지정한 폰트는 재배포 권리가 없어 그대로 쓸 수 없다 —
-// 한국어 UI에 가장 널리 쓰이는 무료 오픈소스 대체 폰트인 Pretendard를 대신 쓴다.
-const pretendard = localFont({
-  src: "../../node_modules/pretendard/dist/web/variable/woff2/PretendardVariable.woff2",
-  variable: "--font-pretendard",
-  weight: "45 920",
-  display: "swap",
-});
 
 export const metadata: Metadata = {
   metadataBase: SITE_URL,
@@ -31,7 +21,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html
       lang="ko"
-      className={`${pretendard.variable} h-full antialiased`}
+      className="h-full antialiased"
       suppressHydrationWarning
     >
       {/* data-mobile-ua는 아래 스크립트가 하이드레이션 전에 찍어서 서버 마크업과 의도적으로 다름 */}
