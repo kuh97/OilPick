@@ -104,7 +104,13 @@ export default function HomePage() {
             </g>
           </svg>
           {/* eslint-disable-next-line @next/next/no-img-element -- 벡터 워드마크, next/image svg 최적화 미지원 */}
-          <img src="/brand/wordmark.svg" alt="오일픽" className="h-6 w-auto" />
+          <img
+            src="/brand/wordmark.svg"
+            width={290}
+            height={116}
+            alt="오일픽"
+            className="h-6 w-auto"
+          />
         </h1>
         <HelpDrawer feedbackSource="HOME" />
       </div>

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { AdminLoginForm } from "@/components/admin/admin-login-form";
 
 export const metadata: Metadata = {
-  title: "관리자 로그인 | 오일픽",
+  title: "오일픽 | 관리자 로그인",
   robots: { index: false, follow: false },
 };
 

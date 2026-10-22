@@ -1,8 +1,41 @@
-"use client";
-
-import { useRouter } from "next/navigation";
+import type { Metadata } from "next";
+import Link from "next/link";
 import { Navigation, PiggyBank, SlidersHorizontal } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
+import {
+  SITE_DESCRIPTION,
+  SITE_NAME,
+  SITE_TITLE,
+} from "@/lib/site";
+
+export const metadata: Metadata = {
+  title: SITE_TITLE,
+  description: SITE_DESCRIPTION,
+  alternates: { canonical: "/" },
+  robots: { index: true, follow: true },
+  openGraph: {
+    type: "website",
+    locale: "ko_KR",
+    url: "/",
+    siteName: SITE_NAME,
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+    images: [
+      {
+        url: "/og.png",
+        width: 1200,
+        height: 630,
+        alt: SITE_TITLE,
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+    images: ["/og.png"],
+  },
+};
 
 const VALUE_PROPS = [
   { Icon: PiggyBank, text: "얼마나 이득인지 원 단위로 보여드려요" },
@@ -10,8 +43,6 @@ const VALUE_PROPS = [
 ];
 
 export default function LandingPage() {
-  const router = useRouter();
-
   return (
     <main className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center px-6 py-16">
       <div className="flex items-center gap-2">
@@ -31,7 +62,13 @@ export default function LandingPage() {
           </g>
         </svg>
         {/* eslint-disable-next-line @next/next/no-img-element -- 벡터 워드마크, next/image svg 최적화 미지원 */}
-        <img src="/brand/wordmark.svg" alt="오일픽" className="h-5 w-auto" />
+        <img
+          src="/brand/wordmark.svg"
+          width={290}
+          height={116}
+          alt="오일픽"
+          className="h-5 w-auto"
+        />
       </div>
 
       <p className="mt-10 text-sm font-bold text-primary">경로 위 주유소 찾기</p>
@@ -60,9 +97,13 @@ export default function LandingPage() {
         </li>
       </ul>
 
-      <Button type="button" size="xl" className="mt-8 w-full" onClick={() => router.push("/home")}>
+      <Link
+        href="/home"
+        prefetch={false}
+        className={buttonVariants({ size: "xl", className: "mt-8 w-full" })}
+      >
         지금 경로 찾기
-      </Button>
+      </Link>
     </main>
   );
 }
