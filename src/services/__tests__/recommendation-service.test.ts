@@ -279,6 +279,29 @@ describe("search — 정밀 계산 대상 선정 (STEP10)", () => {
     expect(waypointCalls).toHaveLength(uniqueWaypoints.size);
   });
 
+  it("A8 — 실패한 경유 경로는 추정치로 유지하고 재호출하지 않는다", async () => {
+    const failed = collected({
+      id: "FAILED",
+      location: wgs84(37.05, 127.15),
+      price: 1600,
+    });
+    collectStationsMock.mockResolvedValue({ stations: [failed] });
+    getRouteMock.mockImplementation(async (opts) => {
+      if (opts.waypoint) throw new Error("경유 경로 실패");
+      return BASE_ROUTE;
+    });
+
+    const result = await search(baseInput(), undefined, FAKE_DEPS);
+    const waypointCalls = getRouteMock.mock.calls.filter(
+      ([opts]) => opts.waypoint != null,
+    );
+
+    expect(result.stage).toBe("DETOUR");
+    expect(result.candidates).toHaveLength(1);
+    expect(result.candidates[0].detour.precise).toBe(false);
+    expect(waypointCalls).toHaveLength(1);
+  });
+
   it("모드마다 다른 후보를 뽑아 합집합을 만든다 — 탭을 바꿔도 실측된 후보가 있다", async () => {
     const pool = manyCandidates(40);
     collectStationsMock.mockResolvedValue({ stations: pool });

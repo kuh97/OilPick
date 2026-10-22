@@ -631,15 +631,10 @@ export async function search(
     },
   });
   onProgress?.({ type: "progress", step: "PRECISE" });
-  // STAGE 1에서 이미 전 후보를 실측했다. 실패(A8)한 후보만 여기서 다시 시도할
-  // 이유도 없으므로, 같은 경유 경로를 두 번 호출하지 않는다.
-  const measured = await measureBatch(
-    preciseTargets.filter((item) => !item.precise),
-    measureCtx,
-  );
-  routeCalls += measured.routeCalls;
+  // STAGE 1에서 이미 전 후보를 한 번 실측했다. 경유 경로 호출이 실패한 후보(A8)는
+  // 추정치를 유지하고 재호출하지 않는다(ARCHITECTURE.md §5.4).
   let finalDetours = dedupeByStation(
-    mergeMeasured(preciseTargets, measured.candidates),
+    preciseTargets,
   );
   finalDetours = finalDetours.filter(
     (item) =>
