@@ -174,6 +174,18 @@ export function maxDetourCeilingMinutes(base: { distanceM: number; durationS: nu
 }
 
 /**
+ * 여러 기본 경로를 하나의 우회 시간 조절 UI로 다룰 때의 상한.
+ * 경로 중 하나라도 더 긴 우회를 허용할 수 있으면 그 경로의 후보를 막지 않도록
+ * 가장 큰 경로별 상한을 사용한다. 빈 배열은 호출자가 별도 기본값으로 처리한다.
+ */
+export function maxDetourCeilingMinutesForRoutes(
+  routes: ReadonlyArray<{ distanceM: number; durationS: number }>,
+): number {
+  if (routes.length === 0) return 0;
+  return Math.max(...routes.map(maxDetourCeilingMinutes));
+}
+
+/**
  * 우회가 기본 경로 대비 상한(거리 DETOUR_CAP_RATIO · 시간 DETOUR_TIME_CAP_RATIO)을
  * 넘는지. 초과 시 후보 제거 (정밀 계산 이후에만 적용).
  *

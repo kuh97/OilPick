@@ -6,6 +6,7 @@ import {
   passesDetourGate,
   withinDetourBudget,
   maxDetourCeilingMinutes,
+  maxDetourCeilingMinutesForRoutes,
   exceedsDetourCap,
   median,
   removeOutliers,
@@ -401,5 +402,14 @@ describe("maxDetourCeilingMinutes", () => {
 
   it("아주 짧은 경로에서도 최소 한 칸(5분)은 남긴다", () => {
     expect(maxDetourCeilingMinutes({ distanceM: 500, durationS: 60 })).toBeGreaterThanOrEqual(5);
+  });
+
+  it("여러 기본 경로에서는 가장 큰 경로별 상한을 사용한다", () => {
+    expect(
+      maxDetourCeilingMinutesForRoutes([
+        { distanceM: 3_700, durationS: 15 * 60 },
+        { distanceM: 92_000, durationS: 94 * 60 },
+      ]),
+    ).toBe(45);
   });
 });

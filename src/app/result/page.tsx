@@ -25,7 +25,7 @@ import { recomputeAndSort } from "@/lib/recompute-candidates";
 import {
   distanceMToKm,
   durationSToMin,
-  maxDetourCeilingMinutes,
+  maxDetourCeilingMinutesForRoutes,
 } from "@/domain/pricing";
 import type { WireFilters, WireWarning } from "@/app/api/_lib/types";
 
@@ -180,7 +180,20 @@ export default function ResultPage() {
 
   // 우회 허용 시간이 검색 파라미터라 클라이언트엔 걸러진 후보가 없다 → 서버가 담아 준다 (§5.3).
   const minutesNeededForOneResult = result?.minutesNeededForOneResult ?? null;
-  const maxDetourCeiling = baseRoute ? maxDetourCeilingMinutes(baseRoute) : 30;
+  const resultRoutes = result?.baseRoutes?.map(({ route }) => route);
+  const partialRoutes = partial?.baseRoutes?.map(({ route }) => route);
+  const routesForDetourCeiling =
+    resultRoutes && resultRoutes.length > 0
+      ? resultRoutes
+      : partialRoutes && partialRoutes.length > 0
+        ? partialRoutes
+        : baseRoute
+          ? [baseRoute]
+          : [];
+  const maxDetourCeiling =
+    routesForDetourCeiling.length > 0
+      ? maxDetourCeilingMinutesForRoutes(routesForDetourCeiling)
+      : 30;
   const canRelaxMaxDetour =
     minutesNeededForOneResult != null &&
     minutesNeededForOneResult <= maxDetourCeiling;
