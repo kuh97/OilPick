@@ -1,3 +1,5 @@
+import type { Metadata } from "next";
+
 const DEFAULT_SITE_URL = "https://oilpick.vercel.app";
 
 /**
@@ -10,3 +12,41 @@ export const SITE_NAME = "오일픽";
 export const SITE_TITLE = "오일픽 | 가는 길 주유소·우회 경로 찾기";
 export const SITE_DESCRIPTION =
   "출발지와 목적지를 입력하면 경로상의 주유소를 찾고, 필요하면 우회 거리·시간과 예상 절감액을 비교해 경유 경로까지 안내합니다.";
+
+type SocialMetadataInput = {
+  title: string;
+  description: string;
+  path?: string;
+};
+
+/** 모든 공유 경로가 같은 대표 이미지를 사용하도록 하는 공통 소셜 메타데이터. */
+export function createSocialMetadata({
+  title,
+  description,
+  path,
+}: SocialMetadataInput): Pick<Metadata, "openGraph" | "twitter"> {
+  return {
+    openGraph: {
+      type: "website",
+      locale: "ko_KR",
+      ...(path ? { url: path } : {}),
+      siteName: SITE_NAME,
+      title,
+      description,
+      images: [
+        {
+          url: "/og.png",
+          width: 1200,
+          height: 630,
+          alt: title,
+        },
+      ],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: ["/og.png"],
+    },
+  };
+}
