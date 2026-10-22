@@ -74,11 +74,11 @@ async function mockPlaces(route: Route) {
 
 async function chooseRoute(page: Page) {
   await page.goto("/");
-  const startButton = page.getByRole("button", { name: "지금 경로 찾기" });
-  await expect(startButton).toBeVisible();
+  const startLink = page.getByRole("link", { name: "지금 경로 찾기" });
+  await expect(startLink).toBeVisible();
   // 랜딩은 서버 마크업을 먼저 보여주므로 React 이벤트 핸들러가 연결된 뒤 클릭한다.
   await page.waitForTimeout(500);
-  await startButton.click();
+  await startLink.click();
   await expect(page).toHaveURL(/\/home$/);
 
   const originInput = page.getByRole("textbox", { name: "출발지" });
