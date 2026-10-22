@@ -4,7 +4,7 @@
  * 결과 목록 (F3·F4·F7) — PRODUCT.md §5.3, ARCHITECTURE.md §10 Phase 9.
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { AlertTriangle, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -119,11 +119,7 @@ export default function ResultPage() {
 
   // 새 경로는 STAGE 1부터.
   const routeKey = JSON.stringify({ origin, destination });
-  const [seenRouteKey, setSeenRouteKey] = useState(routeKey);
-  if (routeKey !== seenRouteKey) {
-    setSeenRouteKey(routeKey);
-    setDetourIntent(null);
-  }
+  const previousRouteKeyRef = useRef(routeKey);
 
   function runSearch(detour: { maxDetourMinutes: number } | null) {
     if (!origin || !destination) return;
@@ -146,19 +142,27 @@ export default function ResultPage() {
   // 상세→뒤로가기 리마운트 후에도 같은 조건이면 재검색을 건너뛴다.
   useEffect(() => {
     if (!origin || !destination) return;
+    const routeChanged = previousRouteKeyRef.current !== routeKey;
+    if (routeChanged) {
+      // 외부 Zustand 스토어는 렌더 중 갱신하지 않고 effect에서 초기화한다.
+      previousRouteKeyRef.current = routeKey;
+      setDetourIntent(null);
+    }
+    // 새 경로의 첫 검색은 이전 경로의 우회 의도를 물려받지 않는다.
+    const detourIntentForSearch = routeChanged ? null : detourIntent;
     const key = JSON.stringify({
       origin,
       destination,
       fuel,
       filters,
       avoidHighway,
-      detourIntent,
+      detourIntent: detourIntentForSearch,
     });
     if (useSearchStore.getState().lastSearchKey === key) return;
     useSearchStore.getState().setLastSearchKey(key);
-    runSearch(detourIntent);
+    runSearch(detourIntentForSearch);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [origin, destination, fuel, filters, avoidHighway, detourIntent]);
+  }, [origin, destination, fuel, filters, avoidHighway, detourIntent, routeKey]);
 
   const referencePrice =
     result?.referencePrice ?? partial?.referencePrice ?? null;
