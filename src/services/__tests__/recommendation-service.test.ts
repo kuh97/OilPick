@@ -144,6 +144,9 @@ describe("search — 회랑 수집 (docs/MIGRATION-DB.md §7 Phase C)", () => {
 
     expect(collectStationsMock).toHaveBeenCalledTimes(1);
     expect(events.some((e) => e.type === "progress" && e.step === "EXPAND")).toBe(false);
+    expect(events.filter((e) => e.type === "progress").map((e) => e.step)).toEqual([
+      "ROUTE", "COLLECT", "PRECISE",
+    ]);
     expect(result.candidates.length).toBeGreaterThan(0);
   });
 
@@ -476,6 +479,9 @@ describe("search — 우회 게이트 (STEP7)", () => {
     const expandEvent = events.find((e) => e.type === "progress" && e.step === "EXPAND");
     expect(expandEvent).toBeDefined();
     expect((expandEvent as { radiusM?: number }).radiusM).toBe(t3!.dPerp);
+    expect(events.filter((e) => e.type === "progress").map((e) => e.step)).toEqual([
+      "ROUTE", "COLLECT", "EXPAND", "PRECISE",
+    ]);
   });
 
   it("NetSaving<=0인 T3 후보는 목록에서 제외되고 expansion.triggered는 false다 — 로딩 중 EXPAND도 뜨지 않는다", async () => {
@@ -495,6 +501,9 @@ describe("search — 우회 게이트 (STEP7)", () => {
     expect(result.expansion.triggered).toBe(false);
     expect(result.expansion.finalRadiusM).toBe(T2_MAX); // 채택된 T3 없음 → T2_MAX 폴백
     expect(events.some((e) => e.type === "progress" && e.step === "EXPAND")).toBe(false);
+    expect(events.filter((e) => e.type === "progress").map((e) => e.step)).toEqual([
+      "ROUTE", "COLLECT", "PRECISE",
+    ]);
   });
 });
 

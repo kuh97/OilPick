@@ -527,13 +527,13 @@ export async function search(
   }
 
   const measureCtx: MeasureCtx = { input, redis, prefix };
-  onProgress?.({ type: "progress", step: "PRECISE" });
   const stage1 = await findOnRouteCandidates(internal, measureCtx);
   routeCalls += stage1.routeCalls;
   internal = mergeMeasured(internal, stage1.candidates);
 
   // 어느 기본 경로에서든 경로상 후보가 있으면 우회 탐색은 하지 않는다.
   if (stage1.onRoute.length > 0) {
+    onProgress?.({ type: "progress", step: "PRECISE" });
     const result: SearchResult = {
       searchId: crypto.randomUUID(),
       baseRoute,

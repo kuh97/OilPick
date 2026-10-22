@@ -80,6 +80,8 @@ interface SearchState {
 
   // ─── 검색 진행 상태 (휘발성) ───────────────────────────────────────────
   isLoading: boolean;
+  /** 첫 SSE 이벤트가 오지 않아 JSON 폴백 중이면 실제 단계 여부를 단정하지 않는다. */
+  isJsonFallback: boolean;
   progressStep: ProgressStep | null;
   /** 실제로 거쳐간 단계만 누적 — EXPAND는 발동 안 하면 건너뛰므로, 순서상 지나간 것으로
    * 잘못 표시하지 않으려면 인덱스 비교가 아니라 이 집합으로 판정해야 한다. */
@@ -114,6 +116,7 @@ interface SearchState {
   setDetourIntent: (intent: { maxDetourMinutes: number } | null) => void;
 
   startSearch: () => void;
+  setJsonFallback: (value: boolean) => void;
   setProgressStep: (step: ProgressStep, radiusM?: number) => void;
   setBaseRoute: (baseRoute: WireBaseRoute) => void;
   setPartial: (partial: WirePartial) => void;
@@ -179,6 +182,7 @@ export const useSearchStore = create<SearchState>()(
       detourIntent: null,
 
       isLoading: false,
+      isJsonFallback: false,
       progressStep: null,
       progressStepsSeen: [],
       expandRadiusM: null,
@@ -212,6 +216,7 @@ export const useSearchStore = create<SearchState>()(
       startSearch: () =>
         set({
           isLoading: true,
+          isJsonFallback: false,
           progressStep: "ROUTE",
           progressStepsSeen: ["ROUTE"],
           expandRadiusM: null,
@@ -222,6 +227,7 @@ export const useSearchStore = create<SearchState>()(
           error: null,
           nearbyOrigin: null,
         }),
+      setJsonFallback: (value) => set({ isJsonFallback: value }),
       setProgressStep: (step, radiusM) =>
         set((s) => ({
           progressStep: step,
@@ -231,8 +237,8 @@ export const useSearchStore = create<SearchState>()(
       setBaseRoute: (baseRoute) => set({ baseRoute }),
       setPartial: (partial) => set({ partial }),
       pushWarning: (warning) => set({ streamWarnings: [...get().streamWarnings, warning] }),
-      setResult: (result) => set({ result, isLoading: false, progressStep: null }),
-      setError: (error) => set({ error, isLoading: false, progressStep: null }),
+      setResult: (result) => set({ result, isLoading: false, isJsonFallback: false, progressStep: null }),
+      setError: (error) => set({ error, isLoading: false, isJsonFallback: false, progressStep: null }),
       setLastSearchKey: (key) => set({ lastSearchKey: key }),
 
       addRecentSearch: (entry) => {
@@ -248,6 +254,7 @@ export const useSearchStore = create<SearchState>()(
       reset: () =>
         set({
           isLoading: false,
+          isJsonFallback: false,
           progressStep: null,
           progressStepsSeen: [],
           result: null,
@@ -259,7 +266,7 @@ export const useSearchStore = create<SearchState>()(
         }),
 
       // 결과 화면에서 홈으로 돌아갈 때 — 연료·필터는 유지, 출발지/목적지만 비운다.
-      clearRoute: () => set({ origin: null, destination: null, nearbyOrigin: null, detourIntent: null }),
+      clearRoute: () => set({ origin: null, destination: null, nearbyOrigin: null, detourIntent: null, isJsonFallback: false }),
     }),
     {
       name: "oilpick-search-store",

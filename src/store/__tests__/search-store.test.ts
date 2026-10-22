@@ -18,6 +18,7 @@ beforeEach(() => {
     mode: "balanced",
     avoidHighway: false,
     isLoading: false,
+    isJsonFallback: false,
     progressStep: null,
     progressStepsSeen: [],
     baseRoute: null,
@@ -147,10 +148,12 @@ describe("search-store — 검색 진행 상태", () => {
 
   it("setResult는 isLoading을 false로, progressStep을 null로 되돌린다", () => {
     useSearchStore.getState().startSearch();
+    useSearchStore.getState().setJsonFallback(true);
     useSearchStore.getState().setResult({ searchId: "s-1" } as never);
 
     const state = useSearchStore.getState();
     expect(state.isLoading).toBe(false);
+    expect(state.isJsonFallback).toBe(false);
     expect(state.progressStep).toBeNull();
     expect(state.result).toEqual({ searchId: "s-1" });
   });

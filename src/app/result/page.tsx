@@ -75,6 +75,7 @@ export default function ResultPage() {
   const setDetourIntent = useSearchStore((s) => s.setDetourIntent);
 
   const isLoading = useSearchStore((s) => s.isLoading);
+  const isJsonFallback = useSearchStore((s) => s.isJsonFallback);
   const progressStep = useSearchStore((s) => s.progressStep);
   const progressStepsSeen = useSearchStore((s) => s.progressStepsSeen);
   const expandRadiusM = useSearchStore((s) => s.expandRadiusM);
@@ -92,6 +93,8 @@ export default function ResultPage() {
   // 으로 붙잡아둔다. useRef로 만들면 렌더 중 ref.current를 읽게 돼 린트 규칙에 걸린다.
   const [lastStep, setLastStep] = useState<ProgressStep>("ROUTE");
   if (progressStep && progressStep !== lastStep) setLastStep(progressStep);
+  const [lastJsonFallback, setLastJsonFallback] = useState(false);
+  if (isLoading && isJsonFallback !== lastJsonFallback) setLastJsonFallback(isJsonFallback);
   const [lastRadiusM, setLastRadiusM] = useState<number | undefined>(undefined);
   if (expandRadiusM != null && expandRadiusM !== lastRadiusM)
     setLastRadiusM(expandRadiusM);
@@ -108,7 +111,10 @@ export default function ResultPage() {
   if (isLoading !== wasLoading) {
     setWasLoading(isLoading);
     if (wasLoading && !isLoading && result) setSettling(true);
-    if (!wasLoading && isLoading) setLastRadiusM(undefined); // 새 검색 시작 — 이전 검색의 확장 반경을 들고 있지 않게
+    if (!wasLoading && isLoading) {
+      setLastRadiusM(undefined);
+      setSettling(false);
+    }
   }
 
   useEffect(() => {
@@ -161,6 +167,11 @@ export default function ResultPage() {
     if (useSearchStore.getState().lastSearchKey === key) return;
     useSearchStore.getState().setLastSearchKey(key);
     runSearch(detourIntentForSearch);
+    return () => {
+      // 진행 중인 요청은 훅 정리에서 취소된다. StrictMode 재실행·재진입 시 다시 검색할 수 있게 한다.
+      const state = useSearchStore.getState();
+      if (state.isLoading && state.lastSearchKey === key) state.setLastSearchKey(null);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [origin, destination, fuel, filters, avoidHighway, detourIntent, routeKey]);
 
@@ -295,6 +306,8 @@ export default function ResultPage() {
           currentStep={progressStep ?? lastStep}
           stepsSeen={progressStepsSeen}
           expandRadiusM={expandRadiusM ?? lastRadiusM}
+          isJsonFallback={isLoading ? isJsonFallback : lastJsonFallback}
+          completed={settling}
         />
       ) : (
         <>

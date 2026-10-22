@@ -1,18 +1,10 @@
-/**
- * 로딩 진행 표시 — PRODUCT.md §10.3. 실제 SSE progress에 맞춘 것이지
- * 가짜 애니메이션이 아니다. 검색 전체를 이 화면 하나로 통일해서 보여준다 —
- * 도중에 결과 화면(헤더+카드)으로 바뀌었다가 다시 이 화면으로 돌아오는 식의
- * 전환은 하지 않는다("풀스크린 로딩 → 인라인 축소"가 어색하다는 피드백).
- *
- * `EXPAND`는 확장이 발동해야만 오는 단계라, 순서(인덱스)로 "지나갔다"고 판정하면
- * 확장이 없었던 검색에서도 그 점이 채워진 것처럼 보인다 — 실제로 거쳐간 단계
- * 집합(`stepsSeen`)으로만 판정한다.
- *
- * 도로 위를 차가 달려가는 형태 — 위치 이동은 순수 CSS transition이라 별도
- * 애니메이션 라이브러리가 필요 없다. `LoadingCar`는 차 자체에 나중에 Lottie 같은
- * idle 애니메이션을 붙이기 쉽도록 일부러 분리해뒀다(지금은 정적 SVG).
- */
+"use client";
+
+import { useEffect, useRef } from "react";
+import { Check, Fuel, Navigation } from "lucide-react";
+import { SEARCH_ROUTE_MOVE_MS } from "@/lib/search-progress";
 import type { ProgressStep } from "@/store/search-store";
+import styles from "./loading-progress.module.css";
 
 const STEP_LABEL: Record<ProgressStep, string> = {
   ROUTE: "가장 빠른 길을 찾고 있어요",
@@ -20,15 +12,15 @@ const STEP_LABEL: Record<ProgressStep, string> = {
   EXPAND: "조금 더 넓게 찾아보고 있어요",
   PRECISE: "곧 결과를 보여드릴게요",
 };
-
+const STEP_SHORT_LABEL: Record<ProgressStep, string> = {
+  ROUTE: "경로 확인", COLLECT: "주유소 탐색", EXPAND: "범위 확장", PRECISE: "결과 준비",
+};
 const STEP_ORDER: ProgressStep[] = ["ROUTE", "COLLECT", "EXPAND", "PRECISE"];
+const POSITION_PROGRESS: Record<ProgressStep, number> = {
+  ROUTE: 0, COLLECT: 0.36, EXPAND: 0.7, PRECISE: 1,
+};
+const ROUTE_PATH = "M24 134C80 134 92 44 154 66S240 120 296 44";
 
-function stepToPercent(step: ProgressStep): number {
-  const index = STEP_ORDER.indexOf(step);
-  return (index / (STEP_ORDER.length - 1)) * 100;
-}
-
-/** EXPAND만 실제 반경(radiusM)이 있으면 구체적인 숫자로 — "조금 더 넓게"보다 훨씬 신뢰감 있다 */
 function labelFor(step: ProgressStep, expandRadiusM?: number | null): string {
   if (step === "EXPAND" && expandRadiusM) {
     return `반경 ${Math.round(expandRadiusM / 1000)}km까지 넓혀서 찾아보고 있어요`;
@@ -36,53 +28,164 @@ function labelFor(step: ProgressStep, expandRadiusM?: number | null): string {
   return STEP_LABEL[step];
 }
 
-function LoadingCar() {
+/** 장식용 추상 경로. 위치·진행선·방향은 같은 SVG 경로와 진행률에서 구한다. */
+function RouteIllustration({ step }: { step: ProgressStep }) {
+  const pathRef = useRef<SVGPathElement>(null);
+  const markerRef = useRef<SVGGElement>(null);
+  const directionRef = useRef<SVGGElement>(null);
+  const progressRef = useRef(0);
+  const showStations = step !== "ROUTE";
+  const isStationScanning = step === "COLLECT" || step === "EXPAND";
+
+  useEffect(() => {
+    const path = pathRef.current;
+    const marker = markerRef.current;
+    const direction = directionRef.current;
+    if (!path || !marker || !direction) return;
+
+    const length = path.getTotalLength();
+    const from = progressRef.current;
+    const target = POSITION_PROGRESS[step];
+    const motionPreference = window.matchMedia("(prefers-reduced-motion: reduce)");
+    let frameId = 0;
+    let startedAt: number | null = null;
+
+    const draw = (progress: number) => {
+      const distance = progress * length;
+      const position = path.getPointAtLength(distance);
+      const before = path.getPointAtLength(Math.max(0, distance - 1));
+      const after = path.getPointAtLength(Math.min(length, distance + 1));
+      const angle = Math.atan2(after.y - before.y, after.x - before.x) * 180 / Math.PI;
+
+      progressRef.current = progress;
+      path.style.strokeDashoffset = String(1 - progress);
+      marker.setAttribute("transform", `translate(${position.x} ${position.y})`);
+      // Navigation의 기본 북동쪽 방향을 경로의 접선 방향으로 맞춘다.
+      direction.setAttribute("transform", `rotate(${angle + 45})`);
+    };
+
+    const animate = (now: number) => {
+      startedAt ??= now;
+      const elapsed = Math.min((now - startedAt) / SEARCH_ROUTE_MOVE_MS, 1);
+      draw(from + (target - from) * elapsed);
+      if (elapsed < 1) frameId = requestAnimationFrame(animate);
+    };
+
+    const onMotionPreferenceChange = () => {
+      if (!motionPreference.matches) return;
+      cancelAnimationFrame(frameId);
+      draw(target);
+    };
+
+    draw(from);
+    if (motionPreference.matches || from === target) draw(target);
+    else frameId = requestAnimationFrame(animate);
+    motionPreference.addEventListener("change", onMotionPreferenceChange);
+    return () => {
+      cancelAnimationFrame(frameId);
+      motionPreference.removeEventListener("change", onMotionPreferenceChange);
+    };
+  }, [step]);
+
   return (
-    <svg viewBox="0 0 24 24" className="size-5 fill-primary" aria-hidden>
-      <path d="M5 11l1.2-3.6A2 2 0 0 1 8.1 6h7.8a2 2 0 0 1 1.9 1.4L19 11h.5a1.5 1.5 0 0 1 1.5 1.5V16a1 1 0 0 1-1 1h-1a2 2 0 1 1-4 0H9a2 2 0 1 1-4 0H4a1 1 0 0 1-1-1v-3.5A1.5 1.5 0 0 1 4.5 11H5zm2.1-3L6.3 11h11.4l-.8-3a.5.5 0 0 0-.5-.4H8.1a.5.5 0 0 0-.5.4z" />
-    </svg>
+    <div className={styles.illustration} aria-hidden="true">
+      <svg viewBox="0 0 320 180" fill="none" className={styles.map}>
+        <path
+          className={`${styles.routeCorridor} ${step === "EXPAND" ? styles.routeCorridorActive : ""}`}
+          d={ROUTE_PATH}
+        />
+        <path className={styles.route} d={ROUTE_PATH} />
+        <path ref={pathRef} className={styles.routeProgress} d={ROUTE_PATH}
+          pathLength="1" strokeDasharray="1 1" strokeDashoffset="1" />
+        <path
+          className={`${styles.stationLink} ${showStations ? styles.stationLinkVisible : ""}`}
+          d="M154 66 Q166 56 168 44"
+        />
+        <path
+          className={`${styles.stationLink} ${showStations ? styles.stationLinkVisible : ""}`}
+          d="M215 103 Q224 113 224 124"
+        />
+        <circle cx="24" cy="134" r="5" className={styles.startpoint} />
+        <circle
+          cx="296"
+          cy="44"
+          r="7"
+          className={`${styles.endpointArrival} ${step === "PRECISE" ? styles.endpointArrivalActive : ""}`}
+        />
+        <circle cx="296" cy="44" r="6" className={styles.endpoint} />
+        <g
+          transform="translate(168 30)"
+          className={`${styles.stationMarker} ${showStations ? styles.stationMarkerVisible : ""} ${isStationScanning ? styles.stationMarkerScanning : ""}`}
+        >
+          <circle className={styles.stationPulse} r="14" />
+          <circle className={styles.markerFace} r="14" />
+          <Fuel className={styles.markerIcon} x="-8" y="-8" width="16" height="16" />
+        </g>
+        <g
+          transform="translate(224 138)"
+          className={`${styles.stationMarker} ${styles.stationMarkerDelayed} ${showStations ? styles.stationMarkerVisible : ""} ${isStationScanning ? styles.stationMarkerScanning : ""}`}
+        >
+          <circle className={styles.stationPulse} r="14" />
+          <circle className={styles.markerFace} r="14" />
+          <Fuel className={styles.markerIcon} x="-8" y="-8" width="16" height="16" />
+        </g>
+        <g ref={markerRef} transform="translate(24 134)">
+          <circle className={styles.locationHalo} r="17" />
+          <circle className={styles.locationFace} r="11" />
+          <g ref={directionRef} transform="rotate(45)">
+            {/* Navigation 도형의 면적 중심이 viewBox 중심보다 우상단에 있어 광학 중심을 1px 보정한다. */}
+            <g transform="translate(-1 1)">
+              <Navigation className={styles.locationIcon} x="-7" y="-7" width="14" height="14" strokeWidth={1.5} />
+            </g>
+          </g>
+        </g>
+      </svg>
+    </div>
   );
 }
 
+/** PRODUCT.md §10.3. 실제 단계를 표시하고 결과 도착 후에는 완료 체크를 보여준다. */
 export function LoadingProgress({
-  currentStep,
-  stepsSeen,
-  expandRadiusM,
+  currentStep, stepsSeen, expandRadiusM, isJsonFallback, completed = false,
 }: {
   currentStep: ProgressStep | null;
   stepsSeen: ProgressStep[];
   expandRadiusM?: number | null;
+  isJsonFallback: boolean;
+  completed?: boolean;
 }) {
   const active = currentStep ?? "ROUTE";
-  const percent = stepToPercent(active);
+  const activeIndex = STEP_ORDER.indexOf(active);
 
   return (
-    <div className="flex flex-col items-center gap-6 py-16" role="status" aria-live="polite">
-      <p className="text-sm font-medium">{labelFor(active, expandRadiusM)}</p>
-
-      <div className="relative h-8 w-full max-w-xs">
-        <div className="absolute top-1/2 h-1.5 w-full -translate-y-1/2 rounded-full bg-muted" />
-        <div
-          className="absolute top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-primary/40 transition-[width] duration-500 ease-in-out"
-          style={{ width: `${percent}%` }}
-        />
-        {STEP_ORDER.map((step) => (
-          <span
-            key={step}
-            className={`absolute top-1/2 size-2 -translate-x-1/2 -translate-y-1/2 rounded-full ${
-              stepsSeen.includes(step) ? "bg-primary" : "bg-muted-foreground/30"
-            }`}
-            style={{ left: `${stepToPercent(step)}%` }}
-            aria-hidden
-          />
-        ))}
-        <div
-          className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 transition-[left] duration-500 ease-in-out"
-          style={{ left: `${percent}%` }}
-        >
-          <LoadingCar />
-        </div>
-      </div>
-    </div>
+    <section className={styles.container} role="status" aria-live="polite" aria-atomic="true">
+      <RouteIllustration step={active} />
+      <p key={active} className={styles.statusTitle}>{labelFor(active, expandRadiusM)}</p>
+      <ol className={styles.steps} aria-hidden="true">
+        {STEP_ORDER.map((step, index) => {
+          const isCurrent = active === step && !completed;
+          const isDone = stepsSeen.includes(step) && (index < activeIndex || completed);
+          const isSkipped = index < activeIndex && !stepsSeen.includes(step) && !isJsonFallback;
+          return (
+            <li className={styles.step} key={step}>
+              {index > 0 && (
+                <span className={styles.stepConnector}>
+                  <span
+                    className={`${styles.stepConnectorFill} ${index === activeIndex && !completed ? styles.stepConnectorFillActive : ""}`}
+                    style={{ transform: `scaleX(${index <= activeIndex ? 1 : 0})` }}
+                  />
+                </span>
+              )}
+              <span className={`${styles.stepDot} ${isCurrent ? styles.stepDotCurrent : isDone ? styles.stepDotDone : isSkipped ? styles.stepDotSkipped : ""}`}>
+                {isCurrent && <span className={styles.stepDotCenter} />}
+                {isDone && <Check size={14} strokeWidth={2.5} />}
+                {isSkipped && <span className={styles.stepDash} />}
+              </span>
+              <span className={`${styles.stepLabel} ${isCurrent ? styles.stepLabelCurrent : ""}`}>{STEP_SHORT_LABEL[step]}</span>
+            </li>
+          );
+        })}
+      </ol>
+    </section>
   );
 }

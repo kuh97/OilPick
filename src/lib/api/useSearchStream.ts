@@ -5,19 +5,20 @@
  *
  * SSE 첫 프레임이 SSE_FIRST_EVENT_TIMEOUT_MS 안에 안 오면(인앱 브라우저 버퍼링)
  * 스트림을 끊고 JSON 폴백으로 1회 재시도합니다. 폴백 중에는 진행 문구를 시간 기반으로
- * 순환시키되 `EXPAND`(범위를 넓히는 중)는 절대 보여주지 않습니다 — 확장 여부를 모르는
+ * 전환하되 `EXPAND`(범위를 넓히는 중)는 절대 보여주지 않습니다 — 확장 여부를 모르는
  * 채로 그 문구를 띄우면 "근거 없는 표시"가 됩니다.
  *
  * `EventSource`를 쓰지 않습니다 — 자동 재연결이 곧 파이프라인 재실행이라
  * 오피넷 예산을 조용히 잠식하기 때문입니다(§6.2). fetch + ReadableStream을 직접 읽습니다.
  *
- * 진행 단계(progress)는 큐에 쌓아 `MIN_STEP_MS`씩 노출합니다 — 서버가 여러 단계를
+ * 진행 단계(progress)는 큐에 쌓아 `SEARCH_STEP_MIN_MS`씩 노출합니다 — 서버가 여러 단계를
  * 연달아 flush해도 중간 단계가 배칭에 묻혀 건너뛰어지지 않도록. 큐에는 서버가
- * 실제로 보낸 단계만 들어갑니다.
+ * 실제로 보낸 단계와 결과 수신으로 확인된 마지막 결과 준비 단계만 들어갑니다.
  */
 
 import { useCallback, useEffect, useRef } from "react";
 import { useSearchStore, type ProgressStep } from "@/store/search-store";
+import { SEARCH_STEP_MIN_MS } from "@/lib/search-progress";
 import { parseSseFrames } from "./sse-client";
 import type {
   Fuel,
@@ -32,11 +33,9 @@ import type {
 } from "@/app/api/_lib/types";
 
 const SSE_FIRST_EVENT_TIMEOUT_MS = 3_000;
-/** JSON 폴백일 때 시간 기반으로 순환시키는 문구 — EXPAND 제외 (§6.2.1) */
+/** JSON 폴백일 때 시간 기반으로 전환하는 문구 — EXPAND 제외 (§6.2.1) */
 const FALLBACK_STEP_CYCLE: ProgressStep[] = ["ROUTE", "COLLECT", "PRECISE"];
 const FALLBACK_STEP_INTERVAL_MS = 2_500;
-/** 진행 단계 하나가 화면에 유지되는 최소 시간 — 다음 단계가 이보다 빨리 와도 대기 */
-const MIN_STEP_MS = 700;
 
 export interface SearchStreamInput {
   origin: WirePoint;
@@ -68,6 +67,7 @@ async function readErrorBody(res: Response): Promise<{ code: string; message: st
 /** 같은 서비스, 다른 출구(§6.2.1) — 서버 로직과 대칭되는 클라이언트 쪽 두 경로. */
 export function useSearchStream() {
   const startSearch = useSearchStore((s) => s.startSearch);
+  const setJsonFallback = useSearchStore((s) => s.setJsonFallback);
   const setProgressStep = useSearchStore((s) => s.setProgressStep);
   const setBaseRoute = useSearchStore((s) => s.setBaseRoute);
   const setPartial = useSearchStore((s) => s.setPartial);
@@ -76,11 +76,13 @@ export function useSearchStream() {
   const setError = useSearchStore((s) => s.setError);
 
   const abortRef = useRef<AbortController | null>(null);
+  const requestIdRef = useRef(0);
   const fallbackTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // ─── 진행 단계 페이서 ────────────────────────────────────────────────────
-  // 도착한 단계를 큐에 쌓고, 각 단계를 MIN_STEP_MS 이상 노출한 뒤 다음으로 넘긴다.
+  // 도착한 단계를 큐에 쌓고, 현재 단계의 이동까지 끝난 뒤 다음 단계/결과로 넘긴다.
   const stepQueueRef = useRef<{ step: ProgressStep; radiusM?: number }[]>([]);
+  const displayedStepRef = useRef<ProgressStep | null>(null);
   const stepTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** 스트림이 끝났지만 아직 못 보여준 단계가 큐에 남아있을 때, 큐를 다 비운 뒤 실행할 마무리 */
   const afterStepsRef = useRef<(() => void) | null>(null);
@@ -91,6 +93,7 @@ export function useSearchStream() {
       stepTimerRef.current = null;
     }
     stepQueueRef.current = [];
+    displayedStepRef.current = null;
     afterStepsRef.current = null;
   }, []);
 
@@ -103,33 +106,33 @@ export function useSearchStream() {
       done?.();
       return;
     }
+    displayedStepRef.current = next.step;
     setProgressStep(next.step, next.radiusM);
     stepTimerRef.current = setTimeout(() => {
       stepTimerRef.current = null;
       pumpSteps();
-    }, MIN_STEP_MS);
+    }, SEARCH_STEP_MIN_MS);
   }, [setProgressStep]);
 
   const enqueueStep = useCallback(
     (step: ProgressStep, radiusM?: number) => {
+      const lastStep = stepQueueRef.current.at(-1)?.step ?? displayedStepRef.current;
+      if (lastStep === step) return;
       stepQueueRef.current.push({ step, radiusM });
       pumpSteps();
     },
     [pumpSteps],
   );
 
-  /** 스트림 종료(result/error) — 큐에 안 보여준 단계가 남아있으면 다 보여준 뒤 실행 */
-  const finishAfterSteps = useCallback((done: () => void) => {
-    if (stepQueueRef.current.length === 0) {
-      if (stepTimerRef.current != null) {
-        clearTimeout(stepTimerRef.current);
-        stepTimerRef.current = null;
-      }
-      done();
-    } else {
+  /** 성공 결과가 있으면 준비 단계가 확정된다. 마지막 단계의 최소 시간도 반드시 지킨다. */
+  const finishAfterSteps = useCallback(
+    (done: () => void) => {
+      enqueueStep("PRECISE");
       afterStepsRef.current = done;
-    }
-  }, []);
+      pumpSteps();
+    },
+    [enqueueStep, pumpSteps],
+  );
 
   const stopFallbackCycle = useCallback(() => {
     if (fallbackTimerRef.current != null) {
@@ -140,21 +143,25 @@ export function useSearchStream() {
 
   useEffect(() => {
     return () => {
+      requestIdRef.current += 1;
+      abortRef.current?.abort();
       stopFallbackCycle();
       resetPacer();
     };
   }, [stopFallbackCycle, resetPacer]);
 
   const runJsonFallback = useCallback(
-    async (body: SearchStreamInput) => {
+    async (body: SearchStreamInput, requestId: number) => {
       resetPacer(); // 폴백은 자체 시간 순환을 쓴다 — 스트림이 남긴 큐/타이머 정리
+      setJsonFallback(true);
       const fallbackController = new AbortController();
       abortRef.current = fallbackController;
       let i = 0;
-      setProgressStep(FALLBACK_STEP_CYCLE[0]);
+      enqueueStep(FALLBACK_STEP_CYCLE[0]);
       fallbackTimerRef.current = setInterval(() => {
-        i = (i + 1) % FALLBACK_STEP_CYCLE.length;
-        setProgressStep(FALLBACK_STEP_CYCLE[i]);
+        i += 1;
+        enqueueStep(FALLBACK_STEP_CYCLE[i]);
+        if (i === FALLBACK_STEP_CYCLE.length - 1) stopFallbackCycle();
       }, FALLBACK_STEP_INTERVAL_MS);
 
       try {
@@ -164,24 +171,33 @@ export function useSearchStream() {
           body: JSON.stringify(body),
           signal: fallbackController.signal,
         });
+        if (requestId !== requestIdRef.current || fallbackController.signal.aborted) return;
         if (!res.ok) {
-          setError(await readErrorBody(res));
+          const error = await readErrorBody(res);
+          if (requestId !== requestIdRef.current || fallbackController.signal.aborted) return;
+          resetPacer();
+          setError(error);
           return;
         }
         const result = (await res.json()) as WireSearchResult;
-        setResult(result);
+        if (requestId !== requestIdRef.current || fallbackController.signal.aborted) return;
+        finishAfterSteps(() => {
+          if (requestId === requestIdRef.current) setResult(result);
+        });
       } catch (err) {
-        if (isAbortError(err)) return;
+        if (requestId !== requestIdRef.current || isAbortError(err)) return;
+        resetPacer();
         setError({ code: "NETWORK_ERROR", message: "검색 중 문제가 발생했습니다." });
       } finally {
-        stopFallbackCycle();
+        if (requestId === requestIdRef.current) stopFallbackCycle();
       }
     },
-    [setProgressStep, setResult, setError, stopFallbackCycle, resetPacer],
+    [setJsonFallback, enqueueStep, setResult, setError, stopFallbackCycle, resetPacer, finishAfterSteps],
   );
 
   const search = useCallback(
     async (body: SearchStreamInput) => {
+      const requestId = ++requestIdRef.current;
       abortRef.current?.abort();
       stopFallbackCycle();
       resetPacer();
@@ -189,14 +205,19 @@ export function useSearchStream() {
       abortRef.current = controller;
 
       startSearch();
+      enqueueStep("ROUTE");
 
       let gotFirstByte = false;
       let lastBaseRoute: WireBaseRoute | null = null;
       let lastPartial: WirePartial | null = null;
       let finished = false;
+      let firstEventTimedOut = false;
 
       const firstByteTimeout = setTimeout(() => {
-        if (!gotFirstByte) controller.abort();
+        if (!gotFirstByte) {
+          firstEventTimedOut = true;
+          controller.abort();
+        }
       }, SSE_FIRST_EVENT_TIMEOUT_MS);
 
       try {
@@ -206,10 +227,14 @@ export function useSearchStream() {
           body: JSON.stringify(body),
           signal: controller.signal,
         });
+        if (requestId !== requestIdRef.current || controller.signal.aborted) return;
 
         if (!res.ok) {
           gotFirstByte = true;
-          setError(await readErrorBody(res));
+          const error = await readErrorBody(res);
+          if (requestId !== requestIdRef.current || controller.signal.aborted) return;
+          resetPacer();
+          setError(error);
           return;
         }
         if (!res.body) throw new Error("스트림 응답에 body가 없습니다.");
@@ -220,6 +245,7 @@ export function useSearchStream() {
 
         for (;;) {
           const { done, value } = await reader.read();
+          if (requestId !== requestIdRef.current || controller.signal.aborted) return;
           if (done) break;
           gotFirstByte = true;
           clearTimeout(firstByteTimeout);
@@ -229,6 +255,7 @@ export function useSearchStream() {
           buffer = rest;
 
           for (const frame of frames) {
+            if (finished) break;
             switch (frame.event) {
               case "progress": {
                 const progress = frame.data as { step: ProgressStep; radiusM?: number };
@@ -249,16 +276,24 @@ export function useSearchStream() {
               case "result": {
                 const data = frame.data as WireSearchResult;
                 finished = true;
-                finishAfterSteps(() => setResult(data));
+                finishAfterSteps(() => {
+                  if (requestId === requestIdRef.current) setResult(data);
+                });
                 break;
               }
               case "error": {
                 const data = frame.data as { code: string; message: string };
                 finished = true;
-                finishAfterSteps(() => setError(data));
+                resetPacer();
+                setError(data);
                 break;
               }
             }
+          }
+          if (finished) {
+            // 최종 프레임을 받았으므로 전송 정리 실패가 확정 결과를 덮어쓰지 않게 한다.
+            void reader.cancel().catch(() => undefined);
+            break;
           }
         }
 
@@ -281,14 +316,18 @@ export function useSearchStream() {
               stage: "DETOUR",
               minutesNeededForOneResult: null,
             };
-            finishAfterSteps(() => setResult(synthesized));
+            finishAfterSteps(() => {
+              if (requestId === requestIdRef.current) setResult(synthesized);
+            });
           } else {
-            finishAfterSteps(() => setError({ code: "TIMEOUT", message: "일부 계산이 완료되지 않았습니다." }));
+            resetPacer();
+            setError({ code: "TIMEOUT", message: "일부 계산이 완료되지 않았습니다." });
           }
         }
       } catch (err) {
-        if (controller.signal.aborted && !gotFirstByte) {
-          await runJsonFallback(body);
+        if (requestId !== requestIdRef.current) return;
+        if (firstEventTimedOut && !gotFirstByte) {
+          await runJsonFallback(body, requestId);
         } else if (!isAbortError(err)) {
           resetPacer(); // 남은 큐가 에러 화면 위에 진행 문구를 덮어쓰지 않게
           setError({ code: "NETWORK_ERROR", message: "검색 중 문제가 발생했습니다." });
@@ -313,6 +352,7 @@ export function useSearchStream() {
   );
 
   const cancel = useCallback(() => {
+    requestIdRef.current += 1;
     abortRef.current?.abort();
     stopFallbackCycle();
     resetPacer();

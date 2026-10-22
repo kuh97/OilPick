@@ -1,0 +1,189 @@
+/* 로컬 확장 — docs/DESIGN.md §2·§3의 팔레트와 타이포 사용.
+   일러스트 기하·간격·모션은 문서에 없는 이 화면 전용 값이다. */
+.container {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  width: 100%;
+  overflow: hidden;
+  flex-direction: column;
+  align-items: center;
+  padding: 32px 8px 24px;
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  background: var(--background);
+  box-shadow: 0 12px 28px color-mix(in srgb, var(--foreground) 5%, transparent);
+}
+.illustration { position: relative; width: min(100%, 352px); }
+.illustration::before {
+  position: absolute;
+  inset: 16px 28px 6px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse, color-mix(in srgb, var(--primary) 7%, transparent), transparent 68%);
+  content: "";
+  pointer-events: none;
+}
+.map { position: relative; z-index: 1; display: block; width: 100%; height: auto; overflow: visible; }
+.routeCorridor {
+  stroke: var(--primary);
+  stroke-linecap: round;
+  opacity: 0;
+}
+.routeCorridorActive { animation: corridor-expand 900ms ease-out both; }
+.route {
+  stroke: var(--muted-foreground);
+  stroke-width: 2.5;
+  stroke-dasharray: 1 8;
+  stroke-linecap: round;
+  opacity: 0.5;
+  animation: route-flow 1.4s linear infinite;
+}
+.routeProgress { stroke: var(--primary); stroke-width: 4.5; stroke-linecap: round; }
+.stationLink {
+  stroke: var(--border);
+  stroke-width: 1.5;
+  stroke-dasharray: 2 5;
+  stroke-linecap: round;
+  opacity: 0;
+  transition: opacity 240ms ease-out;
+}
+.stationLinkVisible { opacity: 1; }
+.startpoint { fill: var(--primary); }
+.endpoint { fill: var(--background); stroke: var(--foreground); stroke-width: 2.5; }
+.endpointArrival {
+  fill: none;
+  stroke: var(--primary);
+  stroke-width: 2;
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.endpointArrivalActive { animation: endpoint-arrive 900ms ease-out both; }
+.stationMarker {
+  opacity: 0;
+  transition: opacity 240ms ease-out;
+}
+.stationMarkerVisible { opacity: 1; }
+.stationMarkerDelayed { transition-delay: 120ms; }
+.stationPulse {
+  fill: none;
+  stroke: var(--primary);
+  stroke-width: 1.5;
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.stationMarkerScanning .stationPulse { animation: station-scan 1.6s ease-out infinite; }
+.stationMarkerDelayed.stationMarkerScanning .stationPulse { animation-delay: 320ms; }
+.markerFace { fill: var(--background); stroke: var(--primary); stroke-width: 1.5; }
+.markerIcon { color: var(--primary); stroke-width: 1.8; }
+.locationHalo { fill: var(--primary); opacity: 0.18; }
+.locationFace { fill: var(--primary); }
+.locationIcon { color: var(--primary-foreground); fill: currentColor; }
+.statusTitle {
+  min-height: 48px;
+  margin: 16px 0 0;
+  color: var(--foreground);
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 33px;
+  text-align: center;
+  text-wrap: balance;
+  animation: title-enter 180ms ease-out both;
+}
+.steps {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  width: min(100%, 336px);
+  margin: 22px 0 0;
+  padding: 14px 4px 10px;
+  border: 1px solid color-mix(in srgb, var(--primary) 5%, var(--border));
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--muted) 62%, var(--background));
+  list-style: none;
+}
+.step { position: relative; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.stepConnector { position: absolute; top: 11px; left: -50%; width: 100%; height: 2px; background: var(--border); }
+.stepConnectorFill {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--primary);
+  transform-origin: left;
+  transition: transform 240ms linear;
+}
+.stepConnectorFillActive::after {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--primary-foreground) 80%, transparent), transparent);
+  content: "";
+  animation: connector-shine 1.8s ease-in-out infinite;
+}
+.stepDot {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  border: 1.5px solid var(--border);
+  border-radius: 50%;
+  background: var(--background);
+}
+.stepDotDone { color: var(--primary-foreground); border-color: var(--primary); background: var(--primary); }
+.stepDotDone svg { animation: check-enter 180ms ease-out both; }
+.stepDotCurrent { border: 2.5px solid var(--primary); }
+.stepDotCurrent::before {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--primary);
+  border-radius: inherit;
+  content: "";
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  transform-origin: center;
+  animation: step-pulse 1.6s ease-out infinite;
+}
+.stepDotCenter { width: 8px; height: 8px; border-radius: 50%; background: var(--primary); }
+.stepDotSkipped { background: var(--muted); }
+.stepDash { width: 8px; height: 2px; border-radius: 999px; background: var(--muted-foreground); }
+.stepLabel { color: var(--muted-foreground); font-size: 12px; line-height: 18px; white-space: nowrap; }
+.stepLabelCurrent { color: var(--primary); font-weight: 600; }
+@keyframes step-pulse {
+  from { transform: translate(-50%, -50%) scale(1); opacity: 0.45; }
+  to { transform: translate(-50%, -50%) scale(1.7); opacity: 0; }
+}
+@keyframes route-flow { to { stroke-dashoffset: -18; } }
+@keyframes corridor-expand {
+  from { stroke-width: 6; opacity: 0; }
+  to { stroke-width: 26; opacity: 0.1; }
+}
+@keyframes station-scan {
+  from { transform: scale(1); opacity: 0.45; }
+  to { transform: scale(1.75); opacity: 0; }
+}
+@keyframes endpoint-arrive {
+  0% { transform: scale(0.75); opacity: 0; }
+  35% { opacity: 0.5; }
+  100% { transform: scale(2.2); opacity: 0; }
+}
+@keyframes check-enter {
+  from { transform: scale(0.65); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+@keyframes connector-shine {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(100%); }
+}
+@keyframes title-enter { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .route, .routeCorridorActive, .stationMarkerScanning .stationPulse,
+  .endpointArrivalActive, .stepDotDone svg, .stepDotCurrent::before,
+  .stepConnectorFillActive::after, .statusTitle { animation: none; }
+  .stationLink, .stationMarker, .stepConnectorFill { transition: none; }
+}
