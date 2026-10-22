@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   classifyByDetour,
   isOutOfRange,
-  isOnRouteCandidate,
   routeAvgSpeedKmh,
   estimateDetourDurationSAtSpeed,
 } from "../tier";
@@ -10,7 +9,6 @@ import {
   T3_MAX,
   ON_ROUTE_MAX_S,
   ON_ROUTE_MAX_D,
-  ON_ROUTE_PREFILTER_M,
   ROUTE_SPEED_MIN_KMH,
   ROUTE_SPEED_MAX_KMH,
 } from "../params";
@@ -31,13 +29,6 @@ describe("classifyByDetour — 배지는 실측 ΔT·ΔD 둘 다로 판정한다
     expect(classifyByDetour(ON_ROUTE_MAX_S + 1, 0)).toBe("DETOUR"));
   it("ΔD 경계값+1 → DETOUR", () =>
     expect(classifyByDetour(0, ON_ROUTE_MAX_D + 1)).toBe("DETOUR"));
-});
-
-describe("isOnRouteCandidate — STAGE 1 실측 대상 프리필터", () => {
-  it("프리필터 경계값은 포함한다", () =>
-    expect(isOnRouteCandidate(ON_ROUTE_PREFILTER_M)).toBe(true));
-  it("경계값 초과는 재보지 않는다", () =>
-    expect(isOnRouteCandidate(ON_ROUTE_PREFILTER_M + 1)).toBe(false));
 });
 
 describe("isOutOfRange", () => {

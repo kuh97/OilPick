@@ -4,7 +4,12 @@
  * "route handler에 비즈니스 로직 없음" 원칙 (§10 Phase 8 완료 기준).
  */
 
-import type { BaseRoute, Candidate, SearchResult, WGS84Point } from "@/domain/types";
+import type {
+  BaseRoute,
+  Candidate,
+  SearchResult,
+  WGS84Point,
+} from "@/domain/types";
 import type {
   WireBaseRoute,
   WireCandidate,
@@ -46,6 +51,7 @@ export function serializeCandidate(c: Candidate): WireCandidate {
     estimatedCost: c.totalCost,
     scores: { ...c.scores },
     reason: c.reason,
+    routePriority: c.routePriority ?? "RECOMMEND",
   };
 }
 
@@ -57,6 +63,12 @@ export function serializeSearchResult(result: SearchResult): WireSearchResult {
   return {
     searchId: result.searchId,
     baseRoute: serializeBaseRoute(result.baseRoute),
+    baseRoutes: (
+      result.baseRoutes ?? [{ priority: "RECOMMEND", route: result.baseRoute }]
+    ).map(({ priority, route }) => ({
+      priority,
+      route: serializeBaseRoute(route),
+    })),
     expansion: result.expansion,
     referencePrice: result.referencePrice,
     refPriceSource: result.refPriceSource,

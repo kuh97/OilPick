@@ -5,7 +5,7 @@
  */
 
 import { wgs84ToProjected } from "@/domain/geo";
-import type { WGS84Point } from "@/domain/types";
+import type { RoutePriority, WGS84Point } from "@/domain/types";
 
 /** 2km 격자 스냅 — 반경검색 캐시 키 중복 최대화 */
 const STATION_GRID_M = 2_000;
@@ -22,7 +22,10 @@ function snapToGrid(coord: number, gridSize: number): number {
  * @param point WGS84 좌표
  * @param gridM 격자 크기 (m). 기본 2,000
  */
-export function gridSnapWgs84(point: WGS84Point, gridM: number = STATION_GRID_M): string {
+export function gridSnapWgs84(
+  point: WGS84Point,
+  gridM: number = STATION_GRID_M,
+): string {
   const projected = wgs84ToProjected(point);
   const gx = snapToGrid(projected.x, gridM);
   const gy = snapToGrid(projected.y, gridM);
@@ -48,10 +51,11 @@ export function routeKey(
   destGrid: string,
   viaGrid?: string,
   avoidHighway?: boolean,
+  priority: RoutePriority = "RECOMMEND",
 ): string {
   const via = viaGrid ? `:${viaGrid}` : "";
   const avoid = avoidHighway ? ":avoid" : "";
-  return `${prefix}:route:${originGrid}:${destGrid}${via}${avoid}`;
+  return `${prefix}:route:${originGrid}:${destGrid}${via}${avoid}:priority=${priority}`;
 }
 
 /**

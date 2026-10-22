@@ -6,6 +6,7 @@
 import { z } from "zod";
 
 export const FuelSchema = z.enum(["GASOLINE", "DIESEL", "LPG"]);
+export const RoutePrioritySchema = z.enum(["RECOMMEND", "TIME", "DISTANCE"]);
 export const FacilitySchema = z.enum(["CAR_WASH", "MAINTENANCE", "CVS"]);
 export const ModeSchema = z.enum(["balanced", "minCost", "minDistance"]);
 /** 배지 2종 — 경로상 / 우회 (§6.4). */
@@ -64,6 +65,7 @@ export const DetourRequestSchema = z.object({
   // 검색 때 쓴 값과 같아야 기본 경로와 비교가 맞는다 — 다르면 톨비·거리·시간 델타가
   // 전부 틀어진다.
   avoidHighway: z.boolean().default(false),
+  routePriority: RoutePrioritySchema.default("RECOMMEND"),
 });
 export type DetourRequest = z.infer<typeof DetourRequestSchema>;
 
@@ -88,7 +90,9 @@ export const FeedbackRequestSchema = z.object({
   email: z.string().trim().email().max(254),
   subject: z.string().trim().min(1).max(120),
   content: z.string().trim().min(1).max(4_000),
-  feedbackSource: z.enum(["HOME", "NEARBY", "NEARBY_DETAIL", "SEARCH", "SEARCH_DETAIL"]).optional(),
+  feedbackSource: z
+    .enum(["HOME", "NEARBY", "NEARBY_DETAIL", "SEARCH", "SEARCH_DETAIL"])
+    .optional(),
   stationId: z.string().trim().min(1).max(100).optional(),
   stationName: z.string().trim().min(1).max(200).optional(),
   searchId: z.string().uuid().optional(),
@@ -102,7 +106,11 @@ export const AdminLoginRequestSchema = z.object({
 });
 export type AdminLoginRequest = z.infer<typeof AdminLoginRequestSchema>;
 
-export const AdminFeedbackStatusSchema = z.enum(["NEW", "IN_PROGRESS", "RESOLVED"]);
+export const AdminFeedbackStatusSchema = z.enum([
+  "NEW",
+  "IN_PROGRESS",
+  "RESOLVED",
+]);
 export const AdminFeedbackStatusUpdateSchema = z.object({
   status: AdminFeedbackStatusSchema,
 });
@@ -121,15 +129,23 @@ export const NearbyQuerySchema = z.object({
   fuel: FuelSchema,
   sort: z.enum(["price", "distance"]).default("price"),
   facilities: z.preprocess(
-    (value) => (typeof value === "string" && value.length > 0 ? value.split(",") : value),
+    (value) =>
+      typeof value === "string" && value.length > 0 ? value.split(",") : value,
     z.array(FacilitySchema).default([]),
   ),
   brands: z.preprocess(
-    (value) => (typeof value === "string" && value.length > 0 ? value.split(",") : value),
+    (value) =>
+      typeof value === "string" && value.length > 0 ? value.split(",") : value,
     z.array(z.string()).default([]),
   ),
-  kpetroOnly: z.enum(["true", "false"]).default("false").transform((value) => value === "true"),
-  selfOnly: z.enum(["true", "false"]).default("false").transform((value) => value === "true"),
+  kpetroOnly: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((value) => value === "true"),
+  selfOnly: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((value) => value === "true"),
 });
 export type NearbyQuery = z.infer<typeof NearbyQuerySchema>;
 

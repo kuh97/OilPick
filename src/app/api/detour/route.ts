@@ -33,8 +33,20 @@ export async function POST(request: Request) {
 
   try {
     const [baseRoute, viaRoute] = await Promise.all([
-      getRoute({ origin, destination, avoidHighway: body.avoidHighway }),
-      getRoute({ origin, destination, waypoint: station.location, avoidHighway: body.avoidHighway, retries: 0 }),
+      getRoute({
+        origin,
+        destination,
+        avoidHighway: body.avoidHighway,
+        priority: body.routePriority,
+      }),
+      getRoute({
+        origin,
+        destination,
+        waypoint: station.location,
+        avoidHighway: body.avoidHighway,
+        retries: 0,
+        priority: body.routePriority,
+      }),
     ]);
 
     const distanceM = Math.max(0, viaRoute.distanceM - baseRoute.distanceM);
@@ -66,7 +78,10 @@ export async function POST(request: Request) {
     });
   } catch {
     return NextResponse.json(
-      { code: "ROUTE_FETCH_FAILED", message: "경유 경로를 계산하지 못했습니다." },
+      {
+        code: "ROUTE_FETCH_FAILED",
+        message: "경유 경로를 계산하지 못했습니다.",
+      },
       { status: 502 },
     );
   }

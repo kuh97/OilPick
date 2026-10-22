@@ -11,7 +11,7 @@ import { collectStations } from "../station-service";
 import { computeReferencePrice } from "../price-service";
 import { logSearch } from "../event-service";
 import { wgs84 } from "@/domain/types";
-import { MAX_PRECISE, T2_MAX } from "@/domain/params";
+import { T2_MAX } from "@/domain/params";
 import type { BaseRoute, RefuelPoint, SearchInput, Fuel } from "@/domain/types";
 import type { RedisLike } from "../route-service";
 import type { Db } from "@/infra/db/client";
@@ -87,7 +87,7 @@ function mixedCandidates() {
 }
 
 /**
- * MAX_PRECISE(15)보다 많은 후보 — 예산 상한과 "실측군 우선" 정렬을 검증할 때 쓴다.
+ * MAX_PRECISE(15)보다 많은 후보 — STAGE 2 우회 예산과 "실측군 우선" 정렬을 검증할 때 쓴다.
  * NEAR는 경로 위(가깝지만 비쌈), FAR는 경로에서 벗어남(멀지만 쌈)이라 모드별 선호가 갈린다.
  */
 function manyCandidates(n: number) {
@@ -166,10 +166,55 @@ describe("search — 회랑 수집 (docs/MIGRATION-DB.md §7 Phase C)", () => {
   });
 });
 
+describe("search — 비교 경로 합치기", () => {
+  it("세 기본 경로의 같은 주유소는 실제 경유 도착 시간이 가장 짧은 버전 하나만 남긴다", async () => {
+    const routesByPriority: Record<"RECOMMEND" | "TIME" | "DISTANCE", BaseRoute> = {
+      RECOMMEND: BASE_ROUTE,
+      TIME: { ...BASE_ROUTE, distanceM: 27_000, durationS: 1_700, polyline: [wgs84(37.005, 127.0), wgs84(37.005, 127.3)] },
+      DISTANCE: { ...BASE_ROUTE, distanceM: 25_900, durationS: 1_900, polyline: [wgs84(37.01, 127.0), wgs84(37.01, 127.3)] },
+    };
+    getRouteMock.mockImplementation(async (opts) => {
+      const priority = opts.priority ?? "RECOMMEND";
+      const base = routesByPriority[priority];
+      if (!opts.waypoint) return base;
+      const extra = priority === "TIME" ? 60 : priority === "RECOMMEND" ? 170 : 150;
+      return { ...base, distanceM: base.distanceM + 300, durationS: base.durationS + extra };
+    });
+    collectStationsMock.mockResolvedValue({
+      stations: [collected({ id: "SAME", location: wgs84(37.0, 127.15) })],
+    });
+
+    const result = await search(baseInput(), undefined, FAKE_DEPS);
+
+    expect(result.baseRoutes).toHaveLength(3);
+    expect(collectStationsMock).toHaveBeenCalledTimes(3);
+    expect(result.candidates).toHaveLength(1);
+    expect(result.candidates[0].routePriority).toBe("TIME");
+  });
+
+  it("도형이 같은 기본 경로는 한 번만 회랑을 수집한다", async () => {
+    getRouteMock.mockImplementation(async (opts) => {
+      if (opts.waypoint) return { ...BASE_ROUTE, distanceM: BASE_ROUTE.distanceM + 300, durationS: BASE_ROUTE.durationS + 60 };
+      if (opts.priority === "DISTANCE") {
+        return { ...BASE_ROUTE, polyline: [wgs84(37.01, 127.0), wgs84(37.01, 127.3)] };
+      }
+      return BASE_ROUTE;
+    });
+    collectStationsMock.mockResolvedValue({
+      stations: [collected({ id: "A1", location: wgs84(37.0, 127.15) })],
+    });
+
+    const result = await search(baseInput(), undefined, FAKE_DEPS);
+
+    expect(result.baseRoutes).toHaveLength(2);
+    expect(collectStationsMock).toHaveBeenCalledTimes(2);
+  });
+});
+
 describe("search — 경로 API 호출 예산 (ARCHITECTURE.md §5.3)", () => {
-  // "카카오 경로 API는 검색당 항상 7회 이하 (기본 1 + 정밀 최대 MAX_PRECISE)".
-  it("후보가 많아도 경로 API 호출은 1(기본) + MAX_PRECISE 이하다", async () => {
-    collectStationsMock.mockResolvedValue({ stations: mixedCandidates() });
+  it("T3 회랑 후보는 모두 실측하고, 우회 후보만 MAX_PRECISE 상한을 따른다", async () => {
+    const pool = manyCandidates(40);
+    collectStationsMock.mockResolvedValue({ stations: pool });
 
     await search(baseInput(), undefined, FAKE_DEPS);
 
@@ -177,9 +222,9 @@ describe("search — 경로 API 호출 예산 (ARCHITECTURE.md §5.3)", () => {
     const base = getRouteMock.mock.calls.filter(([o]) => !o.waypoint).length;
     const precise = getRouteMock.mock.calls.filter(([o]) => o.waypoint).length;
 
-    expect(base).toBe(1);
-    expect(precise).toBeLessThanOrEqual(MAX_PRECISE);
-    expect(total).toBeLessThanOrEqual(1 + MAX_PRECISE);
+    expect(base).toBe(3);
+    expect(precise).toBe(pool.length);
+    expect(total).toBe(3 + pool.length);
   });
 
   it("정밀 계산 대상은 서로 다른 경유지를 쓴다 (같은 주유소를 중복 계산하지 않는다)", async () => {
@@ -193,7 +238,7 @@ describe("search — 경로 API 호출 예산 (ARCHITECTURE.md §5.3)", () => {
     const waypoints = getRouteMock.mock.calls
       .map(([o]) => o.waypoint)
       .filter((w): w is NonNullable<typeof w> => w != null)
-      .map((w) => `${w.lat},${w.lng}`);
+      .map((w, index) => `${w.lat},${w.lng}:${getRouteMock.mock.calls.filter(([o]) => o.waypoint != null)[index][0].priority}`);
     expect(new Set(waypoints).size).toBe(waypoints.length);
   });
 });
@@ -211,15 +256,14 @@ describe("search — 정밀 계산 대상 선정 (STEP10)", () => {
     expect(ids.some((id) => id.startsWith("FAR"))).toBe(true);
   });
 
-  it("실측은 STAGE 1·STAGE 2 각각 MAX_PRECISE개 상한 — 최악이 2×MAX_PRECISE", async () => {
+  it("STAGE 1은 회랑 안의 후보를 전부 실측하고 STAGE 2만 MAX_PRECISE로 제한한다", async () => {
     const pool = manyCandidates(40);
     collectStationsMock.mockResolvedValue({ stations: pool });
 
     await search(baseInput({ includeDetour: true }), undefined, FAKE_DEPS);
 
     const measured = preciseStationIds(pool).length;
-    expect(measured).toBeGreaterThan(0);
-    expect(measured).toBeLessThanOrEqual(2 * MAX_PRECISE);
+    expect(measured).toBe(pool.length);
   });
 
   // STAGE 1이 3배치를 다 쓰고도 경로상을 못 찾으면 STAGE 2로 넘어간다. 그때 이미 잰
@@ -231,7 +275,7 @@ describe("search — 정밀 계산 대상 선정 (STEP10)", () => {
     await search(baseInput(), undefined, FAKE_DEPS);
 
     const waypointCalls = getRouteMock.mock.calls.filter(([o]) => o.waypoint != null);
-    const uniqueWaypoints = new Set(waypointCalls.map(([o]) => `${o.waypoint!.lat},${o.waypoint!.lng}`));
+    const uniqueWaypoints = new Set(waypointCalls.map(([o]) => `${o.waypoint!.lat},${o.waypoint!.lng}:${o.priority}`));
     expect(waypointCalls).toHaveLength(uniqueWaypoints.size);
   });
 
@@ -285,7 +329,7 @@ describe("search — 정밀 계산 대상 선정 (STEP10)", () => {
     for (const c of result.candidates) expect(partialIds.has(c.station.id)).toBe(true);
   });
 
-  it("A8 — 경유 경로가 실패한 후보는 추정치를 유지하고 실측군 아래로 간다", async () => {
+  it("A8 — 경유 경로가 실패해도 다른 경로상 후보 목록은 유지한다", async () => {
     const pool = mixedCandidates();
     collectStationsMock.mockResolvedValue({ stations: pool });
     getRouteMock.mockImplementation(async (opts) => {
@@ -294,14 +338,10 @@ describe("search — 정밀 계산 대상 선정 (STEP10)", () => {
       return { distanceM: BASE_ROUTE.distanceM + 1_000, durationS: BASE_ROUTE.durationS + 120, polyline: BASE_ROUTE.polyline };
     });
 
-    // STAGE 1은 ΔT 2분이면 경로상으로 통과해 곧장 끝나므로 추정군이 생기지 않는다.
-    const result = await search(baseInput({ includeDetour: true }), undefined, FAKE_DEPS);
+    const result = await search(baseInput(), undefined, FAKE_DEPS);
 
-    const estimated = result.candidates.filter((c) => !c.detour.precise);
-    expect(estimated.length).toBeGreaterThan(0);
-    const firstEstimated = result.candidates.findIndex((c) => !c.detour.precise);
-    const lastPrecise = result.candidates.map((c) => c.detour.precise).lastIndexOf(true);
-    expect(firstEstimated).toBeGreaterThan(lastPrecise);
+    expect(result.stage).toBe("ON_ROUTE");
+    expect(result.candidates.every((candidate) => candidate.detour.precise)).toBe(true);
   });
 
   it("최종 목록 상위 후보는 추정치가 아니라 정밀 계산값을 쓴다", async () => {
@@ -476,7 +516,7 @@ describe("search — STAGE 1 경로상 우선 (PRODUCT.md §6.6, 불변식 8)", 
     expect(result.candidates.length).toBeGreaterThan(0);
   });
 
-  it("includeDetour=true면 경로상이 있어도 STAGE 2를 돌린다 — 사용자가 섹션을 펼친 경우", async () => {
+  it("includeDetour=true여도 경로상이 있으면 STAGE 2를 돌리지 않는다", async () => {
     getRouteMock.mockImplementation(async (opts) => {
       if (!opts.waypoint) return BASE_ROUTE;
       return { distanceM: BASE_ROUTE.distanceM + 300, durationS: BASE_ROUTE.durationS + 60, polyline: BASE_ROUTE.polyline };
@@ -490,18 +530,18 @@ describe("search — STAGE 1 경로상 우선 (PRODUCT.md §6.6, 불변식 8)", 
 
     const result = await search(baseInput({ includeDetour: true }), undefined, FAKE_DEPS);
 
-    expect(result.stage).toBe("DETOUR");
+    expect(result.stage).toBe("ON_ROUTE");
     expect(result.candidates.map((c) => c.station.id)).toEqual(expect.arrayContaining(["A1", "A2"]));
   });
 
-  it("STAGE 1은 프리필터 통과분 중 가격 싼 순 MAX_PRECISE개를 실측한다 — 조기 종료 없음", async () => {
+  it("STAGE 1은 가격과 무관하게 T3 회랑 안의 후보를 전부 실측한다", async () => {
     getRouteMock.mockImplementation(async (opts) => {
       if (!opts.waypoint) return BASE_ROUTE;
       return { distanceM: BASE_ROUTE.distanceM + 300, durationS: BASE_ROUTE.durationS + 60, polyline: BASE_ROUTE.polyline };
     });
-    // 전부 경로 위(프리필터 통과) 20곳. price = 1900 - i 라 S19가 최저가.
+    // 전부 경로 위인 T3 회랑 후보 20곳. S0는 기준가보다 비싸고 S19가 최저가다.
     const pool = Array.from({ length: 20 }, (_, i) =>
-      collected({ id: `S${i}`, location: wgs84(37.0, 127.01 + i * 0.001), price: 1900 - i }),
+      collected({ id: `S${i}`, location: wgs84(37.0, 127.01 + i * 0.001), price: i === 0 ? 2500 : 1900 - i }),
     );
     collectStationsMock.mockResolvedValue({ stations: pool });
 
@@ -509,12 +549,39 @@ describe("search — STAGE 1 경로상 우선 (PRODUCT.md §6.6, 불변식 8)", 
 
     expect(result.stage).toBe("ON_ROUTE");
     const waypointCalls = getRouteMock.mock.calls.filter(([o]) => o.waypoint != null);
-    expect(waypointCalls).toHaveLength(MAX_PRECISE); // 20곳 중 싼 15곳
-    // 실측된 15곳은 가장 싼 S5~S19 (첫 배치에서 멈추지 않았다는 증거)
+    expect(waypointCalls).toHaveLength(pool.length);
     const measuredIds = new Set(preciseStationIds(pool));
+    expect(measuredIds.size).toBe(pool.length);
     expect(measuredIds.has("S19")).toBe(true);
-    expect(measuredIds.has("S5")).toBe(true);
-    expect(measuredIds.has("S0")).toBe(false);
+    expect(measuredIds.has("S0")).toBe(true);
+    expect(result.candidates).toHaveLength(pool.length);
+  });
+
+  it("경로상 후보가 있으면 우회 탐색 요청도 경로상 목록에서 끝낸다", async () => {
+    getRouteMock.mockImplementation(async (opts) => {
+      if (!opts.waypoint) return BASE_ROUTE;
+      const isDetour = opts.waypoint.lat === 37.05;
+      return {
+        distanceM: BASE_ROUTE.distanceM + (isDetour ? 9_000 : 300),
+        durationS: BASE_ROUTE.durationS + (isDetour ? 720 : 60),
+        polyline: BASE_ROUTE.polyline,
+      };
+    });
+    const onRoutePool = Array.from({ length: 20 }, (_, i) =>
+      collected({ id: `ON${i}`, location: wgs84(37.0, 127.01 + i * 0.001), price: 1900 - i }),
+    );
+    collectStationsMock.mockResolvedValue({
+      stations: [
+        ...onRoutePool,
+        collected({ id: "DETOUR", location: wgs84(37.05, 127.15), price: 1500 }),
+      ],
+    });
+
+    const result = await search(baseInput({ includeDetour: true }), undefined, FAKE_DEPS);
+
+    expect(result.stage).toBe("ON_ROUTE");
+    expect(result.candidates.filter((candidate) => candidate.tier === "ON_ROUTE")).toHaveLength(20);
+    expect(result.candidates.find((candidate) => candidate.station.id === "DETOUR")).toBeUndefined();
   });
 });
 
@@ -536,7 +603,7 @@ describe("search — 배지는 실측 ΔT로만 판정한다 (불변식 6)", () 
     expect(c.tier).toBe("DETOUR"); // 실측 6.7분이라 우회다
   });
 
-  it("d_perp가 5km대여도 실측 ΔT가 3분 이내면 '경로상'이다 (A17)", async () => {
+  it("d_perp가 5km대여도 STAGE 1에서 실측해 '경로상'으로 보여준다", async () => {
     getRouteMock.mockImplementation(async (opts) => {
       if (opts.waypoint) {
         return { distanceM: BASE_ROUTE.distanceM + 200, durationS: BASE_ROUTE.durationS + 30, polyline: BASE_ROUTE.polyline };
@@ -550,16 +617,16 @@ describe("search — 배지는 실측 ΔT로만 판정한다 (불변식 6)", () 
       ],
     });
 
-    // A3는 프리필터(1.5km) 밖이라 STAGE 1이 못 본다 → STAGE 2에서 실측되어 🟢이 된다
-    const result = await search(baseInput({ includeDetour: true }), undefined, FAKE_DEPS);
+    // A3는 과거의 2.5km 사전 필터 밖이지만 T3 회랑 안이므로 STAGE 1에서 실측한다.
+    const result = await search(baseInput(), undefined, FAKE_DEPS);
 
     const c = result.candidates.find((x) => x.station.id === "A3")!;
     expect(c.detour.precise).toBe(true);
     expect(c.dPerp).toBeGreaterThan(3_000);
     expect(c.tier).toBe("ON_ROUTE"); // 배지는 실측 ΔT(30초)만 본다
-    // 배너는 여전히 기하 기준 — 5km 밖까지 뒤졌다는 사실은 변하지 않는다
-    expect(result.expansion.triggered).toBe(true);
-    expect(result.expansion.finalRadiusM).toBe(c.dPerp);
+    expect(result.stage).toBe("ON_ROUTE");
+    expect(result.expansion.triggered).toBe(false);
+    expect(result.expansion.finalRadiusM).toBe(T2_MAX);
   });
 });
 

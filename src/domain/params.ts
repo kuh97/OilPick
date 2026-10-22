@@ -9,7 +9,6 @@
 // 실측 아닌 사용자 판단값(2026-09-09).
 export const ON_ROUTE_MAX_S = 180; // s
 export const ON_ROUTE_MAX_D = 1_500; // m
-export const ON_ROUTE_PREFILTER_M = 2_500; // m — STAGE 1 실측 대상 d_perp 상한 (§6.4)
 
 // ─── 티어 분류 (§6.3) ───────────────────────────────────────────────────────
 export const T2_MAX = 3_000; // m — P_ref 표본 정의 전용 (§6.4)
@@ -40,8 +39,8 @@ export const ROUTE_SPEED_MIN_KMH = 10;
 export const ROUTE_SPEED_MAX_KMH = 100;
 
 // ─── 정밀 계산 (§7.2 STEP 10) ───────────────────────────────────────────────
-export const MAX_PRECISE = 15; // 개 — 정밀 계산(경유 경로) 개수. MAX_RESULTS와 같게 유지 (§7.2 STEP 10)
-export const MAX_RESULTS = 15; // 개 — 화면 최대 후보 수
+export const MAX_PRECISE = 15; // 개 — STAGE 2 우회 후보 정밀 계산 개수 (§7.2 STEP 10)
+export const MAX_RESULTS = 15; // 개 — STAGE 2 우회 후보 화면 최대 수. 경로상 후보는 전부 보존
 
 // ─── 가격 이상치 (§8.2 A4) ──────────────────────────────────────────────────
 export const OUTLIER_SIGMA = 3; // σ — 중앙값 ± 이 배수 σ 벗어나면 이상치

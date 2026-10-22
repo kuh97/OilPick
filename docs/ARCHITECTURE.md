@@ -45,15 +45,15 @@
 
 ### 1.1 핵심 설계 판단
 
-| 판단                       | 이유                                                                                                                                                                                     |
-| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **BFF 필수**               | 오피넷 `certkey`와 카카오 REST 키를 브라우저에 노출하면 즉시 탈취되어 일일 한도가 소진됩니다. 클라이언트는 외부 API를 절대 직접 호출하지 않습니다                                        |
-| **`domain`은 순수 함수**   | 금액·거리 계산이 이 제품 신뢰도의 전부입니다. 네트워크 없이 단위 테스트할 수 있어야 합니다                                                                                               |
-| **마스터 DB 우선**         | 후보·가격·시설 정보를 전부 `refuel_point` 마스터에서 읽습니다. 검색 1건의 외부 데이터 API 호출은 카카오 경로뿐입니다. 마스터는 일 1회 유가 CSV 임포트로 가격을, 백그라운드 크론으로 시설 정보를 갱신합니다 (근거·상세는 [`MIGRATION-DB.md`](MIGRATION-DB.md)) |
-| **SSE 스트리밍**           | 경유 경로 정밀 계산에 수 초가 걸립니다. 단계별 진행을 실제로 알려주지 않으면 [`PRODUCT.md`](PRODUCT.md) §10.3의 로딩 UI가 가짜 애니메이션이 됩니다                                       |
-| **SSE + JSON 폴백**        | 카카오톡 등 인앱 브라우저에서 스트림이 버퍼링되면 사용자가 아무것도 못 받습니다. **같은 서비스 함수를 콜백 없이 호출하면 그게 곧 REST 응답**이라 서버 추가 비용이 거의 없습니다 (§6.2.1) |
-| **서버리스 친화 드라이버** | Neon HTTP 드라이버 + Upstash REST. 인스턴스가 매 요청 새로 뜨므로 TCP 커넥션 풀이 무의미하고, 오히려 커넥션 고갈을 부릅니다                                                              |
-| **사용자 상태는 Zustand 하나** | 검색 결과·`vehicle`·필터가 라우팅을 넘나듭니다. 사용자 검색 흐름은 기존처럼 Zustand가 소유합니다. 관리자 문의 목록은 상태별 커서 페이지와 재조회 캐시가 필요하므로 관리자 화면에 한해 TanStack Query를 사용합니다 |
+| 판단                           | 이유                                                                                                                                                                                                                                                          |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **BFF 필수**                   | 오피넷 `certkey`와 카카오 REST 키를 브라우저에 노출하면 즉시 탈취되어 일일 한도가 소진됩니다. 클라이언트는 외부 API를 절대 직접 호출하지 않습니다                                                                                                             |
+| **`domain`은 순수 함수**       | 금액·거리 계산이 이 제품 신뢰도의 전부입니다. 네트워크 없이 단위 테스트할 수 있어야 합니다                                                                                                                                                                    |
+| **마스터 DB 우선**             | 후보·가격·시설 정보를 전부 `refuel_point` 마스터에서 읽습니다. 검색 1건의 외부 데이터 API 호출은 카카오 경로뿐입니다. 마스터는 일 1회 유가 CSV 임포트로 가격을, 백그라운드 크론으로 시설 정보를 갱신합니다 (근거·상세는 [`MIGRATION-DB.md`](MIGRATION-DB.md)) |
+| **SSE 스트리밍**               | 경유 경로 정밀 계산에 수 초가 걸립니다. 단계별 진행을 실제로 알려주지 않으면 [`PRODUCT.md`](PRODUCT.md) §10.3의 로딩 UI가 가짜 애니메이션이 됩니다                                                                                                            |
+| **SSE + JSON 폴백**            | 카카오톡 등 인앱 브라우저에서 스트림이 버퍼링되면 사용자가 아무것도 못 받습니다. **같은 서비스 함수를 콜백 없이 호출하면 그게 곧 REST 응답**이라 서버 추가 비용이 거의 없습니다 (§6.2.1)                                                                      |
+| **서버리스 친화 드라이버**     | Neon HTTP 드라이버 + Upstash REST. 인스턴스가 매 요청 새로 뜨므로 TCP 커넥션 풀이 무의미하고, 오히려 커넥션 고갈을 부릅니다                                                                                                                                   |
+| **사용자 상태는 Zustand 하나** | 검색 결과·`vehicle`·필터가 라우팅을 넘나듭니다. 사용자 검색 흐름은 기존처럼 Zustand가 소유합니다. 관리자 문의 목록은 상태별 커서 페이지와 재조회 캐시가 필요하므로 관리자 화면에 한해 TanStack Query를 사용합니다                                             |
 
 ---
 
@@ -158,44 +158,44 @@ oilpick/
 
 ### 3.1 domain — 순수 계산
 
-| 모듈           | 책임                                                                                                                                      |
-| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| `params.ts`    | 튜닝 파라미터 상수. 값의 정본은 [`PRODUCT.md`](PRODUCT.md) §9                                                                             |
-| `types.ts`     | `WGS84Point` / `KatecPoint` / `ProjectedPoint` / `RefuelPoint` / `Candidate` / `SearchResult` 등. **좌표 타입은 서로 대입 불가하게 분리** |
-| `geo.ts`       | WGS84 ↔ 투영좌표 변환, `pointToPolylineDistance`(`d_perp`), bbox 계산, 격자 스냅                          |
-| `tier.ts`      | `d_perp` → T1/T2/T3/제외 분류                                                                             |
-| `pricing.ts`   | `computeReferencePrice`, `netSaving`, `computeScores`, `removeOutliers`                                   |
-| `reason.ts`    | 추천 이유 템플릿 6분기. **LLM 금지**                                                                      |
-| `deeplink.ts`  | 카카오맵·네이버지도·티맵 URL 생성                                                                         |
+| 모듈          | 책임                                                                                                                                      |
+| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `params.ts`   | 튜닝 파라미터 상수. 값의 정본은 [`PRODUCT.md`](PRODUCT.md) §9                                                                             |
+| `types.ts`    | `WGS84Point` / `KatecPoint` / `ProjectedPoint` / `RefuelPoint` / `Candidate` / `SearchResult` 등. **좌표 타입은 서로 대입 불가하게 분리** |
+| `geo.ts`      | WGS84 ↔ 투영좌표 변환, `pointToPolylineDistance`(`d_perp`), bbox 계산, 격자 스냅                                                          |
+| `tier.ts`     | `d_perp` → T1/T2/T3/제외 분류                                                                                                             |
+| `pricing.ts`  | `computeReferencePrice`, `netSaving`, `computeScores`, `removeOutliers`                                                                   |
+| `reason.ts`   | 추천 이유 템플릿 6분기. **LLM 금지**                                                                                                      |
+| `deeplink.ts` | 카카오맵·네이버지도·티맵 URL 생성                                                                                                         |
 
 ### 3.2 services — 오케스트레이션
 
-| 모듈                      | 책임                                                                                                      |
-| ------------------------- | ------------------------------------------------------------------------------------------------------- |
-| `route-service`           | 기본 경로·경유 경로 조회, 폴리라인 정규화, 경로 캐시. 카카오 응답을 도메인 타입으로 변환                 |
-| `station-service`         | 경로 폴리라인 bbox(회랑) 계산 → `refuel_point` 후보 조회 → 필터 적용. 외부 호출 없음                     |
-| `price-service`           | 이상치 제거, **`P_ref` 산출** — T1+T2 중앙값, 부족하면 `refuel_point` 시군구→시도→전국 가중평균          |
-| `recommendation-service`  | **파이프라인 STEP 1~11 전체.** 진행 상황을 콜백으로 방출해 SSE로 흘려보냄                                |
-| `price-import-service`    | 유가 CSV 임포트 오케스트레이션 (decode→parse→게이트→지오코딩→스테이징→원자 스왑). cron·스크립트 공유    |
-| `detail-backfill-service` | 시설 정보 백필 (큐 조회→상세 API 병렬 호출→시설 컬럼 UPDATE). cron·스크립트 공유                         |
-| `event-service`           | 익명 검색·딥링크 이벤트 기록 (Phase 11)                                                                  |
+| 모듈                      | 책임                                                                                                 |
+| ------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `route-service`           | 기본 경로·경유 경로 조회, 폴리라인 정규화, 경로 캐시. 카카오 응답을 도메인 타입으로 변환             |
+| `station-service`         | 경로 폴리라인 bbox(회랑) 계산 → `refuel_point` 후보 조회 → 필터 적용. 외부 호출 없음                 |
+| `price-service`           | 이상치 제거, **`P_ref` 산출** — T1+T2 중앙값, 부족하면 `refuel_point` 시군구→시도→전국 가중평균      |
+| `recommendation-service`  | **파이프라인 STEP 1~11 전체.** 진행 상황을 콜백으로 방출해 SSE로 흘려보냄                            |
+| `price-import-service`    | 유가 CSV 임포트 오케스트레이션 (decode→parse→게이트→지오코딩→스테이징→원자 스왑). cron·스크립트 공유 |
+| `detail-backfill-service` | 시설 정보 백필 (큐 조회→상세 API 병렬 호출→시설 컬럼 UPDATE). cron·스크립트 공유                     |
+| `event-service`           | 익명 검색·딥링크 이벤트 기록 (Phase 11)                                                              |
 
 ### 3.3 infra — 외부 시스템
 
-| 모듈               | 책임                                                                                              |
-| ------------------ | ----------------------------------------------------------------------------------------------- |
+| 모듈               | 책임                                                                                                              |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------- |
 | `opinet/client`    | 상세정보·지역코드·시군구 평균가 호출. `fetchRadius`(반경검색)는 비상 폴백으로만 유지. 재시도·타임아웃·동시성 제한 |
-| `opinet/katec`     | WGS84 ↔ KATEC 변환 (§4)                                                                          |
-| `opinet/mapper`    | 오피넷 응답 필드 → 도메인 타입. **`UNI_ID`·`OS_NM` 같은 원본 필드명이 이 모듈 밖으로 나가면 안 됨** |
-| `opinet/download`  | Playwright로 유가 CSV 스크래핑 (GitHub Actions에서 실행)                                          |
-| `opinet/sigun-map` | `지역` 텍스트 → `SIGUNCD` 매핑. Redis 30일 캐시, 미스 시 오피넷 17회                             |
-| `csv/*`            | 유가 CSV 파싱(EUC-KR 디코딩·메타행 처리)·병합·검증 게이트 G1~G8                                   |
-| `geocode/*`        | 카카오 주소검색→키워드검색 폴백으로 주유소 좌표 조달                                              |
-| `blob/*`           | Vercel Blob — 유가 CSV `latest` / `archive` 보관                                                 |
-| `kakao/mobility`   | 길찾기(경유지 0~1개)                                                                             |
-| `kakao/local`      | 키워드 장소 검색·주소 지오코딩                                                                   |
-| `cache/*`          | Redis 래퍼, 키 생성 규칙                                                                         |
-| `db/*`             | 스키마·마이그레이션·리포지토리                                                                   |
+| `opinet/katec`     | WGS84 ↔ KATEC 변환 (§4)                                                                                           |
+| `opinet/mapper`    | 오피넷 응답 필드 → 도메인 타입. **`UNI_ID`·`OS_NM` 같은 원본 필드명이 이 모듈 밖으로 나가면 안 됨**               |
+| `opinet/download`  | Playwright로 유가 CSV 스크래핑 (GitHub Actions에서 실행)                                                          |
+| `opinet/sigun-map` | `지역` 텍스트 → `SIGUNCD` 매핑. Redis 30일 캐시, 미스 시 오피넷 17회                                              |
+| `csv/*`            | 유가 CSV 파싱(EUC-KR 디코딩·메타행 처리)·병합·검증 게이트 G1~G8                                                   |
+| `geocode/*`        | 카카오 주소검색→키워드검색 폴백으로 주유소 좌표 조달                                                              |
+| `blob/*`           | Vercel Blob — 유가 CSV `latest` / `archive` 보관                                                                  |
+| `kakao/mobility`   | 길찾기(경유지 0~1개)                                                                                              |
+| `kakao/local`      | 키워드 장소 검색·주소 지오코딩                                                                                    |
+| `cache/*`          | Redis 래퍼, 키 생성 규칙                                                                                          |
+| `db/*`             | 스키마·마이그레이션·리포지토리                                                                                    |
 
 ---
 
@@ -203,11 +203,11 @@ oilpick/
 
 세 좌표계를 동시에 다룹니다. **타입으로 구분하고 절대 섞지 마십시오.**
 
-| 좌표계                    | 쓰는 곳                                       | 타입             |
-| ------------------------- | --------------------------------------------- | ---------------- |
-| **WGS84** (위경도)        | 지도 SDK, 카카오 API, 저장, 클라이언트 전달   | `WGS84Point`     |
-| **KATEC (TM128)**         | 오피넷 요청·응답                              | `KatecPoint`     |
-| **EPSG:5179** (미터 투영) | `d_perp`·bbox·격자 스냅 등 모든 거리 계산 | `ProjectedPoint` |
+| 좌표계                    | 쓰는 곳                                     | 타입             |
+| ------------------------- | ------------------------------------------- | ---------------- |
+| **WGS84** (위경도)        | 지도 SDK, 카카오 API, 저장, 클라이언트 전달 | `WGS84Point`     |
+| **KATEC (TM128)**         | 오피넷 요청·응답                            | `KatecPoint`     |
+| **EPSG:5179** (미터 투영) | `d_perp`·bbox·격자 스냅 등 모든 거리 계산   | `ProjectedPoint` |
 
 ```
 오피넷 호출 전 : WGS84 → KATEC
@@ -245,12 +245,12 @@ KATEC / TM128 (오피넷)
 전국 가격·시설 정보의 원천입니다. 검색 요청 경로에서는 호출하지 않고, 아래는 전부
 배치·크론·CSV 임포트에서만 씁니다. 데이터 수급 구조의 배경은 [`MIGRATION-DB.md`](MIGRATION-DB.md).
 
-| 데이터 원천 | 형식 | 용도 | 호출 시점 |
-| --- | --- | --- | --- |
-| **"과거 판매가격" CSV** (정보마당) | 웹 다운로드 (EUC-KR) | 전국 주유소·충전소 가격·상표·주소·셀프여부 전수 스냅샷. `번호` 컬럼 = `UNI_ID` | GitHub Actions가 일 1회 스크래핑 → Vercel Blob → 임포트 (§9.3) |
-| **주유소 상세정보(ID)** `detailById.do` | JSON API | 시설(세차·정비·편의점)·품질인증·전화 — CSV에 없는 항목 백필 | 백필 크론 `GET /api/cron/backfill-details`, ≤280건/일 |
-| **지역코드·시군구 평균가격** `areaCode.do` / `avgSigunPrice.do` | JSON API | 유가 CSV의 `지역` 텍스트 → `SIGUNCD` 매핑 (`P_ref` 시군구 집계 키) | CSV 임포트 시 Redis 캐시 미스일 때만 (17회, 30일 캐시) |
-| **반경 내 주유소** `aroundAll.do` | JSON API | 비상 폴백 전용 — CSV 임포트가 2일+ 연속 실패 시 사용자가 지나가는 시군구만 부분 갱신 (MIGRATION-DB.md §7 Phase E). 평상시 미사용 | — |
+| 데이터 원천                                                     | 형식                 | 용도                                                                                                                             | 호출 시점                                                      |
+| --------------------------------------------------------------- | -------------------- | -------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| **"과거 판매가격" CSV** (정보마당)                              | 웹 다운로드 (EUC-KR) | 전국 주유소·충전소 가격·상표·주소·셀프여부 전수 스냅샷. `번호` 컬럼 = `UNI_ID`                                                   | GitHub Actions가 일 1회 스크래핑 → Vercel Blob → 임포트 (§9.3) |
+| **주유소 상세정보(ID)** `detailById.do`                         | JSON API             | 시설(세차·정비·편의점)·품질인증·전화 — CSV에 없는 항목 백필                                                                      | 백필 크론 `GET /api/cron/backfill-details`, ≤280건/일          |
+| **지역코드·시군구 평균가격** `areaCode.do` / `avgSigunPrice.do` | JSON API             | 유가 CSV의 `지역` 텍스트 → `SIGUNCD` 매핑 (`P_ref` 시군구 집계 키)                                                               | CSV 임포트 시 Redis 캐시 미스일 때만 (17회, 30일 캐시)         |
+| **반경 내 주유소** `aroundAll.do`                               | JSON API             | 비상 폴백 전용 — CSV 임포트가 2일+ 연속 실패 시 사용자가 지나가는 시군구만 부분 갱신 (MIGRATION-DB.md §7 Phase E). 평상시 미사용 | —                                                              |
 
 **유료 API 3종(지역별 기본정보·판매가격·변경정보)은 쓰지 않습니다.** 전국 가격은 무료
 JSON API로 한 번에 받을 수 없지만, "과거 판매가격" CSV가 전국 전수 스냅샷을 제공합니다.
@@ -287,20 +287,20 @@ JSON API로 한 번에 받을 수 없지만, "과거 판매가격" CSV가 전국
 
 ### 5.2 카카오모빌리티 길찾기 · 카카오 로컬
 
-| 항목                                        | 값                                       |
-| ------------------------------------------- | ---------------------------------------- |
-| 무료 쿼터 (자동차 길찾기)                   | **일 10,000건**                          |
-| 무료 쿼터 (지도 SDK)                        | 일 300,000건                             |
-| 무료 쿼터 (로컬 API — 키워드 검색·좌표변환) | 각 일 100,000건                          |
-| 경유지                                      | 자동차 최대 5개 (이 서비스는 1개만 사용) |
-| 연료 옵션                                   | `car_fuel`: GASOLINE / DIESEL / **LPG**  |
+| 항목                                        | 값                                                                                             |
+| ------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| 무료 쿼터 (자동차 길찾기)                   | **일 10,000건**                                                                                |
+| 무료 쿼터 (지도 SDK)                        | 일 300,000건                                                                                   |
+| 무료 쿼터 (로컬 API — 키워드 검색·좌표변환) | 각 일 100,000건                                                                                |
+| 경유지                                      | 자동차 최대 5개 (이 서비스는 1개만 사용)                                                       |
+| 연료 옵션                                   | `car_fuel`: GASOLINE / DIESEL / **LPG**                                                        |
 | 경로 회피 옵션                              | `avoid`: `\|`로 연결. 이 서비스는 `motorway`(고속도로·자동차전용도로)만 사용 — PRODUCT.md §5.1 |
-| 초과 요금                                   | 8원/건                                   |
-| 거리 제한                                   | 경유지 포함 1,500km 미만                 |
+| 초과 요금                                   | 8원/건                                                                                         |
+| 거리 제한                                   | 경유지 포함 1,500km 미만                                                                       |
 
 **왜 카카오인가**
 
-1. **무료 쿼터가 압도적** — 검색당 7회를 쓰므로 일 1,400회 검색 가능
+1. **무료 쿼터가 압도적** — 기본 경로 1회에 더해 T3 회랑 후보와 우회 후보를 실측할 수 있습니다
 2. **TMAP은 요금 절벽이 위험** — 무료 일 1,000건, 초과 시 정액 Lite 월 220만원
 3. **네이버 Directions 15는 월 3,000건**(일 100)이라 경유지 계산에 쓸 수 없음
 
@@ -315,38 +315,40 @@ JSON API로 한 번에 받을 수 없지만, "과거 판매가격" CSV가 전국
 
 길찾기 응답은 `routes[0].sections[].roads[].vertexes`(경도·위도가 평탄화된 배열, `[lng, lat, lng, lat, ...]` 순서)를 순서대로 이어붙여 `BaseRoute.polyline`을 만듭니다. 기본 경로(R₀)·경유 경로(R_s) 모두 같은 구조라 매핑 함수를 공유합니다. `result_code !== 0`이면 경로 탐색 실패로 간주해 에러를 던집니다 — 그 라운드만 실패 처리하는 것은 `route-service`(Phase 7)의 몫입니다.
 
-| 카카오 (길찾기)              | 도메인 (`BaseRoute`) | 비고                          |
-| ----------------------------- | --------------------- | ----------------------------- |
-| `summary.distance`             | `distanceM`            | 미터, 정수                    |
-| `summary.duration`             | `durationS`            | 초, 정수                      |
-| `sections[].roads[].vertexes` | `polyline`             | `[lng,lat,...]` → `WGS84Point[]` |
+| 카카오 (길찾기)               | 도메인 (`BaseRoute`) | 비고                             |
+| ----------------------------- | -------------------- | -------------------------------- |
+| `summary.distance`            | `distanceM`          | 미터, 정수                       |
+| `summary.duration`            | `durationS`          | 초, 정수                         |
+| `sections[].roads[].vertexes` | `polyline`           | `[lng,lat,...]` → `WGS84Point[]` |
 
 로컬 검색 응답의 `x`/`y`는 길찾기 API와 달리 **문자열**로 내려옵니다 (`"127.02..."`). 주소는 도로명(`road_address_name`) 우선, 없으면 지번(`address_name`) — `RefuelPoint`와 동일한 우선순위(PRODUCT.md §6.2)를 씁니다.
 
-| 카카오 (로컬 검색)     | 도메인 (`PlaceResult`) | 비고                          |
-| ----------------------- | ------------------------ | ----------------------------- |
-| `place_name`             | `name`                    |                               |
-| `road_address_name`      | `address`                 | 없으면 `address_name` 폴백    |
-| `x` (문자열)             | `location.lng`            | `Number()` 변환               |
-| `y` (문자열)             | `location.lat`            | `Number()` 변환               |
+| 카카오 (로컬 검색)  | 도메인 (`PlaceResult`) | 비고                       |
+| ------------------- | ---------------------- | -------------------------- |
+| `place_name`        | `name`                 |                            |
+| `road_address_name` | `address`              | 없으면 `address_name` 폴백 |
+| `x` (문자열)        | `location.lng`         | `Number()` 변환            |
+| `y` (문자열)        | `location.lat`         | `Number()` 변환            |
 
 ### 5.3 호출 예산
 
 검색 1건이 쓰는 외부 API는 **카카오 경로뿐**입니다. 후보·가격·시설 정보는 `refuel_point`
 회랑 bbox 쿼리(수십 ms) 한 번으로 끝나고, 오피넷 호출은 0입니다.
 
-| 시나리오                 | 오피넷 | 카카오 경로                          | 목표 응답 |
-| ------------------------ | ------ | ----------------------------------- | --------- |
-| 검색 1건                 | 0      | 1 (기본 경로) + 정밀 최대 `MAX_PRECISE` = **≤16** | 2~4초 |
-| 카드 탭 (lazy 정밀 계산) | 0      | 1                                   | 1초       |
+| 시나리오                 | 오피넷 | 카카오 경로                                                                                         | 목표 응답                     |
+| ------------------------ | ------ | --------------------------------------------------------------------------------------------------- | ----------------------------- |
+| 검색 1건                 | 0      | 기본 경로 최대 3회 + 고유 경로별 STAGE 1 전부(`ΣN_stage1`) + STAGE 2 선택 주유소의 경로 버전별 실측 | 경로 수·후보 수에 따라 달라짐 |
+| 카드 탭 (lazy 정밀 계산) | 0      | 1                                                                                                   | 1초                           |
 
-카카오 경로 무료 쿼터는 일 10,000건이라 검색 **600건/일**까지 여유가 있습니다 (경유 경로는
-1시간 캐시·10m 격자를 타므로 인기 O/D가 반복되면 실사용 여유는 이보다 큽니다).
+카카오 경로 무료 쿼터는 일 10,000건입니다. 검색당 호출 수가 `N_stage1`에 따라 달라지므로
+처리 가능한 검색 수는 경로별 후보 수에 따라 변합니다 (경유 경로는 1시간 캐시·10m 격자를
+타므로 인기 O/D가 반복되면 실사용 여유는 이보다 큽니다).
 
-> **`MAX_PRECISE`를 6에서 15로 올렸습니다** (2026-09-08). 화면에 올리는 후보를 전부 실측하기
-> 위해서입니다 — 이유는 [`PRODUCT.md`](PRODUCT.md) §7.3. 검색 1건의 경로 호출이 7 → 16회로
-> 늘어 하루 처리 가능 검색 수가 1,400 → 600건이 됩니다. 15개는 `Promise.allSettled` 병렬
-> 호출이라 응답 시간은 거의 그대로입니다(경유 경로 타임아웃 5초·재시도 0회, `maxDuration` 20초).
+> **STAGE 1은 T3 회랑 후보를 비용과 무관하게 전부 실측합니다.** `MAX_PRECISE`는
+> STAGE 2 우회 후보에만 적용합니다. 기본 경로는 `RECOMMEND`·`TIME`·`DISTANCE`를
+> 최대 3회 조회하고 같은 폴리라인을 하나로 합칩니다. 이후 호출 수는 고유 경로별 후보 수에
+> 따라 달라집니다. 모든 호출은
+> `Promise.allSettled` 병렬이며 경유 경로 타임아웃 5초·재시도 0회, `maxDuration` 20초입니다.
 >
 > **Upstash 쪽이 먼저 바인딩될 수 있습니다.** 경로 1건당 `GET` + (미스 시) `SET`이라 검색
 > 1건이 Redis 명령 약 32회를 씁니다. 무료 티어 일 10,000회 기준 약 300검색/일입니다 (§12 ⑬).
@@ -361,11 +363,11 @@ JSON API로 한 번에 받을 수 없지만, "과거 판매가격" CSV가 전국
 호출하지 않으므로** "하루에 몇 명이 쓸 수 있는가"를 제약하지 않습니다. 300회는
 백필 크론(≤280건/일)과 CSV 임포트 폴백만 소비합니다.
 
-| 항목 | 값 |
-| --- | --- |
-| 검색 1건당 오피넷 호출 | 0 |
-| 하루 가능 검색 수 | 카카오 쿼터가 상한 (≈1,400건/일) |
-| 마스터 커버리지 | 11,785개소 (유가 CSV 전수) |
+| 항목                   | 값                               |
+| ---------------------- | -------------------------------- |
+| 검색 1건당 오피넷 호출 | 0                                |
+| 하루 가능 검색 수      | 카카오 쿼터가 상한 (≈1,400건/일) |
+| 마스터 커버리지        | 11,785개소 (유가 CSV 전수)       |
 
 ### 5.3.2 데이터 신선도 안내
 
@@ -376,11 +378,11 @@ SSE를 닫지 않습니다.
 
 ### 5.4 장애 처리와 타이밍
 
-| 대상                    | 타임아웃 | 재시도  | 실패 시                             |
-| ----------------------- | -------- | ------- | ----------------------------------- |
-| 카카오 기본 경로        | 5초      | 1회     | 전체 중단 (오류 화면)               |
-| 카카오 경유 경로        | 5초      | **0회** | 해당 후보만 추정치 유지 (A8)        |
-| 카카오 로컬 검색        | 3초      | 1회     | 검색 실패 안내                      |
+| 대상                    | 타임아웃 | 재시도  | 실패 시                               |
+| ----------------------- | -------- | ------- | ------------------------------------- |
+| 카카오 기본 경로        | 5초      | 1회     | 전체 중단 (오류 화면)                 |
+| 카카오 경유 경로        | 5초      | **0회** | 해당 후보만 추정치 유지 (A8)          |
+| 카카오 로컬 검색        | 3초      | 1회     | 검색 실패 안내                        |
 | 오피넷 상세 (백필 크론) | 4초      | 1회     | 그 건은 건너뛰고 다음 실행에서 재시도 |
 
 검색 경로에는 오피넷 호출이 없어 반경검색 관련 타임아웃·재시도 항목이 없습니다.
@@ -402,10 +404,10 @@ SSE를 닫지 않습니다.
 
 **폴백 처리** — 앱 실행 성공 여부를 웹에서 신뢰성 있게 감지할 방법이 없어, **미설치 시 "무동작"** 을 기본값으로 삼는다. 대신 모바일 화면에는 내비 버튼 아래에 _"지도 앱은 설치되어 있어야 열 수 있습니다"_ 를 상시 노출한다. 스토어로 자동 이동시키지 않는다.
 
-| 환경 | 처리 |
-| --- | --- |
+| 환경                             | 처리                                                                                                                     |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
 | 카카오·네이버·티맵 (모바일·인앱) | 각각 `kakaomap://` · `nmap://` · `tmap://` 스킴을 `location.assign`. 앱이 없으면 브라우저에 따라 무동작 또는 오류 페이지 |
-| 데스크톱 | 경유지를 포함한 웹 지도 링크를 새 탭으로 (티맵은 웹 길찾기 없음 → 버튼 숨김) |
+| 데스크톱                         | 경유지를 포함한 웹 지도 링크를 새 탭으로 (티맵은 웹 길찾기 없음 → 버튼 숨김)                                             |
 
 **공식 참고 문서**
 
@@ -426,11 +428,11 @@ SSE를 닫지 않습니다.
 Resend 이메일 API(`https://api.resend.com/emails`)로 관리자 알림을 보냅니다. API 키는 서버에서만
 사용하며 `FEEDBACK_FROM_EMAIL`은 Resend에서 인증한 발신자 주소여야 합니다.
 
-| 환경변수 | 용도 |
-| --- | --- |
-| `RESEND_API_KEY` | Resend 서버 인증 키 |
+| 환경변수                | 용도                  |
+| ----------------------- | --------------------- |
+| `RESEND_API_KEY`        | Resend 서버 인증 키   |
 | `FEEDBACK_NOTIFY_EMAIL` | 관리자 알림 수신 주소 |
-| `FEEDBACK_FROM_EMAIL` | 인증된 발신자 주소 |
+| `FEEDBACK_FROM_EMAIL`   | 인증된 발신자 주소    |
 
 알림 메일의 `reply_to`는 문의자가 입력한 이메일로 설정합니다. Resend 호출이 실패해도 DB에 이미
 저장된 문의의 접수 응답은 실패시키지 않으며, 메일 발송 실패만 서버 로그에 남깁니다. 사용자에게
@@ -491,13 +493,20 @@ interface Candidate {
   estimatedCost: number; // Q × P_s
   scores: { balanced: number; minCost: number; minDistance: number };
   reason: string; // 템플릿 생성
+  routePriority: "RECOMMEND" | "TIME" | "DISTANCE"; // 이 후보를 계산한 기본 경로
 }
 
 interface SearchResult {
   searchId: string; // 익명. 딥링크 이벤트 연결용
   baseRoute: { distanceM: number; durationS: number; polyline: Point[] };
+  // baseRoute는 이전 클라이언트 호환용 대표(RECOMMEND 우선) 경로.
+  // 후보 탐색에 실제 사용한 고유 경로 전체는 아래 배열이다.
+  baseRoutes: Array<{
+    priority: "RECOMMEND" | "TIME" | "DISTANCE";
+    route: { distanceM: number; durationS: number; polyline: Point[] };
+  }>;
   expansion: {
-    triggered: boolean;   // 최종 목록에 T3(d_perp > T2_MAX)가 남았는가
+    triggered: boolean; // 최종 목록에 T3(d_perp > T2_MAX)가 남았는가
     finalRadiusM: number; // 최종 목록에 남은 T3의 최대 d_perp (없으면 T2_MAX)
   };
   referencePrice: number | null; // P_ref. A14면 null
@@ -525,7 +534,12 @@ interface Warning {
   "origin": { "lat": 37.42, "lng": 127.12, "name": "성남시청" },
   "destination": { "lat": 37.88, "lng": 127.73, "name": "춘천역" },
   "fuel": "LPG",
-  "filters": { "facilities": ["CAR_WASH"], "brands": [], "kpetroOnly": false, "selfOnly": false },
+  "filters": {
+    "facilities": ["CAR_WASH"],
+    "brands": [],
+    "kpetroOnly": false,
+    "selfOnly": false
+  },
   "vehicle": { "efficiency": 8.5, "refuelAmount": 45, "timeValue": 200 },
   "mode": "balanced"
 }
@@ -560,14 +574,14 @@ event: progress
 data: {"step":"PRECISE"}
 
 event: result
-data: {"searchId":"...","baseRoute":{...},"candidates":[...]}
+data: {"searchId":"...","baseRoute":{...},"baseRoutes":[...],"candidates":[...]}
 ```
 
 **`progress.radiusM`의 의미 — 헷갈리기 쉬움**
 
-| 필드                       | 값                        | 의미                                                               |
-| -------------------------- | ------------------------- | ------------------------------------------------------------------ |
-| `progress(EXPAND).radiusM` | `T3_MAX` = 15,000         | **지금 어디까지 뒤지는 중인가.** 후보 평가 전이라 실제 결과를 모름 |
+| 필드                       | 값                                 | 의미                                                                                                                                   |
+| -------------------------- | ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `progress(EXPAND).radiusM` | `T3_MAX` = 15,000                  | **지금 어디까지 뒤지는 중인가.** 후보 평가 전이라 실제 결과를 모름                                                                     |
 | `expansion.finalRadiusM`   | 채택된 🟡우회 후보의 최대 `d_perp` | **어디서 찾았는가.** 결과 배너에 쓰는 값. 배지(`ΔT`)로 우회인 후보 중 가장 먼 기하 거리 — STAGE 1만으로 끝나면 배너 자체가 없다 (§6.4) |
 
 두 값이 달라 보이는 것은 정상입니다. [`PRODUCT.md`](PRODUCT.md) §5.3 ②·§10.3.
@@ -617,14 +631,15 @@ Accept: application/json   → search(input)            // 콜백 없음 = 완�
 // Request
 { "origin": {...}, "destination": {...}, "stationId": "A0012345",
   "vehicle": { "efficiency": 8.5, "refuelAmount": 45, "timeValue": 200 },
-  "priceStation": 1650, "referencePrice": 1210 }
+  "priceStation": 1650, "referencePrice": 1210, "routePriority": "TIME" }
 
 // Response
 { "distanceM": 12400, "durationS": 1080, "precise": true, "netSaving": 3252,
   "polyline": [{ "lat": 37.42, "lng": 127.12 }, ...] }
 ```
 
-카카오 경로 API 1회(경유 경로). 기본 경로는 `/api/search`에서 이미 캐시됐으므로 재호출이 아니라 캐시 히트입니다(§8 1시간 TTL). `ΔD`·`ΔT`는 0으로 클램프합니다.
+카카오 경로 API 1회(경유 경로). `routePriority`는 이 후보가 선택된 기본 경로 버전과 같아야 하며,
+기본 경로 조회도 같은 우선순위로 캐시 키를 맞춥니다. `ΔD`·`ΔT`는 0으로 클램프합니다.
 
 **`priceStation` — Phase 8 구현 중 추가.** 이 엔드포인트는 오피넷을 다시 부르지 않으므로(카카오 호출만 예산에 잡혀 있음) 서버가 주유소의 현재 가격을 새로 알 방법이 없습니다. 클라이언트가 이미 화면에 들고 있는 `Candidate.price`를 그대로 넘겨받아 `netSaving`을 계산합니다.
 
@@ -632,19 +647,19 @@ Accept: application/json   → search(input)            // 콜백 없음 = 완�
 
 ### 6.4 나머지 엔드포인트
 
-| 메서드 · 경로                                    | 용도               | 응답                                                                                                    |
-| ------------------------------------------------ | ------------------ | ------------------------------------------------------------------------------------------------------- |
-| `GET /api/places/search?q=`                      | 장소 자동완성 (F1)     | `{ places: [{ name, address, lat, lng }] }` 최대 5건                                                    |
-| `GET /api/stations/nearby?lat=&lng=&fuel=&sort=&facilities=&brands=&kpetroOnly=&selfOnly=` | 내 주변 (F10) | `{ stations: [...] }` 반경 `SEARCH_RADIUS`; 필터 쿼리는 선택 사항이며 우회 허용 시간은 없음 |
-| `GET /api/stations/:id?fuel=`                   | 상세 보강              | 요청 연료 가격을 포함한 `Candidate`에서 경로 의존 필드(`tier`·`perpDistanceM`·`detour`·`netSaving`·`scores`·`reason`)를 뺀 형태. `fuel` 기본값은 `GASOLINE` |
-| `POST /api/stations/directions`                 | 주변 상세 지도 경로    | `{ stationId, origin }` → `WireBaseRoute`(현재 위치→주유소 실제 도로 경로) |
-| `POST /api/events/navi`                          | 딥링크 클릭 기록       | `204`                                                                                                   |
-| `GET /api/admin/feedback?status=&cursor=`        | 관리자 문의 목록       | 관리자 세션 필요. `{ items, nextCursor }` — 20건 단위 커서 페이지                                        |
-| `GET /api/admin/feedback/counts`                 | 관리자 문의 건수       | 관리자 세션 필요. `{ counts: { ALL, NEW, IN_PROGRESS, RESOLVED } }`                                       |
-| `DELETE /api/admin/feedback/:id`                 | 관리자 문의 삭제       | 관리자 세션 필요. 성공 시 `{ ok: true }`                                                                   |
-| `GET /api/admin/dashboard?range=24h\|7d\|30d`    | 관리자 운영·검색 지표  | 관리자 세션 필요. `range` 생략 시 `24h`. 가격·백필·검색·내비 집계 DTO                                            |
-| `GET /api/cron/import-prices`                    | 유가 CSV 임포트 (§9.3) | `200 { status, pricedOn, ... }` — 실패도 200                                                            |
-| `GET /api/cron/backfill-details`                 | 시설 정보 백필 (§9.3)  | `200 { limit, picked, updated, notFound, failed, remaining }`                                           |
+| 메서드 · 경로                                                                              | 용도                   | 응답                                                                                                                                                        |
+| ------------------------------------------------------------------------------------------ | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /api/places/search?q=`                                                                | 장소 자동완성 (F1)     | `{ places: [{ name, address, lat, lng }] }` 최대 5건                                                                                                        |
+| `GET /api/stations/nearby?lat=&lng=&fuel=&sort=&facilities=&brands=&kpetroOnly=&selfOnly=` | 내 주변 (F10)          | `{ stations: [...] }` 반경 `SEARCH_RADIUS`; 필터 쿼리는 선택 사항이며 우회 허용 시간은 없음                                                                 |
+| `GET /api/stations/:id?fuel=`                                                              | 상세 보강              | 요청 연료 가격을 포함한 `Candidate`에서 경로 의존 필드(`tier`·`perpDistanceM`·`detour`·`netSaving`·`scores`·`reason`)를 뺀 형태. `fuel` 기본값은 `GASOLINE` |
+| `POST /api/stations/directions`                                                            | 주변 상세 지도 경로    | `{ stationId, origin }` → `WireBaseRoute`(현재 위치→주유소 실제 도로 경로)                                                                                  |
+| `POST /api/events/navi`                                                                    | 딥링크 클릭 기록       | `204`                                                                                                                                                       |
+| `GET /api/admin/feedback?status=&cursor=`                                                  | 관리자 문의 목록       | 관리자 세션 필요. `{ items, nextCursor }` — 20건 단위 커서 페이지                                                                                           |
+| `GET /api/admin/feedback/counts`                                                           | 관리자 문의 건수       | 관리자 세션 필요. `{ counts: { ALL, NEW, IN_PROGRESS, RESOLVED } }`                                                                                         |
+| `DELETE /api/admin/feedback/:id`                                                           | 관리자 문의 삭제       | 관리자 세션 필요. 성공 시 `{ ok: true }`                                                                                                                    |
+| `GET /api/admin/dashboard?range=24h\|7d\|30d`                                              | 관리자 운영·검색 지표  | 관리자 세션 필요. `range` 생략 시 `24h`. 가격·백필·검색·내비 집계 DTO                                                                                       |
+| `GET /api/cron/import-prices`                                                              | 유가 CSV 임포트 (§9.3) | `200 { status, pricedOn, ... }` — 실패도 200                                                                                                                |
+| `GET /api/cron/backfill-details`                                                           | 시설 정보 백필 (§9.3)  | `200 { limit, picked, updated, notFound, failed, remaining }`                                                                                               |
 
 ```json
 // POST /api/events/navi
@@ -667,21 +682,23 @@ Accept: application/json   → search(input)            // 콜백 없음 = 완�
 
 ```json
 {
-  "items": [{
-    "id": "...",
-    "email": "user@example.com",
-    "subject": "시설 정보가 달라요",
-    "content": "세차장이 없어요.",
-    "feedbackSource": "SEARCH",
-    "stationId": "A0000001",
-    "stationName": "오일픽 주유소",
-    "searchId": null,
-    "originName": "성남시청",
-    "destinationName": "춘천역",
-    "status": "NEW",
-    "createdAt": "2026-10-19T01:02:03.000Z",
-    "resolvedAt": null
-  }],
+  "items": [
+    {
+      "id": "...",
+      "email": "user@example.com",
+      "subject": "시설 정보가 달라요",
+      "content": "세차장이 없어요.",
+      "feedbackSource": "SEARCH",
+      "stationId": "A0000001",
+      "stationName": "오일픽 주유소",
+      "searchId": null,
+      "originName": "성남시청",
+      "destinationName": "춘천역",
+      "status": "NEW",
+      "createdAt": "2026-10-19T01:02:03.000Z",
+      "resolvedAt": null
+    }
+  ],
   "nextCursor": "opaque-cursor-or-null"
 }
 ```
@@ -722,7 +739,10 @@ Accept: application/json   → search(input)            // 콜백 없음 = 완�
 ```json
 {
   "range": "24h",
-  "period": { "since": "2026-10-19T00:00:00.000Z", "until": "2026-10-20T00:00:00.000Z" },
+  "period": {
+    "since": "2026-10-19T00:00:00.000Z",
+    "until": "2026-10-20T00:00:00.000Z"
+  },
   "priceData": {
     "latestImport": {
       "pricedOn": "2026-10-19",
@@ -901,11 +921,11 @@ GROUP BY 1;
 
 모든 키에 `REDIS_KEY_PREFIX`(`dev`/`prod`)를 접두사로 붙입니다.
 
-| 대상              | 키                                        | TTL   | 근거                     |
-| ----------------- | ----------------------------------------- | ----- | ------------------------ |
-| 경로 (기본/경유)  | `route:{originGrid}:{destGrid}:{viaGrid?}` | 1시간 | 교통 상황 반영           |
-| 장소 검색         | `place:{query}`                           | 24시간 | 거의 안 변함            |
-| 지역→SIGUNCD 매핑 | `opinet:sigun-map`                        | 30일  | CSV 임포트용 (§5.1)      |
+| 대상              | 키                                         | TTL    | 근거                |
+| ----------------- | ------------------------------------------ | ------ | ------------------- |
+| 경로 (기본/경유)  | `route:{originGrid}:{destGrid}:{viaGrid?}` | 1시간  | 교통 상황 반영      |
+| 장소 검색         | `place:{query}`                            | 24시간 | 거의 안 변함        |
+| 지역→SIGUNCD 매핑 | `opinet:sigun-map`                         | 30일   | CSV 임포트용 (§5.1) |
 
 ### 8.1 가격·마스터·시설 정보는 캐시하지 않습니다
 
@@ -936,11 +956,11 @@ Client
 recommendation-service
   │   ═══▶ SSE: progress(ROUTE)
   ├─▶ route-service ──▶ [cache] ──▶ 카카오 길찾기        ── STEP 1
-  │      └─ R₀ (D_base, T_base, polyline)
+  │      └─ RECOMMEND·TIME·DISTANCE를 조회하고 같은 폴리라인을 제거한 R₀ᵖ 집합
   │   ═══▶ SSE: base_route
   │
   │   ═══▶ SSE: progress(COLLECT)
-  ├─▶ station-service.collectStations                    ── STEP 2·3
+  ├─▶ station-service.collectStations (고유 기본 경로별) ── STEP 2·3
   │      ├─ 폴리라인 투영 → bbox(회랑) + T3_MAX 마진
   │      ├─ refuel_point WHERE lat/lng BETWEEN … AND price_{fuel} > 0
   │      │                  AND last_seen_on >= today - 7d   (외부 호출 없음)
@@ -955,16 +975,16 @@ recommendation-service
   │
   │  ┌─ STAGE 1 ─ 경로상 목록 (항상 실행) ──────────────────────────┐
   │   ═══▶ SSE: progress(PRECISE)
-  ├─▶ route-service 경유 경로 — d_perp ≤ ON_ROUTE_PREFILTER_M 후보  ── STEP 6
-  │      가격 싼 순 MAX_PRECISE개 전량 실측 (조기 종료 없음)
+  ├─▶ route-service 경유 경로 — 경로별 d_perp ≤ T3_MAX 회랑 후보 ── STEP 6
+  │      비용과 무관하게 모든 고유 경로의 회랑 후보 전량 실측
   │      onRoute = { ΔT ≤ ON_ROUTE_MAX_S AND ΔD ≤ ON_ROUTE_MAX_D }
-  │      ├─ onRoute ≥1곳 이고 우회 미요청 → STEP 10 으로 (STAGE 2 미실행, 배너 OFF)
-  │      └─ 0곳 또는 우회 요청           → STAGE 2 로 (onRoute는 STEP 10에서 합침)
+  │      ├─ onRoute ≥1곳 → 같은 주유소를 더 좋은 경로 버전 하나로 합쳐 반환 (STAGE 2 미실행, 배너 OFF)
+  │      └─ 0곳           → STAGE 2 로
   │  └──────────────────────────────────────────────────────────────┘
   │
-  │  ┌─ STAGE 2 ─ 우회 탐색 (경로상 0곳 또는 사용자가 버튼 누름) ──────┐
+  │  ┌─ STAGE 2 ─ 우회 탐색 (모든 고유 기본 경로에서 경로상 0곳) ────┐
   ├─▶ domain/pricing (우회 게이트 + maxDetourMinutes 예산)  ── STEP 7
-  │      detourPool = 전체 후보 − onRoute
+  │      detourPool = 모든 고유 기본 경로의 후보
   │      추정 ΔT̂ > maxDetourMinutes → 제거. NetSaving ≤ 0 → 제거
   │
   ├─▶ 정밀 계산 대상 선정 (모드별 상위 합집합 → MAX_PRECISE) ── STEP 9a
@@ -977,8 +997,8 @@ recommendation-service
   │  └──────────────────────────────────────────────────────────────┘
   │
   ├─▶ domain/pricing 재계산 · 배지 판정(ΔT·ΔD) · CAP 제거 · 정렬 · reason ── STEP 10
-  │      최종 목록 = STAGE 1 onRoute + STAGE 2 결과
-  │      정렬 1차 키는 detour.precise — 실측군이 추정군보다 항상 위
+  │      최종 목록 = STAGE 2 결과. 같은 주유소는 더 좋은 경로 버전 하나만 보존
+  │      우회 후보만 MAX_RESULTS개까지 표시
   │   ═══▶ SSE: result
   │
   └─▶ event-service.logSearch (비동기 · Phase 11)
@@ -994,12 +1014,12 @@ Client → domain/deeplink.build(app, origin, station, destination)
 
 ### 9.3 배치
 
-| 주기          | 실행 경로                                        | 하는 일                                                              |
-| ------------- | ----------------------------------------------- | ------------------------------------------------------------------- |
-| 매일 05:00 KST | GitHub Actions → Playwright 스크래핑 → Vercel Blob | 오피넷 유가 CSV 2개 다운로드 (NetFunnel 게이트, MIGRATION-DB.md §7 Phase D) |
-| 매일 05:40 KST | Vercel Cron → `GET /api/cron/import-prices`     | Blob CSV → 게이트 G1~G8 → 지오코딩 → 스테이징 → `refuel_point` 원자적 스왑 |
-| 매일 06:00 KST | Vercel Cron → `GET /api/cron/backfill-details`  | `detail_synced_at IS NULL`인 주유소 ≤280곳 상세 API로 시설 정보 백필 |
-| 수동          | `pnpm data:import-csv` / `data:backfill-details [--status]` | 마스터 1회성 재구축 / 백필 수동 실행·현황 확인               |
+| 주기           | 실행 경로                                                   | 하는 일                                                                     |
+| -------------- | ----------------------------------------------------------- | --------------------------------------------------------------------------- |
+| 매일 05:00 KST | GitHub Actions → Playwright 스크래핑 → Vercel Blob          | 오피넷 유가 CSV 2개 다운로드 (NetFunnel 게이트, MIGRATION-DB.md §7 Phase D) |
+| 매일 05:40 KST | Vercel Cron → `GET /api/cron/import-prices`                 | Blob CSV → 게이트 G1~G8 → 지오코딩 → 스테이징 → `refuel_point` 원자적 스왑  |
+| 매일 06:00 KST | Vercel Cron → `GET /api/cron/backfill-details`              | `detail_synced_at IS NULL`인 주유소 ≤280곳 상세 API로 시설 정보 백필        |
+| 수동           | `pnpm data:import-csv` / `data:backfill-details [--status]` | 마스터 1회성 재구축 / 백필 수동 실행·현황 확인                              |
 
 **cron 라우트와 스크립트는 같은 서비스 함수를 호출합니다.** 로직을 복제하지 마십시오 —
 임포트는 `price-import-service.ts`, 백필은 `detail-backfill-service.ts`, 파싱·게이트·지오코딩은
@@ -1139,24 +1159,25 @@ Client → domain/deeplink.build(app, origin, station, destination)
 
 **왜 여기인가** — 파라미터가 미확정인 채로 파이프라인을 만들면, 값이 바뀔 때 파이프라인과 테스트를 다시 손봐야 합니다. 실측에 필요한 건 도메인 계산과 두 클라이언트뿐이므로 Phase 7보다 먼저 하는 것이 맞습니다.
 
-| 스크립트              | 확정할 것                                            |
-| --------------------- | ---------------------------------------------------- |
-| `verify:coverage` (⑫) | 회랑 bbox 수집이 전수 스캔 대비 후보를 누락하지 않는가 |
-| `verify:t3-rate`      | **T3 발동률·게이트 통과율**                          |
-| `verify:uturn` (④)    | `DETOUR_ESTIMATE_FACTOR` + 경로 API의 유턴 반영 여부 |
+| 스크립트              | 확정할 것                                                              |
+| --------------------- | ---------------------------------------------------------------------- |
+| `verify:coverage` (⑫) | 회랑 bbox 수집이 전수 스캔 대비 후보를 누락하지 않는가                 |
+| `verify:t3-rate`      | **T3 발동률·게이트 통과율**                                            |
+| `verify:uturn` (④)    | `DETOUR_ESTIMATE_FACTOR` + 경로 API의 유턴 반영 여부                   |
 | `verify:detour` (⑭)   | `DETOUR_TIME_CAP_RATIO` + 실측 `ΔT` 분포·`ΔD=0` 비율 (Phase 10에 추가) |
 
 > **`verify:coverage`·`verify:t3-rate`·`verify:uturn` 셋은 회랑 bbox 전환(§7 Phase C) 뒤
 > 한동안 제거된 `SAMPLE_INTERVAL`·`OFFSET`·`MIN_CANDIDATES`를 계속 import해서 모듈 로드
 > 단계에서 죽는 상태였습니다(`tsconfig.json`이 `scripts/`를 제외해 `pnpm typecheck`에
-> 잡히지 않았습니다). **2026-09-08에 되살렸습니다** — 오피넷 반경검색(`fetchStationsAtKatecPoint`
-> + `samplePolyline`/`normalOffsets` 샘플링)을 걷어내고 검색 파이프라인과 같은
-> `station-service.collectStations`(회랑 bbox, DB 쿼리)로 후보를 모으도록 다시 썼습니다.
-> `MIN_CANDIDATES`·확장 수집 로직은 되살리지 않았습니다 — 회랑 bbox가 `T3_MAX`까지 한
-> 번에 덮어 그 개념 자체가 없어졌기 때문입니다(§7 Phase C). `verify:coverage`는 측정
-> 대상도 함께 바뀌었습니다: "샘플 간격이 후보를 놓치는가"는 지금 구조에서 성립하지
-> 않는 질문이라(⑫는 이미 §12에서 "해결됨"), 대신 "`station-service`의 bbox 계산이
-> 전수 스캔 대비 후보를 누락하는가"를 검증합니다.
+> 잡히지 않았습니다). **2026-09-08에 되살렸습니다\*\* — 오피넷 반경검색(`fetchStationsAtKatecPoint`
+>
+> - `samplePolyline`/`normalOffsets` 샘플링)을 걷어내고 검색 파이프라인과 같은
+>   `station-service.collectStations`(회랑 bbox, DB 쿼리)로 후보를 모으도록 다시 썼습니다.
+>   `MIN_CANDIDATES`·확장 수집 로직은 되살리지 않았습니다 — 회랑 bbox가 `T3_MAX`까지 한
+>   번에 덮어 그 개념 자체가 없어졌기 때문입니다(§7 Phase C). `verify:coverage`는 측정
+>   대상도 함께 바뀌었습니다: "샘플 간격이 후보를 놓치는가"는 지금 구조에서 성립하지
+>   않는 질문이라(⑫는 이미 §12에서 "해결됨"), 대신 "`station-service`의 bbox 계산이
+>   전수 스캔 대비 후보를 누락하는가"를 검증합니다.
 >
 > 세 스크립트 모두 이제 오피넷을 전혀 호출하지 않으므로(후보 조회가 `refuel_point` DB
 > 쿼리 하나로 끝남) 예전의 오피넷 예산 보호 장치(`confirmBudget`·`--yes` 게이트)는
@@ -1173,10 +1194,10 @@ Client → domain/deeplink.build(app, origin, station, destination)
 
 ### Phase 6 — DB + 마스터 구축
 
-|          |                                                                          |
-| -------- | ------------------------------------------------------------------------ |
-| **목적** | **시설 필터 N+1 제거** + `P_ref` 폴백 확보                               |
-| **선행** | Phase 0 ② (조인 키 확인)                                                 |
+|          |                                                                                                                                                                                                           |
+| -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **목적** | **시설 필터 N+1 제거** + `P_ref` 폴백 확보                                                                                                                                                                |
+| **선행** | Phase 0 ② (조인 키 확인)                                                                                                                                                                                  |
 | **범위** | Drizzle 스키마 · 마이그레이션 · `refuel_point` upsert/조회 · 시군구 평균가 동기화(오피넷 `avgSigunPrice.do`/`areaCode.do` → `sigungu_avg_price`) — 표준데이터 임포트는 폴백 C 채택으로 **범위 밖** (§7.1) |
 
 **완료 기준 — 완료 (2026-08-31)**
@@ -1316,14 +1337,14 @@ Client → domain/deeplink.build(app, origin, station, destination)
 
 ## 11. 배포
 
-| 항목         | 구성                                                                                                                    |
-| ------------ | ----------------------------------------------------------------------------------------------------------------------- |
-| 앱           | Vercel (Next.js)                                                                                                        |
-| DB           | **Neon PostgreSQL** — Vercel 마켓플레이스 경유. 런타임은 HTTP 드라이버(`@neondatabase/serverless`), 배치 스크립트는 TCP |
-| 캐시         | **Upstash Redis (REST)** — 마켓플레이스 경유. 커넥션 풀 불필요                                                          |
+| 항목         | 구성                                                                                                                                                  |
+| ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 앱           | Vercel (Next.js)                                                                                                                                      |
+| DB           | **Neon PostgreSQL** — Vercel 마켓플레이스 경유. 런타임은 HTTP 드라이버(`@neondatabase/serverless`), 배치 스크립트는 TCP                               |
+| 캐시         | **Upstash Redis (REST)** — 마켓플레이스 경유. 커넥션 풀 불필요                                                                                        |
 | 배치         | GitHub Actions(CSV 스크래핑) + Vercel Cron 2개(`import-prices` 05:40, `backfill-details` 06:00 KST) — 전부 `CRON_SECRET` 인증. Hobby 크론 상한과 같음 |
-| 도메인·HTTPS | Vercel 기본. **Geolocation은 HTTPS 필수**                                                                               |
-| 모니터링     | Vercel Logs + 에러 트래킹(Sentry 등)                                                                                    |
+| 도메인·HTTPS | Vercel 기본. **Geolocation은 HTTPS 필수**                                                                                                             |
+| 모니터링     | Vercel Logs + 에러 트래킹(Sentry 등)                                                                                                                  |
 
 마켓플레이스로 프로비저닝하면 접속 정보가 환경변수로 자동 주입됩니다. 로컬에는 `vercel env pull .env.local`로 내려받습니다.
 
@@ -1355,31 +1376,30 @@ Client → domain/deeplink.build(app, origin, station, destination)
 
 **아래가 미확정 사항의 유일한 정본입니다.** 다른 문서는 이 번호를 참조합니다.
 
-| #   | 확인                                          | 방법                                        | 실패 시 영향                                                                             | 시급도      |
-| --- | --------------------------------------------- | ------------------------------------------- | ---------------------------------------------------------------------------------------- | ----------- |
-| ⑤   | 딥링크 실기기 동작 + **SSE 폴백 동작**        | iOS Safari / Android Chrome / 카카오톡 인앱 | 최종 전환 지점 붕괴                                                                      | Phase 10    |
-| ⑦   | 오피넷 상업적 이용 범위                       | 한국석유공사 문의 (052-216-2514)            | 수익화 경로 차단                                                                         | 수익화 전   |
-| ⑨   | 경로 API `duration`의 실시간 교통 반영        | 러시아워/새벽 동일 경로 비교                | 시간 계산 신뢰도 저하                                                                    | 낮음        |
-| ⑩   | 연료별 평균 연비 통계                         | 공식 통계 확인                              | 기본값 보정 ([`PRODUCT.md`](PRODUCT.md) §9.2)                                            | 낮음        |
-| ⑭   | **실측 `ΔT` 분포 — 다노선·다연료**            | `verify:detour` (노선·연료를 바꿔가며)      | `DETOUR_TIME_CAP_RATIO`(0.5)가 정당한 후보를 자르거나 39분짜리를 통과시킴                 | Phase 10 이후 |
-| ⑮   | **`SHORT_ROUTE_DETOUR_TIME_CAP_S`(20분) 적정성** | 다양한 짧은 경로 × 연료로 재측정            | 너무 짧으면 수진역 LPG류 정당한 근거리 우회를 막고, 너무 길면 사실상 별도 여정을 통과시킴 | Phase 11 이후 |
-| ⑯   | **`ON_ROUTE_MAX_S`(3분)·`ON_ROUTE_MAX_D`(1.5km) 적정성** | 실사용 데이터(search_event) 쌓이면 실제 클릭·이탈률과 대조 | 실측이 아닌 사용자 판단값(2026-09-09). 너무 크면 "가는 길"이 아닌 곳이 경로상으로 들어와 STAGE 2가 영영 안 열리고, 너무 작으면 멀쩡한 후보가 우회로 밀림 | 실사용 데이터 확보 후 |
-| ⑰   | **`ON_ROUTE_PREFILTER_M`(2.5km) 충분성** | `verify:detour`로 `d_perp` 2.5~3.5km 구간의 실측 `ΔD` 분포 확인 | 너무 좁으면 경로상 후보를 STAGE 1이 놓쳐 STAGE 2로 새고(A17), 너무 넓으면 STAGE 1 실측이 헛돌아 쿼터를 씀 | 2단계 탐색 재설계 이후 |
-| ⑱   | **STAGE 1 실측 횟수 분포** | `search_event`에 STAGE 1 실측 개수 로깅 후 집계 | 쿼터 계산(검색당 10~16회)의 전제. 프리필터 통과분이 상시 15개 이상이면 `MAX_PRECISE` cap이 상시 바인딩 — 경로상 완결성이 깨질 수 있음 | 2단계 탐색 재설계 이후 |
+| #   | 확인                                                     | 방법                                                             | 실패 시 영향                                                                                                                                             | 시급도                    |
+| --- | -------------------------------------------------------- | ---------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------- |
+| ⑤   | 딥링크 실기기 동작 + **SSE 폴백 동작**                   | iOS Safari / Android Chrome / 카카오톡 인앱                      | 최종 전환 지점 붕괴                                                                                                                                      | Phase 10                  |
+| ⑦   | 오피넷 상업적 이용 범위                                  | 한국석유공사 문의 (052-216-2514)                                 | 수익화 경로 차단                                                                                                                                         | 수익화 전                 |
+| ⑨   | 경로 API `duration`의 실시간 교통 반영                   | 러시아워/새벽 동일 경로 비교                                     | 시간 계산 신뢰도 저하                                                                                                                                    | 낮음                      |
+| ⑩   | 연료별 평균 연비 통계                                    | 공식 통계 확인                                                   | 기본값 보정 ([`PRODUCT.md`](PRODUCT.md) §9.2)                                                                                                            | 낮음                      |
+| ⑭   | **실측 `ΔT` 분포 — 다노선·다연료**                       | `verify:detour` (노선·연료를 바꿔가며)                           | `DETOUR_TIME_CAP_RATIO`(0.5)가 정당한 후보를 자르거나 39분짜리를 통과시킴                                                                                | Phase 10 이후             |
+| ⑮   | **`SHORT_ROUTE_DETOUR_TIME_CAP_S`(20분) 적정성**         | 다양한 짧은 경로 × 연료로 재측정                                 | 너무 짧으면 수진역 LPG류 정당한 근거리 우회를 막고, 너무 길면 사실상 별도 여정을 통과시킴                                                                | Phase 11 이후             |
+| ⑯   | **`ON_ROUTE_MAX_S`(3분)·`ON_ROUTE_MAX_D`(1.5km) 적정성** | 실사용 데이터(search_event) 쌓이면 실제 클릭·이탈률과 대조       | 실측이 아닌 사용자 판단값(2026-09-09). 너무 크면 "가는 길"이 아닌 곳이 경로상으로 들어와 STAGE 2가 영영 안 열리고, 너무 작으면 멀쩡한 후보가 우회로 밀림 | 실사용 데이터 확보 후     |
+| ⑰   | **STAGE 1 실측 횟수 분포**                               | `search_event`에 고유 기본 경로별 STAGE 1 실측 개수 로깅 후 집계 | 검색당 호출 수(기본 최대 3회 + `ΣN_stage1`)와 카카오 쿼터 소모량 확인                                                                                    | T3 회랑 전량 실측 적용 후 |
 
 ### 해결된 항목
 
-| #   | 확인                       | 결과                                                                                                                             |
-| --- | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| ①   | 오피넷 일일 호출 한도      | **300회/일.** 검색은 오피넷을 호출하지 않으므로(§5.3) 운영 규모를 제약하지 않음. 예산은 시설 정보 백필(§9.3)만 소비 → §5.3.1 |
-| ⑥   | Vercel 함수 실행 시간 상한 | **문제 없음.** Fluid compute 기준 Hobby 300초. 8~12초 파이프라인에 여유 충분. 다만 인앱 브라우저 버퍼링은 별개이며 §6.2.1이 대응 |
-| ②   | 표준데이터 컬럼 + 오피넷 UNI_ID 조인 키 | **UNI_ID·시설 컬럼 없음, 도로명주소 매칭 42%.** 표준데이터는 쓰지 않음. 마스터는 오피넷 유가 CSV(`번호` = `UNI_ID`)로 구축 (§7.1) |
-| ③   | KATEC ↔ WGS84 변환 정확도 | **통과.** 왕복 오차 최대 0.01m (기준 50m). `towgs84=-115.80,474.99,674.11,1.16,-2.31,-1.63,6.43` 그대로 사용. EPSG:5179 오차 0.0000m |
-| ⑪   | 오피넷 응답의 가격 기준시각 | **JSON 응답엔 없음** (`TRADE_DT`/`TRADE_TM` 미포함). 가격은 유가 CSV 스냅샷이 됐고, CSV 메타행의 기준일자를 `priced_on`(날짜)으로 표시 (§5.1). 오피넷 파라미터명은 `certkey` |
-| ⑬   | Upstash 무료 티어 일일 명령 수 한도 | **10,000회/일.** 예상 사용량 665회/일 — 여유 충분. `INCRBY` 원자성 확인 |
-| ⑧   | 티맵 경유지 딥링크 지원 | **미지원 — 실기기 확인 (2026-08-28).** 커뮤니티 자료에 정리된 경유지 파라미터(`rV1Name`·`rV1X`·`rV1Y`)를 붙인 `tmap://route?...`를 실기기에서 열었으나 **경유지가 경로에 반영되지 않음** — 목적지만 안내됨. 기존 가정대로 **주유소를 목적지(`rGo*`)로 전달하는 방식 유지** ([`PRODUCT.md`](PRODUCT.md) §5.5). 표본이 실기기 1대이므로 Phase 10 매트릭스에서 iOS/Android 양쪽 재확인 |
-| ⑫   | 샘플링 커버리지·T2 후보 누락률 | **누락률 0%** (`verify:coverage`, 2026-08-28, 노선 3개 — 8km vs 2km 샘플 간격 T1+T2 일치). 이후 후보 수집이 회랑 bbox 쿼리로 바뀌어 T2 누락은 구조적으로 0 — 샘플링 파라미터 자체가 제거됨. **재검증(2026-09-08, `verify:coverage`, bbox vs 전수 스캔 방식으로 재작성):** 성남→춘천 노선 LPG 126곳 전수 일치, 누락 0건 — 계속 해결됨 |
-| ④   | 경로 API가 유턴·중앙분리대 반영 | **반영됨 — 확인.** 실제 후보로 검증한 결과 `d_perp` 대비 실제 우회거리 비율이 노선별 중앙값 0.67~2.11(통합 약 1.4)로 현재 `DETOUR_ESTIMATE_FACTOR=2.0`과 같은 자릿수. 동시에 중앙분리대 건너편·고속도로 반대 방향 충전소에서 실제 우회가 추정의 **100~425배**에 달하는 사례를 실측으로 확인 — `PRODUCT.md` §6.5 표가 이론으로 적어둔 위험이 실측으로 재현됨. **`DETOUR_ESTIMATE_FACTOR=2.0` 유지** (표본이 노선당 6곳뿐이라 재조정 근거 부족, `verify:uturn`, 2026-08-28) |
+| #   | 확인                                    | 결과                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| --- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ①   | 오피넷 일일 호출 한도                   | **300회/일.** 검색은 오피넷을 호출하지 않으므로(§5.3) 운영 규모를 제약하지 않음. 예산은 시설 정보 백필(§9.3)만 소비 → §5.3.1                                                                                                                                                                                                                                                                                                                                              |
+| ⑥   | Vercel 함수 실행 시간 상한              | **문제 없음.** Fluid compute 기준 Hobby 300초. 8~12초 파이프라인에 여유 충분. 다만 인앱 브라우저 버퍼링은 별개이며 §6.2.1이 대응                                                                                                                                                                                                                                                                                                                                          |
+| ②   | 표준데이터 컬럼 + 오피넷 UNI_ID 조인 키 | **UNI_ID·시설 컬럼 없음, 도로명주소 매칭 42%.** 표준데이터는 쓰지 않음. 마스터는 오피넷 유가 CSV(`번호` = `UNI_ID`)로 구축 (§7.1)                                                                                                                                                                                                                                                                                                                                         |
+| ③   | KATEC ↔ WGS84 변환 정확도               | **통과.** 왕복 오차 최대 0.01m (기준 50m). `towgs84=-115.80,474.99,674.11,1.16,-2.31,-1.63,6.43` 그대로 사용. EPSG:5179 오차 0.0000m                                                                                                                                                                                                                                                                                                                                      |
+| ⑪   | 오피넷 응답의 가격 기준시각             | **JSON 응답엔 없음** (`TRADE_DT`/`TRADE_TM` 미포함). 가격은 유가 CSV 스냅샷이 됐고, CSV 메타행의 기준일자를 `priced_on`(날짜)으로 표시 (§5.1). 오피넷 파라미터명은 `certkey`                                                                                                                                                                                                                                                                                              |
+| ⑬   | Upstash 무료 티어 일일 명령 수 한도     | **10,000회/일.** 예상 사용량 665회/일 — 여유 충분. `INCRBY` 원자성 확인                                                                                                                                                                                                                                                                                                                                                                                                   |
+| ⑧   | 티맵 경유지 딥링크 지원                 | **미지원 — 실기기 확인 (2026-08-28).** 커뮤니티 자료에 정리된 경유지 파라미터(`rV1Name`·`rV1X`·`rV1Y`)를 붙인 `tmap://route?...`를 실기기에서 열었으나 **경유지가 경로에 반영되지 않음** — 목적지만 안내됨. 기존 가정대로 **주유소를 목적지(`rGo*`)로 전달하는 방식 유지** ([`PRODUCT.md`](PRODUCT.md) §5.5). 표본이 실기기 1대이므로 Phase 10 매트릭스에서 iOS/Android 양쪽 재확인                                                                                       |
+| ⑫   | 샘플링 커버리지·T2 후보 누락률          | **누락률 0%** (`verify:coverage`, 2026-08-28, 노선 3개 — 8km vs 2km 샘플 간격 T1+T2 일치). 이후 후보 수집이 회랑 bbox 쿼리로 바뀌어 T2 누락은 구조적으로 0 — 샘플링 파라미터 자체가 제거됨. **재검증(2026-09-08, `verify:coverage`, bbox vs 전수 스캔 방식으로 재작성):** 성남→춘천 노선 LPG 126곳 전수 일치, 누락 0건 — 계속 해결됨                                                                                                                                      |
+| ④   | 경로 API가 유턴·중앙분리대 반영         | **반영됨 — 확인.** 실제 후보로 검증한 결과 `d_perp` 대비 실제 우회거리 비율이 노선별 중앙값 0.67~2.11(통합 약 1.4)로 현재 `DETOUR_ESTIMATE_FACTOR=2.0`과 같은 자릿수. 동시에 중앙분리대 건너편·고속도로 반대 방향 충전소에서 실제 우회가 추정의 **100~425배**에 달하는 사례를 실측으로 확인 — `PRODUCT.md` §6.5 표가 이론으로 적어둔 위험이 실측으로 재현됨. **`DETOUR_ESTIMATE_FACTOR=2.0` 유지** (표본이 노선당 6곳뿐이라 재조정 근거 부족, `verify:uturn`, 2026-08-28) |
 
 **⑭ 현재 근거 (2026-09-08)** — 노선 **1개**(휘발유, 원익홀딩스 본사 → 수내역 40.4km)에서
 추정 상위 40곳을 실측했습니다: `ΔD=0`이 60%, `ΔT` 중앙값 7.9분(p25 4.2 / p75 9.5 / 최대 39.1).

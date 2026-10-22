@@ -34,6 +34,18 @@ describe("fetchDirections — 경유지 없음 (기본 경로)", () => {
     expect(new URL(capturedUrl).searchParams.has("waypoints")).toBe(false);
   });
 
+  it("명시한 경로 우선순위를 요청 URL에 넣는다", async () => {
+    let capturedUrl = "";
+    server.use(
+      http.get(KAKAO_MOBILITY_URL, ({ request }) => {
+        capturedUrl = request.url;
+        return HttpResponse.json(directionsFixture);
+      }),
+    );
+    await fetchDirections({ origin: ORIGIN, destination: DESTINATION, priority: "TIME" });
+    expect(new URL(capturedUrl).searchParams.get("priority")).toBe("TIME");
+  });
+
   it("avoidHighway: true면 avoid=motorway를 붙인다", async () => {
     let capturedUrl = "";
     server.use(

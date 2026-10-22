@@ -114,6 +114,19 @@ describe("POST /api/detour — 정상 흐름", () => {
     }
   });
 
+  it("후보가 선택된 경로 우선순위를 기본·경유 경로 양쪽에 전달한다", async () => {
+    findRefuelPointsByIdsMock.mockResolvedValue([station()]);
+    getRouteMock
+      .mockResolvedValueOnce({ distanceM: 92000, durationS: 5640, polyline: [] })
+      .mockResolvedValueOnce({ distanceM: 104400, durationS: 6720, polyline: [] });
+
+    await POST(request(validBody({ routePriority: "TIME" })));
+
+    for (const [opts] of getRouteMock.mock.calls.slice(-2)) {
+      expect(opts.priority).toBe("TIME");
+    }
+  });
+
   it("경유 경로 조회가 실패하면 502를 반환한다", async () => {
     findRefuelPointsByIdsMock.mockResolvedValue([station()]);
     getRouteMock.mockRejectedValue(new Error("kakao 500"));

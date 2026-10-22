@@ -8,7 +8,12 @@ import { getRedis } from "@/infra/cache/redis";
 import { routeKey, gridSnapWgs84 } from "@/infra/cache/keys";
 import { env } from "@/infra/env";
 import { wgs84 } from "@/domain/types";
-import type { BaseRoute, Fuel, WGS84Point } from "@/domain/types";
+import type {
+  BaseRoute,
+  Fuel,
+  RoutePriority,
+  WGS84Point,
+} from "@/domain/types";
 
 const ROUTE_TTL_SECONDS = 60 * 60; // 1시간 — 교통 상황 반영 (§8)
 
@@ -65,6 +70,8 @@ export interface GetRouteOptions {
   avoidHighway?: boolean;
   /** 기본 1(§5.4). STEP10 정밀 계산은 0을 넘기십시오 */
   retries?: number;
+  /** 기본 RECOMMEND. 캐시 키에도 포함돼 우선순위별 경로가 섞이지 않는다. */
+  priority?: RoutePriority;
   redis?: RedisLike;
   prefix?: string;
 }
@@ -80,8 +87,18 @@ export async function getRoute(opts: GetRouteOptions): Promise<BaseRoute> {
 
   const originGrid = gridSnapWgs84(opts.origin);
   const destGrid = gridSnapWgs84(opts.destination);
-  const viaGrid = opts.waypoint ? gridSnapWgs84(opts.waypoint, ROUTE_VIA_GRID_M) : undefined;
-  const key = routeKey(prefix, originGrid, destGrid, viaGrid, opts.avoidHighway);
+  const viaGrid = opts.waypoint
+    ? gridSnapWgs84(opts.waypoint, ROUTE_VIA_GRID_M)
+    : undefined;
+  const priority = opts.priority ?? "RECOMMEND";
+  const key = routeKey(
+    prefix,
+    originGrid,
+    destGrid,
+    viaGrid,
+    opts.avoidHighway,
+    priority,
+  );
 
   const cached = await redis.get(key);
   if (cached) return deserialize(cached);
@@ -93,6 +110,7 @@ export async function getRoute(opts: GetRouteOptions): Promise<BaseRoute> {
     fuel: opts.fuel,
     avoidHighway: opts.avoidHighway,
     retries: opts.retries,
+    priority,
   });
 
   await redis.set(key, serialize(route), { ex: ROUTE_TTL_SECONDS });

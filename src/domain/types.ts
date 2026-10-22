@@ -8,22 +8,22 @@
 /** WGS84 십진수 위경도 — 카카오 API 입출력, Neon DB 저장 */
 export type WGS84Point = {
   readonly _brand: "WGS84";
-  lat: number;  // 위도 (°)
-  lng: number;  // 경도 (°)
+  lat: number; // 위도 (°)
+  lng: number; // 경도 (°)
 };
 
 /** 오피넷 KATEC(TM128) 투영좌표 — 오피넷 반경검색 입력 */
 export type KatecPoint = {
   readonly _brand: "Katec";
-  x: number;  // m
-  y: number;  // m
+  x: number; // m
+  y: number; // m
 };
 
 /** EPSG:5179 투영좌표 — 거리 계산 전용 */
 export type ProjectedPoint = {
   readonly _brand: "Projected";
-  x: number;  // m
-  y: number;  // m
+  x: number; // m
+  y: number; // m
 };
 
 export function wgs84(lat: number, lng: number): WGS84Point {
@@ -44,11 +44,13 @@ export type Tier = "ON_ROUTE" | "DETOUR";
 export type Facility = "CAR_WASH" | "MAINTENANCE" | "CVS";
 export type Mode = "balanced" | "minCost" | "minDistance";
 export type RefPriceSource = "MEDIAN_T1T2" | "SIGUNGU_AVG";
+/** 카카오 길찾기 우선순위. 검색은 세 버전을 비교한 뒤 같은 경로는 하나로 합친다. */
+export type RoutePriority = "RECOMMEND" | "TIME" | "DISTANCE";
 
 // ─── 주유소 마스터 (§7.1) ────────────────────────────────────────────────────
 
 export type EnergyType = "OIL" | "LPG" | "BOTH";
-export type BrandCode = string;  // POLL_DIV_CD
+export type BrandCode = string; // POLL_DIV_CD
 
 // 오피넷 POLL_DIV_CD ↔ 표시명 — PRODUCT.md §5.2 매핑표.
 const BRAND_NAME: Record<string, string> = {
@@ -69,7 +71,7 @@ export function brandName(code: BrandCode): string {
 }
 
 export interface RefuelPoint {
-  id: string;               // 오피넷 UNI_ID
+  id: string; // 오피넷 UNI_ID
   name: string;
   brandCode: BrandCode;
   energyType: EnergyType;
@@ -85,28 +87,30 @@ export interface RefuelPoint {
     cvs: boolean;
   };
   isKpetro: boolean;
-  isSelf?: boolean;         // 유가 CSV 셀프여부. undefined=미상(상세 API로만 채워진 행 등)
+  isSelf?: boolean; // 유가 CSV 셀프여부. undefined=미상(상세 API로만 채워진 행 등)
 }
 
 // ─── 후보 (검색 결과 계산 중간) ──────────────────────────────────────────────
 
 export interface Candidate {
   station: RefuelPoint;
-  price: number;           // 원/L (정수)
-  dPerp: number;           // m — 경로 폴리라인 최단거리
+  price: number; // 원/L (정수)
+  dPerp: number; // m — 경로 폴리라인 최단거리
   tier: Tier;
   detour: DetourInfo;
-  netSaving: number;       // 원 (정수, 음수 가능)
-  totalCost: number;       // 원 (정수)
+  netSaving: number; // 원 (정수, 음수 가능)
+  totalCost: number; // 원 (정수)
   scores: Scores;
-  reason: string;          // domain/reason.ts 생성 문구
-  priceUpdatedAt?: Date;   // 오피넷 갱신 스케줄 기반 근사
+  reason: string; // domain/reason.ts 생성 문구
+  priceUpdatedAt?: Date; // 오피넷 갱신 스케줄 기반 근사
+  /** 이 후보를 실제로 경유해 계산한 기본 경로 버전. */
+  routePriority?: RoutePriority;
 }
 
 export interface DetourInfo {
   precise: boolean;
-  distanceM: number;  // ΔD (m, 정수, ≥0 clamp 후)
-  durationS: number;  // ΔT (s, 정수, ≥0 clamp 후)
+  distanceM: number; // ΔD (m, 정수, ≥0 clamp 후)
+  durationS: number; // ΔT (s, 정수, ≥0 clamp 후)
   /**
    * 이 우회로 추가되는 통행료(원, ≥0 clamp) — 경유 경로 fare.toll − 기본 경로
    * fare.toll. precise===false(실측 안 함)거나 toll 정보가 없으면 undefined.
@@ -117,19 +121,25 @@ export interface DetourInfo {
 }
 
 export interface Scores {
-  minCost: number;       // 순위 점수
-  minDistance: number;   // 순위 점수
-  balanced: number;      // 순위 점수 (시간 가치 포함)
+  minCost: number; // 순위 점수
+  minDistance: number; // 순위 점수
+  balanced: number; // 순위 점수 (시간 가치 포함)
 }
 
 // ─── 검색 결과 ───────────────────────────────────────────────────────────────
 
 export interface BaseRoute {
-  distanceM: number;   // D_base (m)
-  durationS: number;   // T_base (s)
+  distanceM: number; // D_base (m)
+  durationS: number; // T_base (s)
   /** 통행료(원) — 카카오 summary.fare.toll. optional인 이유는 DetourInfo.tollWon 참고. */
   tollWon?: number;
   polyline: WGS84Point[];
+}
+
+/** 중복 제거 후 실제로 후보 탐색에 쓴 기본 경로. */
+export interface RouteVariant {
+  priority: RoutePriority;
+  route: BaseRoute;
 }
 
 /** ARCHITECTURE.md §6.1 Warning */
@@ -141,18 +151,20 @@ export interface Warning {
 }
 
 export interface ExpansionInfo {
-  triggered: boolean;    // 최종 목록에 T3(d_perp > T2_MAX)가 남았는가
-  finalRadiusM: number;  // 최종 목록에 남은 T3의 최대 d_perp (없으면 T2_MAX)
+  triggered: boolean; // 최종 목록에 T3(d_perp > T2_MAX)가 남았는가
+  finalRadiusM: number; // 최종 목록에 남은 T3의 최대 d_perp (없으면 T2_MAX)
 }
 
 /** `ON_ROUTE` = STAGE 1에서 종료(배너 OFF), `DETOUR` = STAGE 2까지 감 (§6.6). */
 export type SearchStage = "ON_ROUTE" | "DETOUR";
 
 export interface SearchResult {
-  searchId: string;   // 익명. 딥링크 이벤트 연결용
+  searchId: string; // 익명. 딥링크 이벤트 연결용
   baseRoute: BaseRoute;
+  /** `baseRoute`는 기존 클라이언트 호환용 대표 경로이며, 이 배열이 실제 탐색 경로 전체다. */
+  baseRoutes?: RouteVariant[];
   candidates: Candidate[];
-  referencePrice: number | null;       // P_ref. A14면 null
+  referencePrice: number | null; // P_ref. A14면 null
   refPriceSource: RefPriceSource | null;
   expansion: ExpansionInfo;
   warnings: Warning[];
@@ -173,9 +185,9 @@ export interface PlaceResult {
 
 export interface Vehicle {
   fuel: Fuel;
-  efficiencyKmPerL: number;  // km/L
-  refuelAmountL: number;     // L
-  timeValuePerMin: number;   // 원/분
+  efficiencyKmPerL: number; // km/L
+  refuelAmountL: number; // L
+  timeValuePerMin: number; // 원/분
 }
 
 export interface SearchInput {
@@ -195,7 +207,7 @@ export interface SearchInput {
    * 다시 조회해야 한다 (PRODUCT.md §5.1).
    */
   avoidHighway: boolean;
-  /** 사용자가 우회 섹션을 펼쳤는가 — 기본 false, true면 경로상 유무와 무관하게 STAGE 2 (§6.6). */
+  /** 이전 요청과의 호환 필드. 경로상 후보가 하나라도 있으면 STAGE 2는 실행하지 않는다. */
   includeDetour?: boolean;
   /** "우회 허용 시간"(분) — 표시 필터가 아니라 검색 파라미터 (불변식 8). STAGE 2 전용. */
   maxDetourMinutes?: number;

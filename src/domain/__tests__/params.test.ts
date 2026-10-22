@@ -3,13 +3,7 @@ import * as P from "../params";
 
 describe("params — 상수 불변식", () => {
   it("거리 경계가 단조증가한다", () => {
-    expect(P.ON_ROUTE_MAX_D).toBeLessThanOrEqual(P.ON_ROUTE_PREFILTER_M);
-    expect(P.ON_ROUTE_PREFILTER_M).toBeLessThan(P.T2_MAX);
     expect(P.T2_MAX).toBeLessThan(P.T3_MAX);
-  });
-
-  it("프리필터가 배지 거리 조건보다 넉넉하다 — ΔD ≤ ON_ROUTE_MAX_D 후보를 놓치지 않게", () => {
-    expect(P.ON_ROUTE_PREFILTER_M).toBeGreaterThanOrEqual(P.ON_ROUTE_MAX_D);
   });
 
   it("경로 실측 평균속도 클램프가 유효 구간을 이룬다", () => {

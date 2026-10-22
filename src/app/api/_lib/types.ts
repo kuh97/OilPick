@@ -4,9 +4,27 @@
  * 변환은 lib/api/serialize.ts가 맡습니다.
  */
 
-import type { Fuel, Tier, Facility, Mode, RefPriceSource, WarningCode, SearchStage } from "@/domain/types";
+import type {
+  Fuel,
+  Tier,
+  Facility,
+  Mode,
+  RefPriceSource,
+  WarningCode,
+  SearchStage,
+  RoutePriority,
+} from "@/domain/types";
 
-export type { Fuel, Tier, Facility, Mode, RefPriceSource, WarningCode, SearchStage };
+export type {
+  Fuel,
+  Tier,
+  Facility,
+  Mode,
+  RefPriceSource,
+  WarningCode,
+  SearchStage,
+  RoutePriority,
+};
 
 export interface WirePoint {
   lat: number;
@@ -47,11 +65,17 @@ export interface WireCandidate {
   tier: Tier;
   perpDistanceM: number;
   /** tollWon: 이 우회로 추가되는 통행료(원, 정보 표시 전용). 모르면 undefined. */
-  detour: { precise: boolean; distanceM: number; durationS: number; tollWon?: number };
+  detour: {
+    precise: boolean;
+    distanceM: number;
+    durationS: number;
+    tollWon?: number;
+  };
   netSaving: number;
   estimatedCost: number;
   scores: { balanced: number; minCost: number; minDistance: number };
   reason: string;
+  routePriority?: RoutePriority;
 }
 
 export interface WireBaseRoute {
@@ -62,6 +86,11 @@ export interface WireBaseRoute {
   polyline: WirePoint[];
 }
 
+export interface WireRouteVariant {
+  priority: RoutePriority;
+  route: WireBaseRoute;
+}
+
 export interface WireExpansion {
   triggered: boolean;
   finalRadiusM: number;
@@ -70,6 +99,7 @@ export interface WireExpansion {
 export interface WireSearchResult {
   searchId: string;
   baseRoute: WireBaseRoute;
+  baseRoutes?: WireRouteVariant[];
   expansion: WireExpansion;
   referencePrice: number | null;
   refPriceSource: RefPriceSource | null;

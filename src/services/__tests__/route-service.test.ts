@@ -79,6 +79,15 @@ describe("getRoute — 캐시 히트", () => {
   });
 });
 
+describe("getRoute — 경로 우선순위", () => {
+  it("같은 출발·도착지도 우선순위가 다르면 캐시를 분리한다", async () => {
+    const redis = fakeRedis();
+    await getRoute({ origin: ORIGIN, destination: DESTINATION, priority: "RECOMMEND", redis });
+    await getRoute({ origin: ORIGIN, destination: DESTINATION, priority: "TIME", redis });
+    expect(redis.store.size).toBe(2);
+  });
+});
+
 describe("getRoute — 경유지(waypoint)", () => {
   it("waypoint가 있으면 경유 경로 픽스처를 받고, 기본 경로와 다른 캐시 키를 쓴다", async () => {
     const redis = fakeRedis();

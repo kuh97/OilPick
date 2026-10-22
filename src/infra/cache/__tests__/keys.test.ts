@@ -5,12 +5,12 @@ import { wgs84 } from "@/domain/types";
 describe("routeKey", () => {
   it("경유지 없는 기본 경로", () => {
     const key = routeKey("dev", "37.5_127.0", "35.1_129.0");
-    expect(key).toBe("dev:route:37.5_127.0:35.1_129.0");
+    expect(key).toBe("dev:route:37.5_127.0:35.1_129.0:priority=RECOMMEND");
   });
 
   it("경유지 포함 경로", () => {
     const key = routeKey("dev", "37.5_127.0", "35.1_129.0", "36.3_128.0");
-    expect(key).toBe("dev:route:37.5_127.0:35.1_129.0:36.3_128.0");
+    expect(key).toBe("dev:route:37.5_127.0:35.1_129.0:36.3_128.0:priority=RECOMMEND");
   });
 
   it("경유지 유무에 따라 다른 키", () => {
@@ -35,6 +35,11 @@ describe("routeKey", () => {
 
   it("avoidHighway를 생략하면 false와 같은 키다 (하위 호환)", () => {
     expect(routeKey("dev", "A", "B")).toBe(routeKey("dev", "A", "B", undefined, false));
+  });
+
+  it("경로 우선순위가 다르면 서로 다른 키를 쓴다", () => {
+    expect(routeKey("dev", "A", "B", undefined, false, "RECOMMEND"))
+      .not.toBe(routeKey("dev", "A", "B", undefined, false, "TIME"));
   });
 });
 
