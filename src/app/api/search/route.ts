@@ -10,7 +10,12 @@ import { wgs84 } from "@/domain/types";
 import type { SearchInput } from "@/domain/types";
 import { SearchRequestSchema, type SearchRequest } from "@/app/api/_lib/schema";
 import { parseJsonBody } from "@/app/api/_lib/validate";
-import { serializeBaseRoute, serializeCandidates, serializeSearchResult } from "@/app/api/_lib/serialize";
+import {
+  serializeBaseRoute,
+  serializeCandidates,
+  serializeRouteVariants,
+  serializeSearchResult,
+} from "@/app/api/_lib/serialize";
 import { createSseStream, sseEvent, SSE_HEADERS } from "@/app/api/_lib/sse";
 
 // §5.4 전체 처리 시간 상한 12초 + 여유. 폭주 방지용 상한(§10 Phase 8 완료 기준).
@@ -46,6 +51,7 @@ function progressFrame(event: ProgressEvent): string {
         referencePrice: event.data.referencePrice,
         refPriceSource: event.data.refPriceSource,
         expansion: event.data.expansion,
+        baseRoutes: serializeRouteVariants(event.data.baseRoutes),
       });
     case "warning":
       return sseEvent("warning", event.data);

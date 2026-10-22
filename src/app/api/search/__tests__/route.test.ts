@@ -124,6 +124,35 @@ describe("POST /api/search — SSE (기본)", () => {
     expect(types[types.length - 1]).toBe("result");
   });
 
+  it("partial 이벤트에 실제 비교한 baseRoutes를 직렬화한다", async () => {
+    searchMock.mockImplementation(async (_input, onProgress) => {
+      onProgress?.({
+        type: "partial",
+        data: {
+          candidates: [],
+          referencePrice: 1800,
+          refPriceSource: "MEDIAN_T1T2",
+          expansion: { triggered: false, finalRadiusM: 3000 },
+          baseRoutes: [
+            {
+              priority: "TIME",
+              route: { distanceM: 91000, durationS: 5500, polyline: [] },
+            },
+          ],
+        },
+      });
+      return fakeResult();
+    });
+
+    const text = await readSse(await POST(request(validBody())));
+    const partialFrame = text.split("\n\n").find((frame) => frame.startsWith("event: partial"))!;
+    const partialData = JSON.parse(partialFrame.split("\ndata: ")[1]);
+
+    expect(partialData.baseRoutes).toEqual([
+      { priority: "TIME", route: { distanceM: 91000, durationS: 5500, polyline: [] } },
+    ]);
+  });
+
   it("에러 발생 시 error 이벤트 이후 더 이상 이벤트가 없다(스트림 종료)", async () => {
     searchMock.mockImplementation(async (_input, onProgress) => {
       onProgress?.({ type: "progress", step: "ROUTE" });

@@ -7,6 +7,7 @@
 import type {
   BaseRoute,
   Candidate,
+  RouteVariant,
   SearchResult,
   WGS84Point,
 } from "@/domain/types";
@@ -14,6 +15,7 @@ import type {
   WireBaseRoute,
   WireCandidate,
   WirePoint,
+  WireRouteVariant,
   WireSearchResult,
 } from "./types";
 
@@ -59,16 +61,20 @@ export function serializeCandidates(candidates: Candidate[]): WireCandidate[] {
   return candidates.map(serializeCandidate);
 }
 
+export function serializeRouteVariants(routes: RouteVariant[]): WireRouteVariant[] {
+  return routes.map(({ priority, route }) => ({
+    priority,
+    route: serializeBaseRoute(route),
+  }));
+}
+
 export function serializeSearchResult(result: SearchResult): WireSearchResult {
   return {
     searchId: result.searchId,
     baseRoute: serializeBaseRoute(result.baseRoute),
-    baseRoutes: (
-      result.baseRoutes ?? [{ priority: "RECOMMEND", route: result.baseRoute }]
-    ).map(({ priority, route }) => ({
-      priority,
-      route: serializeBaseRoute(route),
-    })),
+    baseRoutes: serializeRouteVariants(
+      result.baseRoutes ?? [{ priority: "RECOMMEND", route: result.baseRoute }],
+    ),
     expansion: result.expansion,
     referencePrice: result.referencePrice,
     refPriceSource: result.refPriceSource,

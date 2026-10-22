@@ -163,7 +163,7 @@ describe("useSearchStream — 스트림이 result 없이 끊김 (§10.2)", () =>
       vi.fn().mockResolvedValue(
         sseStreamResponse([
           'event: base_route\ndata: {"distanceM":92000,"durationS":5640,"polyline":[]}\n\n',
-          'event: partial\ndata: {"candidates":[{"id":"A1"}],"referencePrice":1800,"refPriceSource":"MEDIAN_T1T2","expansion":{"triggered":false,"finalRadiusM":3000}}\n\n',
+          'event: partial\ndata: {"candidates":[{"id":"A1"}],"baseRoutes":[{"priority":"TIME","route":{"distanceM":91000,"durationS":5500,"polyline":[]}}],"referencePrice":1800,"refPriceSource":"MEDIAN_T1T2","expansion":{"triggered":false,"finalRadiusM":3000}}\n\n',
           // result 없이 스트림 종료
         ]),
       ),
@@ -176,6 +176,9 @@ describe("useSearchStream — 스트림이 result 없이 끊김 (§10.2)", () =>
 
     const state = useSearchStore.getState();
     expect(state.result?.candidates).toEqual([{ id: "A1" }]);
+    expect(state.result?.baseRoutes).toEqual([
+      { priority: "TIME", route: { distanceM: 91000, durationS: 5500, polyline: [] } },
+    ]);
     expect(state.result?.warnings).toContainEqual(expect.objectContaining({ code: "TIMEOUT" }));
   });
 });

@@ -67,6 +67,7 @@ export type ProgressEvent =
         referencePrice: number | null;
         refPriceSource: RefPriceSource | null;
         expansion: SearchResult["expansion"];
+        baseRoutes: RouteVariant[];
       };
     }
   | { type: "warning"; data: Warning };
@@ -626,6 +627,7 @@ export async function search(
         triggered: radiusForProgress > T2_MAX,
         finalRadiusM: radiusForProgress,
       },
+      baseRoutes,
     },
   });
   onProgress?.({ type: "progress", step: "PRECISE" });

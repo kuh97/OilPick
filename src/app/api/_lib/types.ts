@@ -116,6 +116,8 @@ export interface WirePartial {
   referencePrice: number | null;
   refPriceSource: RefPriceSource | null;
   expansion: WireExpansion;
+  /** 이전 서버에서 온 partial도 처리할 수 있도록 optional로 둔다. */
+  baseRoutes?: WireRouteVariant[];
 }
 
 /** GET /api/stations/nearby, GET /api/stations/:id — Candidate에서 경로 의존 필드를 뺀 형태 (§6.4) */

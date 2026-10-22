@@ -326,6 +326,7 @@ describe("search — 정밀 계산 대상 선정 (STEP10)", () => {
     const partialIds = new Set(
       (partial as Extract<ProgressEvent, { type: "partial" }>).data.candidates.map((c) => c.station.id),
     );
+    expect((partial as Extract<ProgressEvent, { type: "partial" }>).data.baseRoutes).toEqual(result.baseRoutes);
     for (const c of result.candidates) expect(partialIds.has(c.station.id)).toBe(true);
   });
 

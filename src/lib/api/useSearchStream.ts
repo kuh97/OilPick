@@ -269,6 +269,10 @@ export function useSearchStream() {
               searchId: crypto.randomUUID(),
               baseRoute: lastBaseRoute,
               candidates: lastPartial.candidates,
+              // 새 partial은 실제 비교한 경로를 보존하고, 구버전 partial은 RECOMMEND로 폴백한다.
+              baseRoutes: lastPartial.baseRoutes ?? [
+                { priority: "RECOMMEND", route: lastBaseRoute },
+              ],
               referencePrice: lastPartial.referencePrice,
               refPriceSource: lastPartial.refPriceSource,
               expansion: lastPartial.expansion,

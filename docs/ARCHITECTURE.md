@@ -551,7 +551,7 @@ interface Warning {
 | ------------ | ------------- | ------------------------------------------------------------------------- |
 | `progress`   | 단계 전환마다 | `{ step, radiusM? }` — `step`: `ROUTE`\|`COLLECT`\|`EXPAND`\|`PRECISE`    |
 | `base_route` | STEP 1 직후   | `{ distanceM, durationS, polyline }` — 지도·헤더를 먼저 그림              |
-| `partial`    | STEP 9 직후   | `{ candidates, referencePrice, refPriceSource, expansion }` — 추정치 결과 |
+| `partial`    | STEP 9 직후   | `{ candidates, baseRoutes, referencePrice, refPriceSource, expansion }` — 추정치 결과 |
 | `result`     | STEP 10 완료  | `SearchResult` 전체                                                       |
 | `warning`    | 발생 시       | `Warning`                                                                 |
 | `error`      | 치명적 실패   | `{ code, message }`                                                       |
@@ -567,7 +567,7 @@ event: progress
 data: {"step":"EXPAND","radiusM":15000}
 
 event: partial
-data: {"candidates":[...],"referencePrice":1210,"refPriceSource":"SIGUNGU_AVG",
+data: {"candidates":[...],"baseRoutes":[...],"referencePrice":1210,"refPriceSource":"SIGUNGU_AVG",
        "expansion":{"triggered":true,"finalRadiusM":6200}}
 
 event: progress
@@ -591,6 +591,7 @@ data: {"searchId":"...","baseRoute":{...},"baseRoutes":[...],"candidates":[...]}
 **클라이언트 규칙**
 
 - `partial`로 받은 후보는 전부 `detour.precise === false`입니다. 반드시 `약 N km ▸`로 표시하십시오
+- `partial.baseRoutes`는 후보가 계산된 실제 기본 경로 목록입니다. 스트림이 중단되어 결과를 합성할 때도 이 목록을 보존해 후보의 경로를 바꾸지 마십시오
 - `result` 수신 후 목록 전체를 교체합니다. 사라지는 후보가 있을 수 있으며 정상입니다
 - 스트림이 `error` 없이 끊기면 마지막 `partial`을 결과로 쓰고 "일부 계산이 완료되지 않았습니다"를 고지합니다
 - **`EventSource`를 쓰지 마십시오.** POST를 쓸 수 없는 것도 문제지만, 진짜 이유는 **자동 재연결이 곧 파이프라인 재실행이고 그것이 오피넷 예산을 조용히 잠식**하기 때문입니다. `fetch` + `ReadableStream`으로 직접 제어합니다
