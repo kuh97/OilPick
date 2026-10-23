@@ -14,6 +14,7 @@ import { wgs84 } from "@/domain/types";
 import { recomputeAndSort } from "@/lib/recompute-candidates";
 import type { NaviEvent } from "@/app/api/_lib/schema";
 import type {
+  Fuel,
   Mode,
   WireCandidate,
   WirePoint,
@@ -45,6 +46,7 @@ function reportNaviClick(event: NaviEvent) {
 export function RouteStationDetail({
   candidate,
   result,
+  fuel,
   origin,
   destination,
   vehicle,
@@ -53,6 +55,7 @@ export function RouteStationDetail({
 }: {
   candidate: WireCandidate;
   result: WireSearchResult;
+  fuel: Fuel;
   origin: WirePoint;
   destination: WirePoint;
   vehicle: WireVehicle;
@@ -189,7 +192,9 @@ export function RouteStationDetail({
       </section>
 
       <StationPriceCard
+        fuel={fuel}
         price={candidate.price}
+        priceUpdatedAt={candidate.priceUpdatedAt}
         refuelAmountL={vehicle.refuelAmount}
         estimatedTotalWon={candidate.estimatedCost}
       />

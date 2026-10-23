@@ -12,8 +12,20 @@ import { TierBadge } from "@/components/result/tier-badge";
 import { HelpDrawer } from "@/components/help-drawer";
 import { brandName, type Tier } from "@/domain/types";
 import type { NaviApp } from "@/domain/deeplink";
-import type { WireStationSummary } from "@/app/api/_lib/types";
+import type { Fuel, WireStationSummary } from "@/app/api/_lib/types";
 import type { FeedbackSource } from "@/lib/api/useFeedback";
+
+const FUEL_LABEL: Record<Fuel, string> = {
+  GASOLINE: "휘발유",
+  DIESEL: "경유",
+  LPG: "LPG",
+};
+
+function formatPriceDate(iso: string | null): string {
+  if (!iso) return "기준일자 정보 없음";
+  const date = new Date(iso);
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}-${String(date.getUTCDate()).padStart(2, "0")} 기준`;
+}
 
 export const NAVI_APPS: { app: NaviApp; label: string; appName?: string }[] = [
   { app: "KAKAO", label: "카카오맵" },
@@ -66,11 +78,15 @@ export function StationDetailHeader({
 }
 
 export function StationPriceCard({
+  fuel,
   price,
+  priceUpdatedAt,
   refuelAmountL,
   estimatedTotalWon,
 }: {
+  fuel: Fuel;
   price: number | null;
+  priceUpdatedAt: string | null;
   refuelAmountL: number;
   estimatedTotalWon?: number | null;
 }) {
@@ -79,6 +95,9 @@ export function StationPriceCard({
       <h2 className="mb-1 text-sm font-semibold">가격</h2>
       <p className="text-2xl font-bold tracking-tight">
         {price != null ? `${price.toLocaleString()}원/L` : "가격 정보 없음"}
+      </p>
+      <p className="mt-1 text-sm text-muted-foreground">
+        {FUEL_LABEL[fuel]} · {formatPriceDate(priceUpdatedAt)}
       </p>
       {estimatedTotalWon != null && (
         <p className="mt-1 text-sm text-muted-foreground">

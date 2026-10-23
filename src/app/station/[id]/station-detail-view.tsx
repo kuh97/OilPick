@@ -86,6 +86,7 @@ export function StationDetailView({ id }: { id: string }) {
       return (
         <NearbyStationDetail
           station={standaloneDetail.station}
+          fuel={fuel}
           origin={nearbyOrigin}
           route={stationRoute.route}
           routeLoading={stationRoute.isLoading}
@@ -122,6 +123,7 @@ export function StationDetailView({ id }: { id: string }) {
     <RouteStationDetail
       candidate={candidate}
       result={result}
+      fuel={fuel}
       origin={origin}
       destination={destination}
       vehicle={vehicle}

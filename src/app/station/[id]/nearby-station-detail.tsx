@@ -12,6 +12,7 @@ import {
 } from "@/domain/deeplink";
 import { wgs84 } from "@/domain/types";
 import type {
+  Fuel,
   WireBaseRoute,
   WirePoint,
   WireStationSummary,
@@ -25,6 +26,7 @@ import {
 
 export function NearbyStationDetail({
   station,
+  fuel,
   origin,
   route,
   routeLoading,
@@ -32,6 +34,7 @@ export function NearbyStationDetail({
   refuelAmountL,
 }: {
   station: WireStationSummary;
+  fuel: Fuel;
   origin: WirePoint | null;
   route: WireBaseRoute | null;
   routeLoading: boolean;
@@ -123,7 +126,9 @@ export function NearbyStationDetail({
       )}
 
       <StationPriceCard
+        fuel={fuel}
         price={station.price}
+        priceUpdatedAt={station.priceUpdatedAt}
         refuelAmountL={refuelAmountL}
         estimatedTotalWon={
           station.price != null ? Math.round(station.price * refuelAmountL) : null
