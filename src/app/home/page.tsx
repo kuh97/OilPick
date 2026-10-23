@@ -114,90 +114,97 @@ export default function HomePage() {
         </h1>
         <HelpDrawer feedbackSource="HOME" />
       </div>
-      <p className="text-sm text-muted-foreground">
-        경로에 딱 맞는 주유소를 찾아드려요
-      </p>
+      <div className="space-y-1">
+        <h2 className="text-xl font-bold tracking-tight md:text-2xl">
+          경로에 딱 맞는 주유소를 찾아드려요
+        </h2>
+        <p className="text-sm text-muted-foreground md:text-base">
+          가는 길에 없다면, 돌아갈 가치가 있는 곳까지 살펴봐요.
+        </p>
+      </div>
 
       <div className="grid gap-6 md:grid-cols-[minmax(320px,380px)_minmax(0,1fr)] md:items-start">
-        <section className="order-last flex flex-col gap-6 md:order-none md:rounded-xl md:border md:border-border md:bg-card md:p-5 md:shadow-[var(--shadow-sm)]">
-          <div className="flex flex-col gap-3">
-            <div className="relative rounded-xl border border-input bg-background">
-              <PlaceAutocompleteInput
-                key={`origin-${resetToken}`}
-                label="출발지"
-                placeholder="출발지 입력"
-                value={origin}
-                onChange={setOrigin}
-                onFocus={() => setActiveField("origin")}
-                bare
-              />
-              <div className="border-t border-border" />
-              <PlaceAutocompleteInput
-                key={`destination-${resetToken}`}
-                label="목적지"
-                placeholder="목적지 입력"
-                value={destination}
-                onChange={setDestination}
-                onFocus={() => setActiveField("destination")}
-                bare
-              />
+        <div className="order-last flex flex-col gap-4 md:order-none">
+          <section className="flex flex-col gap-6 md:rounded-xl md:border md:border-border md:bg-card md:p-5 md:shadow-[var(--shadow-sm)]">
+            <div className="flex flex-col gap-3">
+              <div className="relative rounded-xl border border-input bg-background">
+                <PlaceAutocompleteInput
+                  key={`origin-${resetToken}`}
+                  label="출발지"
+                  placeholder="출발지 입력"
+                  value={origin}
+                  onChange={setOrigin}
+                  onFocus={() => setActiveField("origin")}
+                  bare
+                />
+                <div className="border-t border-border" />
+                <PlaceAutocompleteInput
+                  key={`destination-${resetToken}`}
+                  label="목적지"
+                  placeholder="목적지 입력"
+                  value={destination}
+                  onChange={setDestination}
+                  onFocus={() => setActiveField("destination")}
+                  bare
+                />
 
-              <button
-                type="button"
-                aria-label="출발지와 목적지 바꾸기"
-                onClick={swapOriginDestination}
-                className="absolute top-1/2 right-3 flex size-8 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-background shadow-[var(--shadow-sm)] transition-transform active:scale-90"
-              >
-                <ArrowUpDown className="size-4" />
-              </button>
-            </div>
+                <button
+                  type="button"
+                  aria-label="출발지와 목적지 바꾸기"
+                  onClick={swapOriginDestination}
+                  className="absolute top-1/2 right-3 flex size-8 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-background shadow-[var(--shadow-sm)] transition-transform active:scale-90"
+                >
+                  <ArrowUpDown className="size-4" />
+                </button>
+              </div>
 
-            <div className="flex items-center justify-between">
-              <button
-                type="button"
-                onClick={resetRoute}
-                className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-              >
-                <RotateCcw className="size-3.5" aria-hidden />
-                다시입력
-              </button>
-            </div>
+              <div className="flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={resetRoute}
+                  className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+                >
+                  <RotateCcw className="size-3.5" aria-hidden />
+                  다시입력
+                </button>
+              </div>
 
-            {tooClose && (
-              <p className="text-xs text-destructive">
-                출발지와 목적지가 너무 가까워요. 다른 장소를 선택해주세요.
-              </p>
-            )}
+              {tooClose && (
+                <p className="text-xs text-destructive">
+                  출발지와 목적지가 너무 가까워요. 다른 장소를 선택해주세요.
+                </p>
+              )}
 
-            <FuelSelect value={fuel} onChange={setFuel} />
+              <FuelSelect value={fuel} onChange={setFuel} />
 
-            <label className="flex items-center justify-between rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm">
-              <span className="flex flex-col">
-                고속도로·자동차전용도로 회피
-                <span className="text-xs text-muted-foreground">
-                  통행료가 있는 구간을 피해요. 시간이 더 걸릴 수 있어요
+              <label className="flex items-center justify-between rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm">
+                <span className="flex flex-col">
+                  고속도로·자동차전용도로 회피
+                  <span className="text-xs text-muted-foreground">
+                    통행료가 있는 구간을 피해요. 시간이 더 걸릴 수 있어요
+                  </span>
                 </span>
-              </span>
-              <Switch checked={avoidHighway} onCheckedChange={setAvoidHighway} />
-            </label>
-          </div>
+                <Switch checked={avoidHighway} onCheckedChange={setAvoidHighway} />
+              </label>
+            </div>
 
-          <Button
-            type="button"
-            size="xl"
-            className="w-full"
-            disabled={!canSearch}
-            onClick={handleSearch}
-          >
-            찾기
-          </Button>
+            <Button
+              type="button"
+              size="xl"
+              className="w-full"
+              disabled={!canSearch}
+              onClick={handleSearch}
+            >
+              찾기
+            </Button>
 
-          <Link href="/nearby" className="text-center text-sm text-primary hover:underline">
-            내 주변 주유소 보기
-          </Link>
+            <Link href="/nearby" className="text-center text-sm text-primary hover:underline">
+              내 주변 주유소 보기
+            </Link>
+          </section>
 
           {recentSearches.length > 0 && (
-            <div className="flex flex-col gap-2">
+            <section className="flex flex-col gap-2 md:rounded-xl md:border md:border-border md:bg-card md:p-5 md:shadow-[var(--shadow-sm)]">
               <h2 className="flex items-center gap-1 text-sm font-medium text-muted-foreground">
                 <Clock className="size-3.5" aria-hidden />
                 최근 검색
@@ -216,9 +223,9 @@ export default function HomePage() {
                   </li>
                 ))}
               </ul>
-            </div>
+            </section>
           )}
-        </section>
+        </div>
 
         <section className="order-first md:order-none md:sticky md:top-6 md:rounded-xl md:border md:border-border md:bg-card md:p-3 md:shadow-[var(--shadow-sm)]">
           <HomeMap
