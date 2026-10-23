@@ -54,10 +54,12 @@ export function HelpDrawer({
               size="icon"
               aria-label="도움말"
               title="도움말"
+              className="border-0 bg-transparent text-muted-foreground hover:bg-muted hover:text-foreground md:h-9 md:w-auto md:gap-1.5 md:border md:border-border md:bg-background md:px-3"
             />
           }
         >
           <CircleHelp className="size-5" aria-hidden />
+          <span className="hidden md:inline">도움말</span>
         </DrawerTrigger>
         <DrawerContent className="sm:mx-auto sm:max-w-md">
           <DrawerHeader className="flex flex-row items-center justify-between">
