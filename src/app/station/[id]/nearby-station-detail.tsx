@@ -65,7 +65,7 @@ export function NearbyStationDetail({
   }
 
   return (
-    <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-4 px-4 py-6">
+    <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-4 px-4 py-6 md:max-w-6xl md:gap-6 md:px-8 md:py-8">
       <StationDetailHeader
         backHref="/nearby"
         backLabel="내 주변 주유소"
@@ -85,73 +85,80 @@ export function NearbyStationDetail({
         </section>
       )}
 
-      <RouteMap
-        baseRoutePolyline={route?.polyline ?? []}
-        station={stationPoint}
-        origin={origin ?? undefined}
-        destination={origin ? stationPoint : undefined}
-        stationLabel="도착"
-        showStationMarker={!origin}
-      />
+      <div className="md:grid md:grid-cols-[minmax(0,1fr)_minmax(360px,420px)] md:items-start md:gap-6">
+        <div className="md:sticky md:top-6">
+          <RouteMap
+            baseRoutePolyline={route?.polyline ?? []}
+            station={stationPoint}
+            origin={origin ?? undefined}
+            destination={origin ? stationPoint : undefined}
+            stationLabel="도착"
+            showStationMarker={!origin}
+            className="md:h-[clamp(420px,42vw,560px)]"
+          />
 
-      {origin && (
-        <section className="rounded-xl border border-border bg-card p-3.5 shadow-[var(--shadow-sm)]">
-          <h2 className="text-sm font-semibold">거리</h2>
-          {route && (
-            <div className="mt-1.5">
-              <div className="flex items-baseline gap-2">
-                <p className="text-2xl font-bold tracking-tight">
-                  {distanceMToKm(route.distanceM)}km
+          {origin && (
+            <section className="mt-4 rounded-xl border border-border bg-card p-3.5 shadow-[var(--shadow-sm)] md:p-4">
+              <h2 className="text-sm font-semibold">거리</h2>
+              {route && (
+                <div className="mt-1.5">
+                  <div className="flex items-baseline gap-2 md:tabular-nums">
+                    <p className="text-2xl font-bold tracking-tight">
+                      {distanceMToKm(route.distanceM)}km
+                    </p>
+                    <span className="text-lg text-muted-foreground" aria-hidden>
+                      ·
+                    </span>
+                    <p className="text-xl font-bold tracking-tight">
+                      약 {durationSToMin(route.durationS)}분
+                    </p>
+                  </div>
+                </div>
+              )}
+              {routeLoading && (
+                <p className="mt-2 text-sm text-muted-foreground">
+                  주유소까지의 도로 경로를 계산하고 있어요.
                 </p>
-                <span className="text-lg text-muted-foreground" aria-hidden>
-                  ·
-                </span>
-                <p className="text-xl font-bold tracking-tight">
-                  약 {durationSToMin(route.durationS)}분
+              )}
+              {routeError && (
+                <p className="mt-2 text-sm text-muted-foreground">
+                  {routeError.message} 출발·도착지만 표시합니다.
                 </p>
-              </div>
-            </div>
+              )}
+            </section>
           )}
-          {routeLoading && (
-            <p className="mt-2 text-sm text-muted-foreground">
-              주유소까지의 도로 경로를 계산하고 있어요.
-            </p>
+        </div>
+
+        <div className="mt-4 flex flex-col gap-4 md:mt-0">
+          <StationPriceCard
+            fuel={fuel}
+            price={station.price}
+            priceUpdatedAt={station.priceUpdatedAt}
+            refuelAmountL={refuelAmountL}
+            estimatedTotalWon={
+              station.price != null ? Math.round(station.price * refuelAmountL) : null
+            }
+          />
+
+          <StationInfoCard
+            brand={station.brand}
+            facilities={station.facilities}
+            address={station.address}
+            tel={station.tel}
+          />
+
+          <Alert variant="warning">
+            <AlertTriangle aria-hidden />
+            <AlertDescription className="break-keep text-xs text-warning-foreground">
+              가격은 실제와 다를 수 있습니다.
+            </AlertDescription>
+          </Alert>
+
+          {origin && (
+            <StationNaviButtons isMobile={isMobile} onClick={handleNaviClick} />
           )}
-          {routeError && (
-            <p className="mt-2 text-sm text-muted-foreground">
-              {routeError.message} 출발·도착지만 표시합니다.
-            </p>
-          )}
-        </section>
-      )}
-
-      <StationPriceCard
-        fuel={fuel}
-        price={station.price}
-        priceUpdatedAt={station.priceUpdatedAt}
-        refuelAmountL={refuelAmountL}
-        estimatedTotalWon={
-          station.price != null ? Math.round(station.price * refuelAmountL) : null
-        }
-      />
-
-      <StationInfoCard
-        brand={station.brand}
-        facilities={station.facilities}
-        address={station.address}
-        tel={station.tel}
-      />
-
-      <Alert variant="warning">
-        <AlertTriangle aria-hidden />
-        <AlertDescription className="break-keep text-xs text-warning-foreground">
-          가격은 실제와 다를 수 있습니다.
-        </AlertDescription>
-      </Alert>
-
-      {origin && (
-        <StationNaviButtons isMobile={isMobile} onClick={handleNaviClick} />
-      )}
+        </div>
+      </div>
 
     </main>
   );

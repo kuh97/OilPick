@@ -91,16 +91,18 @@ export function StationPriceCard({
   estimatedTotalWon?: number | null;
 }) {
   return (
-    <section className="rounded-xl border border-border bg-card p-3.5 shadow-[var(--shadow-sm)]">
+    <section className="rounded-xl border border-border bg-card p-3.5 shadow-[var(--shadow-sm)] md:p-4">
       <h2 className="mb-1 text-sm font-semibold">가격</h2>
-      <p className="text-2xl font-bold tracking-tight">
-        {price != null ? `${price.toLocaleString()}원/L` : "가격 정보 없음"}
-      </p>
-      <p className="mt-1 text-sm text-muted-foreground">
-        {FUEL_LABEL[fuel]} · {formatPriceDate(priceUpdatedAt)}
-      </p>
+      <div className="md:flex md:flex-wrap md:items-baseline md:gap-x-2 md:gap-y-1">
+        <p className="text-2xl font-bold tracking-tight md:tabular-nums">
+          {price != null ? `${price.toLocaleString()}원/L` : "가격 정보 없음"}
+        </p>
+        <p className="mt-1 text-sm text-muted-foreground md:mt-0 md:text-xs">
+          {FUEL_LABEL[fuel]} · {formatPriceDate(priceUpdatedAt)}
+        </p>
+      </div>
       {estimatedTotalWon != null && (
-        <p className="mt-1 text-sm text-muted-foreground">
+        <p className="mt-1 text-sm text-muted-foreground md:tabular-nums">
           {refuelAmountL}L 주유 시 예상 {estimatedTotalWon.toLocaleString()}원
         </p>
       )}
@@ -120,7 +122,7 @@ export function StationInfoCard({
   tel: string | null;
 }) {
   return (
-    <section className="flex flex-col gap-1.5 rounded-xl border border-border bg-card p-3.5 text-sm shadow-[var(--shadow-sm)]">
+    <section className="flex flex-col gap-1.5 rounded-xl border border-border bg-card p-3.5 text-sm shadow-[var(--shadow-sm)] md:p-4">
       <div className="flex gap-3 text-muted-foreground">
         {facilities.carWash && (
           <span className="flex items-center gap-1">

@@ -7,6 +7,7 @@
 import { useEffect, useState } from "react";
 import { useKakaoLoader, Map, Polyline, MapMarker } from "react-kakao-maps-sdk";
 import { labelPinImage, PIN_COLOR } from "@/lib/map-pin";
+import { cn } from "@/lib/utils";
 import type { WirePoint } from "@/app/api/_lib/types";
 
 export interface RouteMapProps {
@@ -17,6 +18,7 @@ export interface RouteMapProps {
   destination?: WirePoint;
   stationLabel?: string;
   showStationMarker?: boolean;
+  className?: string;
 }
 
 export function RouteMap({
@@ -27,6 +29,7 @@ export function RouteMap({
   destination,
   stationLabel = "경유",
   showStationMarker = true,
+  className,
 }: RouteMapProps) {
   // 기본 SDK url이 프로토콜 상대경로(//dapi.kakao.com/...)라 http://localhost 개발 서버에서
   // http로 해석되어 로드에 실패한다 — https를 명시해 우회한다.
@@ -58,35 +61,47 @@ export function RouteMap({
 
   if (loading) {
     return (
-      <div className="flex h-56 items-center justify-center rounded-lg bg-muted text-sm text-muted-foreground">
+      <div
+        className={cn(
+          "flex h-56 items-center justify-center rounded-lg bg-muted text-sm text-muted-foreground",
+          className,
+        )}
+      >
         지도를 불러오는 중…
       </div>
     );
   }
   if (error) {
     return (
-      <div className="flex h-56 items-center justify-center rounded-lg bg-muted text-sm text-destructive">
+      <div
+        className={cn(
+          "flex h-56 items-center justify-center rounded-lg bg-muted text-sm text-destructive",
+          className,
+        )}
+      >
         지도를 불러오지 못했습니다.
       </div>
     );
   }
 
   return (
-    <Map
-      center={station}
-      style={{ width: "100%", height: "224px", borderRadius: "0.5rem" }}
-      level={7}
-      onCreate={setMap}
-    >
-      {baseRoutePolyline.length > 0 && (
-        <Polyline path={baseRoutePolyline} strokeColor="#9CA3AF" strokeWeight={4} strokeOpacity={0.8} />
-      )}
-      {viaRoutePolyline && viaRoutePolyline.length > 0 && (
-        <Polyline path={viaRoutePolyline} strokeColor="#3182f6" strokeWeight={5} />
-      )}
-      {origin && <MapMarker position={origin} image={labelPinImage("출발", PIN_COLOR.origin)} />}
-      {destination && <MapMarker position={destination} image={labelPinImage("도착", PIN_COLOR.destination)} />}
-      {showStationMarker && <MapMarker position={station} image={labelPinImage(stationLabel, PIN_COLOR.waypoint)} />}
-    </Map>
+    <div className={cn("relative h-56", className)}>
+      <Map
+        center={station}
+        style={{ width: "100%", height: "100%", borderRadius: "0.5rem" }}
+        level={7}
+        onCreate={setMap}
+      >
+        {baseRoutePolyline.length > 0 && (
+          <Polyline path={baseRoutePolyline} strokeColor="#9CA3AF" strokeWeight={4} strokeOpacity={0.8} />
+        )}
+        {viaRoutePolyline && viaRoutePolyline.length > 0 && (
+          <Polyline path={viaRoutePolyline} strokeColor="#3182f6" strokeWeight={5} />
+        )}
+        {origin && <MapMarker position={origin} image={labelPinImage("출발", PIN_COLOR.origin)} />}
+        {destination && <MapMarker position={destination} image={labelPinImage("도착", PIN_COLOR.destination)} />}
+        {showStationMarker && <MapMarker position={station} image={labelPinImage(stationLabel, PIN_COLOR.waypoint)} />}
+      </Map>
+    </div>
   );
 }

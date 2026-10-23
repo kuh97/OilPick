@@ -43,6 +43,21 @@ function reportNaviClick(event: NaviEvent) {
   }
 }
 
+function RouteLegend() {
+  return (
+    <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+      <span className="flex items-center gap-1.5">
+        <span className="h-0.5 w-4 bg-muted-foreground" aria-hidden />
+        기본 경로
+      </span>
+      <span className="flex items-center gap-1.5">
+        <span className="h-0.5 w-4 bg-primary" aria-hidden />
+        경유 경로
+      </span>
+    </div>
+  );
+}
+
 export function RouteStationDetail({
   candidate,
   result,
@@ -127,7 +142,7 @@ export function RouteStationDetail({
   }
 
   return (
-    <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-4 px-4 py-6">
+    <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-4 px-4 py-6 md:max-w-6xl md:gap-6 md:px-8 md:py-8">
       <StationDetailHeader
         backHref="/result"
         backLabel="검색 결과"
@@ -140,82 +155,92 @@ export function RouteStationDetail({
         destinationName={destination.name}
       />
 
-      <RouteMap
-        baseRoutePolyline={selectedBaseRoute.polyline}
-        viaRoutePolyline={detour?.polyline}
-        station={{ lat: candidate.lat, lng: candidate.lng }}
-        origin={origin}
-        destination={destination}
-      />
+      <div className="md:grid md:grid-cols-[minmax(0,1fr)_minmax(360px,420px)] md:items-start md:gap-6">
+        <section className="md:sticky md:top-6">
+          <RouteMap
+            baseRoutePolyline={selectedBaseRoute.polyline}
+            viaRoutePolyline={detour?.polyline}
+            station={{ lat: candidate.lat, lng: candidate.lng }}
+            origin={origin}
+            destination={destination}
+            className="md:h-[clamp(420px,42vw,560px)]"
+          />
+          <div className="hidden md:block">
+            <RouteLegend />
+          </div>
+        </section>
 
-      <section className="flex flex-col gap-1 rounded-xl border border-border bg-card p-3.5 shadow-[var(--shadow-sm)]">
-        <h2 className="flex items-center gap-1.5 text-sm font-semibold">
-          <Lightbulb className="size-4 text-primary" aria-hidden />
-          추천 이유
-        </h2>
-        <p className="text-sm">{candidate.reason}</p>
-        <dl className="mt-1.5 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
-          <dt className="text-muted-foreground">가격</dt>
-          <dd>
-            이 경로 {result.candidates.length}곳 중 {priceRankAmongAll}번째로
-            저렴
-          </dd>
-          <dt className="text-muted-foreground">우회</dt>
-          <dd>
-            {!precise && "약 "}
-            {distanceMToKm(distanceM)}km / {durationSToMin(durationS)}분
-          </dd>
-          {totalTollWon != null && totalTollWon > 0 && (
-            <>
-              {/* 정보 표시 전용 — 순이득엔 미반영 */}
-              <dt className="text-muted-foreground">통행료</dt>
-              <dd className="text-muted-foreground">
-                {totalTollWon.toLocaleString()}원
-                {additionalTollWon! > 0 &&
-                  ` (우회로 +${additionalTollWon!.toLocaleString()}원)`}
+        <div className="mt-4 flex flex-col gap-4 md:mt-0">
+          <section className="flex flex-col gap-1 rounded-xl border border-border bg-card p-3.5 shadow-[var(--shadow-sm)] md:p-4">
+            <h2 className="flex items-center gap-1.5 text-sm font-semibold">
+              <Lightbulb className="size-4 text-primary" aria-hidden />
+              추천 이유
+            </h2>
+            <p className="text-sm">{candidate.reason}</p>
+            <dl className="mt-1.5 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
+              <dt className="text-muted-foreground">가격</dt>
+              <dd>
+                이 경로 {result.candidates.length}곳 중 {priceRankAmongAll}번째로
+                저렴
               </dd>
-            </>
-          )}
-          <dt className="text-muted-foreground">순이득</dt>
-          <dd
-            className={
-              netSavingValue > 0
-                ? "font-medium text-success-foreground"
-                : "text-muted-foreground"
-            }
-          >
-            {netSavingValue > 0
-              ? `+${netSavingValue.toLocaleString()}원`
-              : `${netSavingValue.toLocaleString()}원`}
-          </dd>
-        </dl>
-      </section>
+              <dt className="text-muted-foreground">우회</dt>
+              <dd className="md:tabular-nums">
+                {!precise && "약 "}
+                {distanceMToKm(distanceM)}km / {durationSToMin(durationS)}분
+              </dd>
+              {totalTollWon != null && totalTollWon > 0 && (
+                <>
+                  {/* 정보 표시 전용 — 순이득엔 미반영 */}
+                  <dt className="text-muted-foreground">통행료</dt>
+                  <dd className="text-muted-foreground md:tabular-nums">
+                    {totalTollWon.toLocaleString()}원
+                    {additionalTollWon! > 0 &&
+                      ` (우회로 +${additionalTollWon!.toLocaleString()}원)`}
+                  </dd>
+                </>
+              )}
+              <dt className="text-muted-foreground">순이득</dt>
+              <dd
+                className={
+                  netSavingValue > 0
+                    ? "font-medium text-success-foreground md:tabular-nums"
+                    : "text-muted-foreground md:tabular-nums"
+                }
+              >
+                {netSavingValue > 0
+                  ? `+${netSavingValue.toLocaleString()}원`
+                  : `${netSavingValue.toLocaleString()}원`}
+              </dd>
+            </dl>
+          </section>
 
-      <StationPriceCard
-        fuel={fuel}
-        price={candidate.price}
-        priceUpdatedAt={candidate.priceUpdatedAt}
-        refuelAmountL={vehicle.refuelAmount}
-        estimatedTotalWon={candidate.estimatedCost}
-      />
+          <StationPriceCard
+            fuel={fuel}
+            price={candidate.price}
+            priceUpdatedAt={candidate.priceUpdatedAt}
+            refuelAmountL={vehicle.refuelAmount}
+            estimatedTotalWon={candidate.estimatedCost}
+          />
 
-      <StationInfoCard
-        brand={candidate.brand}
-        facilities={candidate.facilities}
-        address={candidate.address}
-        tel={candidate.tel}
-      />
+          <StationInfoCard
+            brand={candidate.brand}
+            facilities={candidate.facilities}
+            address={candidate.address}
+            tel={candidate.tel}
+          />
 
-      <Alert variant="warning">
-        <AlertTriangle aria-hidden />
-        <AlertDescription className="break-keep text-xs text-warning-foreground">
-          가격은 실제와 다를 수 있습니다.
-          {candidate.tier === "DETOUR" &&
-            " 먼 거리를 우회하므로 전화 확인을 권합니다."}
-        </AlertDescription>
-      </Alert>
+          <Alert variant="warning">
+            <AlertTriangle aria-hidden />
+            <AlertDescription className="break-keep text-xs text-warning-foreground">
+              가격은 실제와 다를 수 있습니다.
+              {candidate.tier === "DETOUR" &&
+                " 먼 거리를 우회하므로 전화 확인을 권합니다."}
+            </AlertDescription>
+          </Alert>
 
-      <StationNaviButtons isMobile={isMobile} onClick={handleNaviClick} />
+          <StationNaviButtons isMobile={isMobile} onClick={handleNaviClick} />
+        </div>
+      </div>
     </main>
   );
 }
