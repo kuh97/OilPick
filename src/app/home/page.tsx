@@ -85,7 +85,7 @@ export default function HomePage() {
   }
 
   return (
-    <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-6 px-4 py-8">
+    <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-6 px-4 py-8 md:max-w-6xl md:gap-8 md:px-8 md:py-10">
       <div className="flex items-center justify-between">
         <h1 className="flex items-center gap-2">
           <svg viewBox="0 0 100 100" width="32" height="32" aria-hidden>
@@ -118,111 +118,118 @@ export default function HomePage() {
         경로에 딱 맞는 주유소를 찾아드려요
       </p>
 
-      <HomeMap
-        origin={origin}
-        destination={destination}
-        activeField={activeField}
-        onPick={handleMapPick}
-      />
+      <div className="grid gap-6 md:grid-cols-[minmax(320px,380px)_minmax(0,1fr)] md:items-start">
+        <section className="order-last flex flex-col gap-6 md:order-none md:rounded-xl md:border md:border-border md:bg-card md:p-5 md:shadow-[var(--shadow-sm)]">
+          <div className="flex flex-col gap-3">
+            <div className="relative rounded-xl border border-input bg-background">
+              <PlaceAutocompleteInput
+                key={`origin-${resetToken}`}
+                label="출발지"
+                placeholder="출발지 입력"
+                value={origin}
+                onChange={setOrigin}
+                onFocus={() => setActiveField("origin")}
+                bare
+              />
+              <div className="border-t border-border" />
+              <PlaceAutocompleteInput
+                key={`destination-${resetToken}`}
+                label="목적지"
+                placeholder="목적지 입력"
+                value={destination}
+                onChange={setDestination}
+                onFocus={() => setActiveField("destination")}
+                bare
+              />
 
-      <div className="flex flex-col gap-3">
-        <div className="relative rounded-xl border border-input bg-background">
-          <PlaceAutocompleteInput
-            key={`origin-${resetToken}`}
-            label="출발지"
-            placeholder="출발지 입력"
-            value={origin}
-            onChange={setOrigin}
-            onFocus={() => setActiveField("origin")}
-            bare
-          />
-          <div className="border-t border-border" />
-          <PlaceAutocompleteInput
-            key={`destination-${resetToken}`}
-            label="목적지"
-            placeholder="목적지 입력"
-            value={destination}
-            onChange={setDestination}
-            onFocus={() => setActiveField("destination")}
-            bare
-          />
+              <button
+                type="button"
+                aria-label="출발지와 목적지 바꾸기"
+                onClick={swapOriginDestination}
+                className="absolute top-1/2 right-3 flex size-8 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-background shadow-[var(--shadow-sm)] transition-transform active:scale-90"
+              >
+                <ArrowUpDown className="size-4" />
+              </button>
+            </div>
 
-          <button
+            <div className="flex items-center justify-between">
+              <button
+                type="button"
+                onClick={resetRoute}
+                className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+              >
+                <RotateCcw className="size-3.5" aria-hidden />
+                다시입력
+              </button>
+            </div>
+
+            {tooClose && (
+              <p className="text-xs text-destructive">
+                출발지와 목적지가 너무 가까워요. 다른 장소를 선택해주세요.
+              </p>
+            )}
+
+            <FuelSelect value={fuel} onChange={setFuel} />
+
+            <label className="flex items-center justify-between rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm">
+              <span className="flex flex-col">
+                고속도로·자동차전용도로 회피
+                <span className="text-xs text-muted-foreground">
+                  통행료가 있는 구간을 피해요. 시간이 더 걸릴 수 있어요
+                </span>
+              </span>
+              <Switch checked={avoidHighway} onCheckedChange={setAvoidHighway} />
+            </label>
+          </div>
+
+          <Button
             type="button"
-            aria-label="출발지와 목적지 바꾸기"
-            onClick={swapOriginDestination}
-            className="absolute top-1/2 right-3 flex size-8 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-background shadow-[var(--shadow-sm)] transition-transform active:scale-90"
+            size="xl"
+            className="w-full"
+            disabled={!canSearch}
+            onClick={handleSearch}
           >
-            <ArrowUpDown className="size-4" />
-          </button>
-        </div>
+            찾기
+          </Button>
 
-        <div className="flex items-center justify-between">
-          <button
-            type="button"
-            onClick={resetRoute}
-            className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-          >
-            <RotateCcw className="size-3.5" aria-hidden />
-            다시입력
-          </button>
-        </div>
+          <Link href="/nearby" className="text-center text-sm text-primary hover:underline">
+            내 주변 주유소 보기
+          </Link>
 
-        {tooClose && (
-          <p className="text-xs text-destructive">
-            출발지와 목적지가 너무 가까워요. 다른 장소를 선택해주세요.
-          </p>
-        )}
+          {recentSearches.length > 0 && (
+            <div className="flex flex-col gap-2">
+              <h2 className="flex items-center gap-1 text-sm font-medium text-muted-foreground">
+                <Clock className="size-3.5" aria-hidden />
+                최근 검색
+              </h2>
+              <ul className="flex flex-col gap-1.5">
+                {recentSearches.map((entry, i) => (
+                  <li key={`${entry.origin.lat}-${entry.destination.lat}-${i}`}>
+                    <button
+                      type="button"
+                      className="w-full rounded-xl border border-border bg-card px-3 py-2.5 text-left text-sm shadow-[var(--shadow-sm)] transition-all hover:shadow-[var(--shadow-md)] active:scale-[0.98]"
+                      onClick={() => applyRecent(entry)}
+                    >
+                      {entry.origin.name ?? "출발지"} →{" "}
+                      {entry.destination.name ?? "목적지"}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </section>
 
-        <FuelSelect value={fuel} onChange={setFuel} />
-
-        <label className="flex items-center justify-between rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm">
-          <span className="flex flex-col">
-            고속도로·자동차전용도로 회피
-            <span className="text-xs text-muted-foreground">
-              통행료가 있는 구간을 피해요. 시간이 더 걸릴 수 있어요
-            </span>
-          </span>
-          <Switch checked={avoidHighway} onCheckedChange={setAvoidHighway} />
-        </label>
+        <section className="order-first md:order-none md:sticky md:top-6 md:rounded-xl md:border md:border-border md:bg-card md:p-3 md:shadow-[var(--shadow-sm)]">
+          <HomeMap
+            origin={origin}
+            destination={destination}
+            activeField={activeField}
+            onPick={handleMapPick}
+            className="h-48 md:aspect-auto md:h-[clamp(560px,42vw,680px)]"
+          />
+        </section>
       </div>
-
-      <Button
-        type="button"
-        size="xl"
-        className="w-full"
-        disabled={!canSearch}
-        onClick={handleSearch}
-      >
-        찾기
-      </Button>
-
-      <Link href="/nearby" className="text-center text-sm text-primary hover:underline">
-        내 주변 주유소 보기
-      </Link>
-
-      {recentSearches.length > 0 && (
-        <div className="flex flex-col gap-2">
-          <h2 className="flex items-center gap-1 text-sm font-medium text-muted-foreground">
-            <Clock className="size-3.5" aria-hidden />
-            최근 검색
-          </h2>
-          <ul className="flex flex-col gap-1.5">
-            {recentSearches.map((entry, i) => (
-              <li key={`${entry.origin.lat}-${entry.destination.lat}-${i}`}>
-                <button
-                  type="button"
-                  className="w-full rounded-xl border border-border bg-card px-3 py-2.5 text-left text-sm shadow-[var(--shadow-sm)] transition-all hover:shadow-[var(--shadow-md)] active:scale-[0.98]"
-                  onClick={() => applyRecent(entry)}
-                >
-                  {entry.origin.name ?? "출발지"} →{" "}
-                  {entry.destination.name ?? "목적지"}
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
     </main>
   );
 }

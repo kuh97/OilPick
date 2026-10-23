@@ -19,6 +19,7 @@ import { reverseGeocode } from "@/lib/api/reverseGeocode";
 import { labelPinImage, PIN_COLOR, PIN_SIZE } from "@/lib/map-pin";
 import { wgs84 } from "@/domain/types";
 import type { WirePoint } from "@/app/api/_lib/types";
+import { cn } from "@/lib/utils";
 
 const DEFAULT_CENTER = { lat: 37.5665, lng: 126.978 }; // 서울시청 — 아무 지점도 없을 때
 
@@ -29,6 +30,7 @@ export interface HomeMapProps {
   destination: WirePoint | null;
   activeField: HomeMapField;
   onPick: (field: HomeMapField, point: WirePoint) => void;
+  className?: string;
 }
 
 function coordLabel(lat: number, lng: number): string {
@@ -94,7 +96,7 @@ function DraggablePin({ point, color, label, toLatLng, onDragEnd }: DraggablePin
   );
 }
 
-export function HomeMap({ origin, destination, activeField, onPick }: HomeMapProps) {
+export function HomeMap({ origin, destination, activeField, onPick, className }: HomeMapProps) {
   const [loading, error] = useKakaoLoader({
     appkey: process.env.NEXT_PUBLIC_KAKAO_JS_KEY ?? "",
     url: "https://dapi.kakao.com/v2/maps/sdk.js",
@@ -158,14 +160,14 @@ export function HomeMap({ origin, destination, activeField, onPick }: HomeMapPro
 
   if (loading) {
     return (
-      <div className="flex h-48 items-center justify-center rounded-lg bg-muted text-sm text-muted-foreground">
+      <div className={cn("flex items-center justify-center rounded-lg bg-muted text-sm text-muted-foreground", className)}>
         지도를 불러오는 중…
       </div>
     );
   }
   if (error) {
     return (
-      <div className="flex h-48 items-center justify-center rounded-lg bg-muted text-sm text-destructive">
+      <div className={cn("flex items-center justify-center rounded-lg bg-muted text-sm text-destructive", className)}>
         지도를 불러오지 못했습니다.
       </div>
     );
@@ -173,10 +175,10 @@ export function HomeMap({ origin, destination, activeField, onPick }: HomeMapPro
 
   return (
     <div className="flex flex-col gap-1">
-      <div className="relative" ref={mapWrapRef}>
+      <div className={cn("relative", className)} ref={mapWrapRef}>
         <Map
           center={origin ?? destination ?? DEFAULT_CENTER}
-          style={{ width: "100%", height: "192px", borderRadius: "0.5rem" }}
+          style={{ width: "100%", height: "100%", borderRadius: "0.5rem" }}
           level={origin || destination ? 5 : 13}
           onCreate={setMap}
           onClick={(_, e) => pickPoint(activeField, e.latLng.getLat(), e.latLng.getLng())}
