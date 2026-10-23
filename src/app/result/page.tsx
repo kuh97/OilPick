@@ -94,7 +94,8 @@ export default function ResultPage() {
   const [lastStep, setLastStep] = useState<ProgressStep>("ROUTE");
   if (progressStep && progressStep !== lastStep) setLastStep(progressStep);
   const [lastJsonFallback, setLastJsonFallback] = useState(false);
-  if (isLoading && isJsonFallback !== lastJsonFallback) setLastJsonFallback(isJsonFallback);
+  if (isLoading && isJsonFallback !== lastJsonFallback)
+    setLastJsonFallback(isJsonFallback);
   const [lastRadiusM, setLastRadiusM] = useState<number | undefined>(undefined);
   if (expandRadiusM != null && expandRadiusM !== lastRadiusM)
     setLastRadiusM(expandRadiusM);
@@ -170,10 +171,19 @@ export default function ResultPage() {
     return () => {
       // 진행 중인 요청은 훅 정리에서 취소된다. StrictMode 재실행·재진입 시 다시 검색할 수 있게 한다.
       const state = useSearchStore.getState();
-      if (state.isLoading && state.lastSearchKey === key) state.setLastSearchKey(null);
+      if (state.isLoading && state.lastSearchKey === key)
+        state.setLastSearchKey(null);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [origin, destination, fuel, filters, avoidHighway, detourIntent, routeKey]);
+  }, [
+    origin,
+    destination,
+    fuel,
+    filters,
+    avoidHighway,
+    detourIntent,
+    routeKey,
+  ]);
 
   const referencePrice =
     result?.referencePrice ?? partial?.referencePrice ?? null;
@@ -192,7 +202,6 @@ export default function ResultPage() {
     filters.brands.length > 0 ||
     filters.kpetroOnly ||
     filters.selfOnly;
-
   // 우회 허용 시간이 검색 파라미터라 클라이언트엔 걸러진 후보가 없다 → 서버가 담아 준다 (§5.3).
   const minutesNeededForOneResult = result?.minutesNeededForOneResult ?? null;
   const resultRoutes = result?.baseRoutes?.map(({ route }) => route);
@@ -272,8 +281,33 @@ export default function ResultPage() {
 
   const showFullScreenLoading = isLoading || settling;
 
+  function renderFilterSheet() {
+    if (isOnRouteStage) {
+      return (
+        <FilterSheet
+          filters={filters}
+          onApply={setFilters}
+          includeDetour={false}
+        />
+      );
+    }
+
+    return (
+      <FilterSheet
+        filters={filters}
+        onApply={setFilters}
+        maxDetourMinutes={maxDetourMinutes}
+        maxDetourCeiling={maxDetourCeiling}
+        onApplyMaxDetourMinutes={(minutes) => {
+          setMaxDetourMinutes(minutes);
+          setDetourIntent({ maxDetourMinutes: minutes });
+        }}
+      />
+    );
+  }
+
   return (
-    <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-4 px-4 py-6">
+    <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-4 px-4 py-6 md:max-w-6xl md:gap-6 md:px-8 md:py-8">
       <header className="flex flex-col gap-1">
         <div className="flex items-center justify-between gap-2">
           <Link
@@ -281,7 +315,10 @@ export default function ResultPage() {
             className="min-w-0 truncate text-sm text-muted-foreground"
             onClick={() => useSearchStore.getState().clearRoute()}
           >
-            ← {origin.name ?? "출발지"} → {destination.name ?? "목적지"}
+            <span className="md:hidden">
+              ← {origin.name ?? "출발지"} → {destination.name ?? "목적지"}
+            </span>
+            <span className="hidden md:inline">← 홈으로</span>
           </Link>
           {!showFullScreenLoading && (
             <HelpDrawer
@@ -293,7 +330,7 @@ export default function ResultPage() {
           )}
         </div>
         {(result?.baseRoute ?? baseRoute) && (
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-muted-foreground md:hidden">
             기본 경로{" "}
             {distanceMToKm((result?.baseRoute ?? baseRoute)!.distanceM)}km ·{" "}
             {durationSToMin((result?.baseRoute ?? baseRoute)!.durationS)}분
@@ -317,117 +354,175 @@ export default function ResultPage() {
           ))}
           {filters.facilities.length > 0 && <FacilityCoverageBanner />}
 
-          <div className="flex items-center justify-between gap-2">
-            <ModeTabs value={mode} onChange={setMode} />
-            {isOnRouteStage ? (
-              <FilterSheet
-                filters={filters}
-                onApply={setFilters}
-                includeDetour={false}
-              />
-            ) : (
-              <FilterSheet
-                filters={filters}
-                onApply={setFilters}
-                maxDetourMinutes={maxDetourMinutes}
-                maxDetourCeiling={maxDetourCeiling}
-                onApplyMaxDetourMinutes={(minutes) => {
-                  setMaxDetourMinutes(minutes);
-                  setDetourIntent({ maxDetourMinutes: minutes });
-                }}
-              />
-            )}
+          <div className="md:grid md:grid-cols-[280px_minmax(0,1fr)] md:items-start md:gap-6">
+            <aside className="hidden flex-col gap-4 md:sticky md:top-6 md:flex">
+              <section className="rounded-xl border border-border bg-card p-4 shadow-[var(--shadow-sm)]">
+                <h2 className="border-b border-border pb-3 text-base font-semibold">
+                  검색 경로
+                </h2>
+                <dl className="mt-3 min-w-0 space-y-2 text-sm">
+                  <div className="flex items-start justify-between gap-3">
+                    <dt className="text-muted-foreground">출발</dt>
+                    <dd className="text-right font-medium text-foreground">
+                      {origin.name ?? "출발지"}
+                    </dd>
+                  </div>
+                  <div className="flex items-start justify-between gap-3">
+                    <dt className="text-muted-foreground">도착</dt>
+                    <dd className="text-right font-medium text-foreground">
+                      {destination.name ?? "목적지"}
+                    </dd>
+                  </div>
+                  {(result?.baseRoute ?? baseRoute) && (
+                    <div className="flex items-start justify-between gap-3">
+                      <dt className="text-muted-foreground">기본 경로</dt>
+                      <dd className="text-right text-foreground tabular-nums">
+                        {distanceMToKm(
+                          (result?.baseRoute ?? baseRoute)!.distanceM,
+                        )}
+                        km ·{" "}
+                        {durationSToMin(
+                          (result?.baseRoute ?? baseRoute)!.durationS,
+                        )}
+                        분
+                      </dd>
+                    </div>
+                  )}
+                  <div className="flex items-start justify-between gap-3">
+                    <dt className="text-muted-foreground">연료</dt>
+                    <dd className="text-right text-foreground">
+                      {fuel === "GASOLINE"
+                        ? "휘발유"
+                        : fuel === "DIESEL"
+                          ? "경유"
+                          : "LPG"}
+                    </dd>
+                  </div>
+                  <div className="flex items-start justify-between gap-3">
+                    <dt className="text-muted-foreground">도로 옵션</dt>
+                    <dd className="text-right text-foreground">
+                      {avoidHighway ? "고속도로 회피" : "고속도로 포함"}
+                    </dd>
+                  </div>
+                </dl>
+              </section>
+
+              {result && (
+                <section className="rounded-xl border border-border bg-card p-4 shadow-[var(--shadow-sm)]">
+                  <CalcAssumptionsFooter
+                    className="border-0 px-0 py-0"
+                    title="계산 기준"
+                    referencePrice={result.referencePrice}
+                    refPriceSource={result.refPriceSource}
+                    vehicle={vehicle}
+                    onChangeVehicle={setVehicle}
+                  />
+                </section>
+              )}
+            </aside>
+
+            <section className="flex min-w-0 flex-col gap-4">
+              <div className="flex items-center justify-between gap-2">
+                <ModeTabs value={mode} onChange={setMode} />
+                {renderFilterSheet()}
+              </div>
+
+              {displayCandidates.length === 0 ? (
+                <div className="flex flex-col items-center gap-3 py-12 text-center">
+                  {hasActiveFilters ? (
+                    <>
+                      <p className="text-sm text-muted-foreground">
+                        선택하신 필터 조건에 맞는 주유소가 없습니다.
+                      </p>
+                      <Button
+                        variant="outline"
+                        onClick={() => setFilters(defaultFilters)}
+                      >
+                        필터 초기화하고 다시 찾기
+                      </Button>
+                    </>
+                  ) : minutesNeededForOneResult != null ? (
+                    <>
+                      <p className="text-sm text-muted-foreground">
+                        우회 허용 시간({maxDetourMinutes}분) 안에 드는 주유소가
+                        없습니다.
+                      </p>
+                      {canRelaxMaxDetour ? (
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            setMaxDetourMinutes(minutesNeededForOneResult);
+                            setDetourIntent({
+                              maxDetourMinutes: minutesNeededForOneResult,
+                            });
+                          }}
+                        >
+                          우회 허용 시간을 {minutesNeededForOneResult}분으로
+                          늘리기
+                        </Button>
+                      ) : (
+                        <p className="text-xs text-muted-foreground">
+                          허용 시간을 최대({maxDetourCeiling}분)로 늘려도 이
+                          경로에는 조건에 맞는 주유소가 없습니다.
+                        </p>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-sm text-muted-foreground">
+                        이 경로에서는 조건에 맞는 주유소를 찾지 못했습니다.
+                      </p>
+                      <div className="flex flex-col gap-2">
+                        <Button
+                          variant="outline"
+                          render={
+                            <Link
+                              href="/home"
+                              onClick={() =>
+                                useSearchStore.getState().clearRoute()
+                              }
+                            />
+                          }
+                          nativeButton={false}
+                        >
+                          다른 경로로 다시 찾기
+                        </Button>
+                        <Button
+                          variant="outline"
+                          render={<Link href="/nearby" />}
+                          nativeButton={false}
+                        >
+                          현재 위치 주변에서 찾기
+                        </Button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              ) : (
+                <ul className="flex flex-col gap-2 md:gap-3">
+                  {displayCandidates.map((c, i) => (
+                    <li key={c.id}>
+                      <ResultCard
+                        rank={i + 1}
+                        candidate={c}
+                        referencePrice={referencePrice}
+                      />
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
           </div>
 
-          {displayCandidates.length === 0 ? (
-            <div className="flex flex-col items-center gap-3 py-12 text-center">
-              {hasActiveFilters ? (
-                <>
-                  <p className="text-sm text-muted-foreground">
-                    선택하신 필터 조건에 맞는 주유소가 없습니다.
-                  </p>
-                  <Button
-                    variant="outline"
-                    onClick={() => setFilters(defaultFilters)}
-                  >
-                    필터 초기화하고 다시 찾기
-                  </Button>
-                </>
-              ) : minutesNeededForOneResult != null ? (
-                <>
-                  <p className="text-sm text-muted-foreground">
-                    우회 허용 시간({maxDetourMinutes}분) 안에 드는 주유소가
-                    없습니다.
-                  </p>
-                  {canRelaxMaxDetour ? (
-                    <Button
-                      variant="outline"
-                      onClick={() => {
-                        setMaxDetourMinutes(minutesNeededForOneResult);
-                        setDetourIntent({
-                          maxDetourMinutes: minutesNeededForOneResult,
-                        });
-                      }}
-                    >
-                      우회 허용 시간을 {minutesNeededForOneResult}분으로 늘리기
-                    </Button>
-                  ) : (
-                    <p className="text-xs text-muted-foreground">
-                      허용 시간을 최대({maxDetourCeiling}분)로 늘려도 이
-                      경로에는 조건에 맞는 주유소가 없습니다.
-                    </p>
-                  )}
-                </>
-              ) : (
-                <>
-                  <p className="text-sm text-muted-foreground">
-                    이 경로에서는 조건에 맞는 주유소를 찾지 못했습니다.
-                  </p>
-                  <div className="flex flex-col gap-2">
-                    <Button
-                      variant="outline"
-                      render={
-                        <Link
-                          href="/home"
-                          onClick={() => useSearchStore.getState().clearRoute()}
-                        />
-                      }
-                      nativeButton={false}
-                    >
-                      다른 경로로 다시 찾기
-                    </Button>
-                    <Button
-                      variant="outline"
-                      render={<Link href="/nearby" />}
-                      nativeButton={false}
-                    >
-                      현재 위치 주변에서 찾기
-                    </Button>
-                  </div>
-                </>
-              )}
-            </div>
-          ) : (
-            <ul className="flex flex-col gap-2">
-              {displayCandidates.map((c, i) => (
-                <li key={c.id}>
-                  <ResultCard
-                    rank={i + 1}
-                    candidate={c}
-                    referencePrice={referencePrice}
-                  />
-                </li>
-              ))}
-            </ul>
-          )}
-
           {result && (
-            <CalcAssumptionsFooter
-              referencePrice={result.referencePrice}
-              refPriceSource={result.refPriceSource}
-              vehicle={vehicle}
-              onChangeVehicle={setVehicle}
-            />
+            <div className="md:hidden">
+              <CalcAssumptionsFooter
+                referencePrice={result.referencePrice}
+                refPriceSource={result.refPriceSource}
+                vehicle={vehicle}
+                onChangeVehicle={setVehicle}
+              />
+            </div>
           )}
         </>
       )}
