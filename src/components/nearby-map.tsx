@@ -9,6 +9,7 @@ import { CustomOverlayMap, Map, useKakaoLoader } from "react-kakao-maps-sdk";
 import { LocateFixed } from "lucide-react";
 import type { WireNearbyStation } from "@/app/api/_lib/types";
 import type { NearbyPoint } from "@/lib/api/useNearbyStations";
+import { cn } from "@/lib/utils";
 
 const DEFAULT_MAP_LEVEL = 5;
 
@@ -37,6 +38,7 @@ interface NearbyMapProps {
   selectedStationId: string | null;
   onSelectStation: (stationId: string | null) => void;
   onSearchAtPoint: (point: NearbyPoint) => void;
+  className?: string;
 }
 
 function StationPriceMarker({
@@ -82,6 +84,7 @@ export function NearbyMap({
   selectedStationId,
   onSelectStation,
   onSearchAtPoint,
+  className,
 }: NearbyMapProps) {
   const [loading, error] = useKakaoLoader({
     appkey: process.env.NEXT_PUBLIC_KAKAO_JS_KEY ?? "",
@@ -142,7 +145,7 @@ export function NearbyMap({
 
   if (loading) {
     return (
-      <div className="flex h-72 items-center justify-center bg-muted text-sm text-muted-foreground">
+      <div className={cn("flex h-72 items-center justify-center bg-muted text-sm text-muted-foreground", className)}>
         지도를 불러오는 중…
       </div>
     );
@@ -150,17 +153,17 @@ export function NearbyMap({
 
   if (error) {
     return (
-      <div className="flex h-72 items-center justify-center bg-muted px-4 text-center text-sm text-destructive">
+      <div className={cn("flex h-72 items-center justify-center bg-muted px-4 text-center text-sm text-destructive", className)}>
         지도를 불러오지 못했습니다.
       </div>
     );
   }
 
   return (
-    <div className="relative">
+    <div className={cn("relative h-72", className)}>
       <Map
         center={currentLocation}
-        style={{ width: "100%", height: "288px" }}
+        style={{ width: "100%", height: "100%" }}
         level={DEFAULT_MAP_LEVEL}
         onCreate={handleMapCreate}
         onClick={handleMapClick}

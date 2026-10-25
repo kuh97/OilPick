@@ -96,7 +96,9 @@ describe("NearbyPage — F10 내 주변 주유소", () => {
     render(<NearbyPage />);
 
     expect(screen.getByText("내 주변 주유소")).toBeTruthy();
-    expect(screen.getByRole("radio", { name: "휘발유" }).getAttribute("aria-checked")).toBe("true");
+    const gasolineRadios = screen.getAllByRole("radio", { name: "휘발유" });
+    expect(gasolineRadios).toHaveLength(2);
+    expect(gasolineRadios.every((radio) => radio.getAttribute("aria-checked") === "true")).toBe(true);
     expect(screen.getByRole("button", { name: /필터/ })).toBeTruthy();
     expect(screen.queryByText("현재 위치 기준 5km")).toBeNull();
     expect(screen.queryByText(/곳을 찾았어요/)).toBeNull();
@@ -109,8 +111,10 @@ describe("NearbyPage — F10 내 주변 주유소", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: /주변 주유소, 1,700원\/L/ }));
-    expect(screen.getByText("현재 위치에서 0km")).toBeTruthy();
-    expect(screen.getByRole("link", { name: "상세 보기" }).getAttribute("href")).toBe("/station/A1");
+    expect(screen.getAllByText("현재 위치에서 0km")).toHaveLength(2);
+    const detailLinks = screen.getAllByRole("link", { name: "상세 보기" });
+    expect(detailLinks).toHaveLength(2);
+    expect(detailLinks.every((link) => link.getAttribute("href") === "/station/A1")).toBe(true);
 
     fireEvent.click(screen.getByRole("button", { name: "이 위치에서 다시 찾기" }));
     await waitFor(() => expect(useNearbyStationsMock).toHaveBeenLastCalledWith(

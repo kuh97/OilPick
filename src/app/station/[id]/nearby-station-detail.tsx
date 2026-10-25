@@ -76,15 +76,6 @@ export function NearbyStationDetail({
         destinationName={station.name}
       />
 
-      {origin && (
-        <section className="rounded-xl border border-border bg-card px-3.5 py-3 text-sm shadow-[var(--shadow-sm)]">
-          <p className="font-medium">{originName} → 도착지</p>
-          <p className="mt-1 truncate text-xs text-muted-foreground">
-            현재 위치에서 {station.name}까지
-          </p>
-        </section>
-      )}
-
       <div className="md:grid md:grid-cols-[minmax(0,1fr)_minmax(360px,420px)] md:items-start md:gap-6">
         <div className="md:sticky md:top-6">
           <RouteMap
@@ -96,47 +87,57 @@ export function NearbyStationDetail({
             showStationMarker={!origin}
             className="md:h-[clamp(420px,42vw,560px)]"
           />
-
-          {origin && (
-            <section className="mt-4 rounded-xl border border-border bg-card p-3.5 shadow-[var(--shadow-sm)] md:p-4">
-              <h2 className="text-sm font-semibold">거리</h2>
-              {route && (
-                <div className="mt-1.5">
-                  <div className="flex items-baseline gap-2 md:tabular-nums">
-                    <p className="text-2xl font-bold tracking-tight">
-                      {distanceMToKm(route.distanceM)}km
-                    </p>
-                    <span className="text-lg text-muted-foreground" aria-hidden>
-                      ·
-                    </span>
-                    <p className="text-xl font-bold tracking-tight">
-                      약 {durationSToMin(route.durationS)}분
-                    </p>
-                  </div>
-                </div>
-              )}
-              {routeLoading && (
-                <p className="mt-2 text-sm text-muted-foreground">
-                  주유소까지의 도로 경로를 계산하고 있어요.
-                </p>
-              )}
-              {routeError && (
-                <p className="mt-2 text-sm text-muted-foreground">
-                  {routeError.message} 출발·도착지만 표시합니다.
-                </p>
-              )}
-            </section>
-          )}
         </div>
 
         <div className="mt-4 flex flex-col gap-4 md:mt-0">
+          {origin && (
+            <section className="rounded-xl border border-border bg-card p-3.5 shadow-[var(--shadow-sm)] md:p-4">
+              <h2 className="text-sm font-semibold">이동 정보</h2>
+              <dl className="mt-3 space-y-1.5 text-sm">
+                <div className="flex gap-3">
+                  <dt className="w-10 shrink-0 text-muted-foreground">출발</dt>
+                  <dd className="min-w-0 truncate">
+                    {originName}{" "}
+                    <span className="text-muted-foreground">(현위치)</span>
+                  </dd>
+                </div>
+                <div className="flex gap-3">
+                  <dt className="w-10 shrink-0 text-muted-foreground">도착</dt>
+                  <dd className="min-w-0 truncate">{station.name}</dd>
+                </div>
+                <div className="flex gap-3">
+                  <dt className="w-10 shrink-0 text-muted-foreground">거리</dt>
+                  <dd className="min-w-0">
+                    {route ? (
+                      <span className="font-semibold md:tabular-nums">
+                        {distanceMToKm(route.distanceM)}km · 약 {durationSToMin(route.durationS)}분
+                      </span>
+                    ) : routeLoading ? (
+                      <span className="text-muted-foreground">
+                        경로를 계산하고 있어요.
+                      </span>
+                    ) : routeError ? (
+                      <span className="text-muted-foreground">
+                        {routeError.message}
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground">정보 없음</span>
+                    )}
+                  </dd>
+                </div>
+              </dl>
+            </section>
+          )}
+
           <StationPriceCard
             fuel={fuel}
             price={station.price}
             priceUpdatedAt={station.priceUpdatedAt}
             refuelAmountL={refuelAmountL}
             estimatedTotalWon={
-              station.price != null ? Math.round(station.price * refuelAmountL) : null
+              station.price != null
+                ? Math.round(station.price * refuelAmountL)
+                : null
             }
           />
 
@@ -159,7 +160,6 @@ export function NearbyStationDetail({
           )}
         </div>
       </div>
-
     </main>
   );
 }

@@ -176,7 +176,7 @@ export default function NearbyPage() {
   }, [setNearbyOrigin]);
 
   return (
-    <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-4 px-4 py-6">
+    <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-4 px-4 py-6 md:max-w-6xl md:gap-6 md:px-8 md:py-8">
       <header className="grid grid-cols-[1fr_auto_1fr] items-center">
         <Link
           href="/home"
@@ -196,7 +196,7 @@ export default function NearbyPage() {
         </div>
       </header>
 
-      <section className="flex flex-col gap-3 rounded-xl border border-border bg-card p-3.5 shadow-[var(--shadow-sm)]">
+      <section className="flex flex-col gap-3 rounded-xl border border-border bg-card p-3.5 shadow-[var(--shadow-sm)] md:hidden">
         <FuelSelect value={fuel} onChange={setFuel} />
       </section>
 
@@ -216,33 +216,58 @@ export default function NearbyPage() {
         </section>
       ) : (
         <>
-          <section className="relative overflow-hidden rounded-xl border border-border bg-card shadow-[var(--shadow-sm)]">
-            {currentLocation && searchCenter && (
-              <NearbyMap
-                currentLocation={currentLocation}
-                stations={stations}
-                selectedStationId={selectedStationId}
-                onSelectStation={setSelectedStationId}
-                onSearchAtPoint={searchAtPoint}
-              />
-            )}
-            {currentLocation && searchCenter && (
-              <div className="pointer-events-none absolute right-3 top-3 z-20">
-                <div className="pointer-events-auto">
-                  <FilterSheet
-                    filters={filters}
-                    onApply={setFilters}
-                    includeDetour={false}
-                  />
+          <div className="md:grid md:grid-cols-[minmax(0,1fr)_minmax(300px,360px)] md:items-start md:gap-6">
+            <section className="relative min-w-0 overflow-hidden rounded-xl border border-border bg-card shadow-[var(--shadow-sm)]">
+              {currentLocation && searchCenter && (
+                <NearbyMap
+                  currentLocation={currentLocation}
+                  stations={stations}
+                  selectedStationId={selectedStationId}
+                  onSelectStation={setSelectedStationId}
+                  onSearchAtPoint={searchAtPoint}
+                  className="md:h-[clamp(560px,45vw,720px)]"
+                />
+              )}
+              {currentLocation && searchCenter && (
+                <div className="pointer-events-none absolute right-3 top-3 z-20">
+                  <div className="pointer-events-auto">
+                    <FilterSheet
+                      filters={filters}
+                      onApply={setFilters}
+                      includeDetour={false}
+                    />
+                  </div>
                 </div>
+              )}
+              <div className="border-t border-border px-3.5 py-2.5 text-right text-xs text-muted-foreground">
+                {isLoading
+                  ? "주변 주유소를 찾고 있어요."
+                  : "가격 마커를 눌러보세요"}
               </div>
-            )}
-            <div className="border-t border-border px-3.5 py-2.5 text-right text-xs text-muted-foreground">
-              {isLoading
-                ? "주변 주유소를 찾고 있어요."
-                : "가격 마커를 눌러보세요"}
-            </div>
-          </section>
+            </section>
+
+            <aside className="hidden md:sticky md:top-6 md:flex md:flex-col md:gap-4">
+              <section className="rounded-xl border border-border bg-card p-3.5 shadow-[var(--shadow-sm)]">
+                <FuelSelect value={fuel} onChange={setFuel} />
+              </section>
+
+              {selectedStation && currentLocation ? (
+                <NearbyStationSummary
+                  station={selectedStation}
+                  currentLocation={currentLocation}
+                />
+              ) : (
+                <section className="flex min-h-56 flex-col items-center justify-center gap-3 rounded-xl border border-border bg-card px-6 text-center shadow-[var(--shadow-sm)]">
+                  <MapPin className="size-6 text-muted-foreground" aria-hidden />
+                  <p className="text-sm text-muted-foreground">
+                    {isLoading
+                      ? "주변 주유소를 찾고 있어요."
+                      : "지도에서 가격 마커를 눌러보세요."}
+                  </p>
+                </section>
+              )}
+            </aside>
+          </div>
           {error && (
             <p className="py-8 text-center text-sm text-muted-foreground">
               {error.message}
@@ -270,10 +295,12 @@ export default function NearbyPage() {
             </div>
           )}
           {selectedStation && currentLocation && (
-            <NearbyStationSummary
-              station={selectedStation}
-              currentLocation={currentLocation}
-            />
+            <div className="md:hidden">
+              <NearbyStationSummary
+                station={selectedStation}
+                currentLocation={currentLocation}
+              />
+            </div>
           )}
         </>
       )}

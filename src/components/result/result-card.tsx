@@ -60,7 +60,7 @@ export function ResultCard({
       <p className="mt-1 text-sm text-muted-foreground">
         {candidate.detour.precise ? (
           <>
-            +{durationSToMin(candidate.detour.durationS)}분 · +{distanceMToKm(candidate.detour.distanceM)}km 우회
+            +{distanceMToKm(candidate.detour.distanceM)}km · +{durationSToMin(candidate.detour.durationS)}분 우회
           </>
         ) : (
           <>경로에서 약 {distanceMToKm(candidate.perpDistanceM)}km 떨어져 있어요.</>

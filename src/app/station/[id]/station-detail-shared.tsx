@@ -1,12 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import {
-  Droplets,
-  PhoneCall,
-  Store,
-  Wrench,
-} from "lucide-react";
+import { Droplets, PhoneCall, Store, Wrench } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { TierBadge } from "@/components/result/tier-badge";
 import { HelpDrawer } from "@/components/help-drawer";
@@ -92,7 +87,7 @@ export function StationPriceCard({
 }) {
   return (
     <section className="rounded-xl border border-border bg-card p-3.5 shadow-[var(--shadow-sm)] md:p-4">
-      <h2 className="mb-1 text-sm font-semibold">가격</h2>
+      <h2 className="mb-2 text-sm font-semibold">가격</h2>
       <div className="md:flex md:flex-wrap md:items-baseline md:gap-x-2 md:gap-y-1">
         <p className="text-2xl font-bold tracking-tight md:tabular-nums">
           {price != null ? `${price.toLocaleString()}원/L` : "가격 정보 없음"}
@@ -193,8 +188,7 @@ function MobileNaviNotes({ isMobile }: { isMobile: boolean | null }) {
     <div className="break-keep flex flex-col gap-1 text-xs text-muted-foreground">
       <p>지도 앱은 설치되어 있어야 열 수 있습니다.</p>
       <p>
-        티맵은 주유소까지만 안내됩니다. 주유 후 최종 목적지를 다시
-        입력해주세요.
+        티맵은 주유소까지만 안내됩니다. 주유 후 최종 목적지를 다시 입력해주세요.
       </p>
     </div>
   );

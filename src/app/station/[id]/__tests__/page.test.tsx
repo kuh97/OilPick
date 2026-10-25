@@ -253,10 +253,10 @@ describe("StationDetailView — 내 주변 목적지 안내", () => {
 
     renderPage();
 
-    expect(screen.getByText("서울 테스트구 테스트로 1 → 도착지")).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "거리" })).toBeTruthy();
-    expect(screen.getByText("3.2km")).toBeTruthy();
-    expect(screen.getByText("약 8분")).toBeTruthy();
+    expect(screen.getByText("출발")).toBeTruthy();
+    expect(screen.getByText("도착")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "이동 정보" })).toBeTruthy();
+    expect(screen.getByText("3.2km · 약 8분")).toBeTruthy();
     expect(screen.getByRole("heading", { name: "가격" })).toBeTruthy();
     expect(screen.getByText("휘발유 · 2026-09-14 기준")).toBeTruthy();
     expect(screen.getByText("45L 주유 시 예상 76,500원")).toBeTruthy();

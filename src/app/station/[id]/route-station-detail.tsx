@@ -186,7 +186,7 @@ export function RouteStationDetail({
               <dt className="text-muted-foreground">우회</dt>
               <dd className="md:tabular-nums">
                 {!precise && "약 "}
-                {distanceMToKm(distanceM)}km / {durationSToMin(durationS)}분
+                {distanceMToKm(distanceM)}km · {durationSToMin(durationS)}분
               </dd>
               {totalTollWon != null && totalTollWon > 0 && (
                 <>

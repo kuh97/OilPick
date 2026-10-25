@@ -34,8 +34,7 @@ describe("ResultCard", () => {
   it("우회 배지·정밀 우회 정보·리터당 이득 문구를 보여준다", () => {
     render(<ResultCard rank={1} candidate={candidate()} referencePrice={1210} />);
     expect(screen.getByText("우회")).toBeTruthy();
-    expect(screen.getByText(/\+18분/)).toBeTruthy();
-    expect(screen.getByText(/\+12\.4km 우회/)).toBeTruthy();
+    expect(screen.getByText(/\+12\.4km · \+18분 우회/)).toBeTruthy();
     expect(screen.getByText(/평균보다 리터당 108원 저렴/)).toBeTruthy();
   });
 
@@ -48,8 +47,8 @@ describe("ResultCard", () => {
       />,
     );
     expect(screen.getByText(/경로에서 약 2\.1km 떨어져 있어요\./)).toBeTruthy();
-    // 정밀 우회 라인("+N분 · +N km 우회")은 없어야 한다 (배지 텍스트 "우회"와 구분)
-    expect(screen.queryByText(/\+\d+분 · /)).toBeNull();
+    // 정밀 우회 라인("+N km · +N분 우회")은 없어야 한다 (배지 텍스트 "우회"와 구분)
+    expect(screen.queryByText(/\+\d+(?:\.\d+)?km · \+\d+분 우회/)).toBeNull();
   });
 
   it("평균가보다 비싼 주유소는 리터당 비쌈 문구를 보여준다", () => {
