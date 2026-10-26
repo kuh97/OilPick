@@ -120,6 +120,29 @@ beforeEach(() => {
   computeReferencePriceMock.mockResolvedValue({ price: 1900, source: "MEDIAN_T1T2" });
 });
 
+describe("search — 취소", () => {
+  it("이미 중단된 신호면 외부 경로 조회를 시작하지 않는다", async () => {
+    const controller = new AbortController();
+    controller.abort();
+
+    await expect(
+      search(baseInput(), undefined, { ...FAKE_DEPS, signal: controller.signal }),
+    ).rejects.toMatchObject({ name: "AbortError" });
+    expect(getRouteMock).not.toHaveBeenCalled();
+  });
+
+  it("검색 취소 신호를 기본·경유 경로 조회에 전달한다", async () => {
+    const controller = new AbortController();
+    collectStationsMock.mockResolvedValue({
+      stations: [collected({ id: "A1", location: wgs84(37.0, 127.1) })],
+    });
+    await search(baseInput(), undefined, { ...FAKE_DEPS, signal: controller.signal });
+
+    expect(getRouteMock.mock.calls.length).toBeGreaterThan(0);
+    expect(getRouteMock.mock.calls.every(([opts]) => opts.signal === controller.signal)).toBe(true);
+  });
+});
+
 describe("search — 회랑 수집 (docs/MIGRATION-DB.md §7 Phase C)", () => {
   it("collectStations를 정확히 한 번만 호출한다 (확장 수집 없음)", async () => {
     collectStationsMock.mockResolvedValue({

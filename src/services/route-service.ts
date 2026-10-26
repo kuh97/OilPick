@@ -74,6 +74,7 @@ export interface GetRouteOptions {
   priority?: RoutePriority;
   redis?: RedisLike;
   prefix?: string;
+  signal?: AbortSignal;
 }
 
 /**
@@ -82,6 +83,7 @@ export interface GetRouteOptions {
  * 무엇으로 다룰지는 호출자(recommendation-service)가 결정합니다.
  */
 export async function getRoute(opts: GetRouteOptions): Promise<BaseRoute> {
+  opts.signal?.throwIfAborted();
   const redis: RedisLike = opts.redis ?? getRedis();
   const prefix = opts.prefix ?? env.REDIS_KEY_PREFIX;
 
@@ -101,6 +103,7 @@ export async function getRoute(opts: GetRouteOptions): Promise<BaseRoute> {
   );
 
   const cached = await redis.get(key);
+  opts.signal?.throwIfAborted();
   if (cached) return deserialize(cached);
 
   const route = await fetchDirections({
@@ -111,8 +114,10 @@ export async function getRoute(opts: GetRouteOptions): Promise<BaseRoute> {
     avoidHighway: opts.avoidHighway,
     retries: opts.retries,
     priority,
+    signal: opts.signal,
   });
 
+  opts.signal?.throwIfAborted();
   await redis.set(key, serialize(route), { ex: ROUTE_TTL_SECONDS });
   return route;
 }

@@ -72,9 +72,13 @@ export async function POST(request: Request) {
 
   if (wantsJson) {
     try {
-      const result = await search(input, undefined, { jsonFallback: true });
+      const result = await search(input, undefined, {
+        jsonFallback: true,
+        signal: request.signal,
+      });
       return NextResponse.json(serializeSearchResult(result));
     } catch (err) {
+      if (request.signal.aborted) return new Response(null, { status: 499 });
       const { code, message } = errorPayload(err);
       return NextResponse.json({ code, message }, { status: 500 });
     }
@@ -82,12 +86,19 @@ export async function POST(request: Request) {
 
   const stream = createSseStream(async (controller) => {
     try {
-      const result = await search(input, (event) => controller.enqueue(progressFrame(event)), { jsonFallback: false });
-      controller.enqueue(sseEvent("result", serializeSearchResult(result)));
+      const result = await search(
+        input,
+        (event) => controller.enqueue(progressFrame(event)),
+        { jsonFallback: false, signal: controller.signal },
+      );
+      if (!controller.signal.aborted) {
+        controller.enqueue(sseEvent("result", serializeSearchResult(result)));
+      }
     } catch (err) {
+      if (controller.signal.aborted) return;
       controller.enqueue(sseEvent("error", errorPayload(err)));
     }
-  });
+  }, request.signal);
 
   return new Response(stream, { headers: SSE_HEADERS });
 }

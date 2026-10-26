@@ -10,6 +10,7 @@ export function sseEvent(event: string, data: unknown): string {
 
 export interface SseController {
   enqueue(chunk: string): void;
+  signal: AbortSignal;
 }
 
 /**
@@ -20,18 +21,54 @@ export interface SseController {
  */
 export function createSseStream(
   producer: (controller: SseController) => Promise<void>,
+  externalSignal?: AbortSignal,
 ): ReadableStream<Uint8Array> {
   const encoder = new TextEncoder();
+  let canceled = false;
+  const producerAbort = new AbortController();
+
+  const abortProducer = () => {
+    if (!producerAbort.signal.aborted) {
+      producerAbort.abort(externalSignal?.reason);
+    }
+  };
+
+  if (externalSignal?.aborted) abortProducer();
+  else externalSignal?.addEventListener("abort", abortProducer, { once: true });
+
   return new ReadableStream<Uint8Array>({
     async start(controller) {
       const wrapped: SseController = {
-        enqueue: (chunk: string) => controller.enqueue(encoder.encode(chunk)),
+        enqueue: (chunk: string) => {
+          if (canceled || producerAbort.signal.aborted) return;
+          if (controller.desiredSize === null) {
+            canceled = true;
+            abortProducer();
+            return;
+          }
+          try {
+            controller.enqueue(encoder.encode(chunk));
+          } catch (err) {
+            if (controller.desiredSize === null) {
+              canceled = true;
+              abortProducer();
+              return;
+            }
+            throw err;
+          }
+        },
+        signal: producerAbort.signal,
       };
       try {
         await producer(wrapped);
       } finally {
-        controller.close();
+        externalSignal?.removeEventListener("abort", abortProducer);
+        if (!canceled && controller.desiredSize !== null) controller.close();
       }
+    },
+    cancel() {
+      canceled = true;
+      abortProducer();
     },
   });
 }

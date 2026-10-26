@@ -79,6 +79,7 @@ export interface SearchDeps {
   prefix?: string;
   now?: Date;
   jsonFallback?: boolean;
+  signal?: AbortSignal;
 }
 
 interface InternalCandidate {
@@ -357,6 +358,7 @@ interface MeasureCtx {
   input: SearchInput;
   redis: RedisLike;
   prefix: string;
+  signal?: AbortSignal;
 }
 
 async function measureBatch(
@@ -375,9 +377,11 @@ async function measureBatch(
         priority: item.route.priority,
         redis: ctx.redis,
         prefix: ctx.prefix,
+        signal: ctx.signal,
       }),
     ),
   );
+  ctx.signal?.throwIfAborted();
   return {
     routeCalls: targets.length,
     candidates: targets.map((item, index) => {
@@ -448,6 +452,7 @@ export async function search(
   onProgress?: OnProgress,
   deps: SearchDeps = {},
 ): Promise<SearchResult> {
+  deps.signal?.throwIfAborted();
   const redis = deps.redis ?? getRedis();
   const db = deps.db ?? getDb();
   const prefix = deps.prefix ?? env.REDIS_KEY_PREFIX;
@@ -468,9 +473,11 @@ export async function search(
         priority,
         redis,
         prefix,
+        signal: deps.signal,
       }),
     })),
   );
+  deps.signal?.throwIfAborted();
   const baseRoutes = dedupeBaseRoutes(routes);
   const baseRoute = baseRoutes[0].route;
   onProgress?.({ type: "base_route", data: baseRoute });
@@ -503,6 +510,7 @@ export async function search(
       }),
     })),
   );
+  deps.signal?.throwIfAborted();
   let internal = collected.flatMap(({ route, collected: found }) =>
     toInternalCandidates(found.stations, route),
   );
@@ -515,6 +523,7 @@ export async function search(
     fuel: input.vehicle.fuel,
     db,
   });
+  deps.signal?.throwIfAborted();
   const referencePrice = priceResult?.price ?? null;
   const refPriceSource = priceResult?.source ?? null;
   if (!priceResult) {
@@ -526,7 +535,7 @@ export async function search(
     onProgress?.({ type: "warning", data: warning });
   }
 
-  const measureCtx: MeasureCtx = { input, redis, prefix };
+  const measureCtx: MeasureCtx = { input, redis, prefix, signal: deps.signal };
   const stage1 = await findOnRouteCandidates(internal, measureCtx);
   routeCalls += stage1.routeCalls;
   internal = mergeMeasured(internal, stage1.candidates);

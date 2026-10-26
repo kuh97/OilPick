@@ -51,4 +51,20 @@ describe("createSseStream", () => {
     const text = await readAll(stream);
     expect(text).toBe("");
   });
+
+  it("외부 abort 뒤 producer가 늦게 enqueue해도 닫힌 controller 예외가 나지 않는다", async () => {
+    const abortController = new AbortController();
+    const stream = createSseStream(async (controller) => {
+      await new Promise<void>((resolve) => {
+        controller.signal.addEventListener("abort", () => resolve(), { once: true });
+      });
+      controller.enqueue(sseEvent("result", { late: true }));
+    }, abortController.signal);
+
+    const reader = stream.getReader();
+    abortController.abort();
+    const result = await reader.read();
+
+    expect(result.done).toBe(true);
+  });
 });

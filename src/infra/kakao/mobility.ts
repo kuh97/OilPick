@@ -31,6 +31,7 @@ export interface FetchDirectionsOptions {
   /** 기본 1. 경유 경로 호출 시 0을 넘기십시오 (§5.4) */
   retries?: number;
   priority?: RoutePriority;
+  signal?: AbortSignal;
 }
 
 function toKakaoCoord(p: WGS84Point): string {
@@ -62,6 +63,7 @@ export async function fetchDirections(
     { Authorization: `KakaoAK ${restApiKey}` },
     TIMEOUT_MS,
     retries,
+    opts.signal,
   );
 
   const json = await res.json();

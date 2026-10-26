@@ -8,10 +8,14 @@ export async function fetchWithRetry(
   headers: Record<string, string>,
   timeoutMs: number,
   retries: number,
+  signal?: AbortSignal,
 ): Promise<Response> {
   let lastError: unknown;
   for (let attempt = 0; attempt <= retries; attempt++) {
+    signal?.throwIfAborted();
     const controller = new AbortController();
+    const abortFromParent = () => controller.abort(signal?.reason);
+    signal?.addEventListener("abort", abortFromParent, { once: true });
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
       const res = await fetch(url, { headers, signal: controller.signal });
@@ -24,9 +28,11 @@ export async function fetchWithRetry(
         headers: res.headers,
       });
     } catch (err) {
+      if (signal?.aborted) throw err;
       lastError = err;
     } finally {
       clearTimeout(timer);
+      signal?.removeEventListener("abort", abortFromParent);
     }
   }
   throw lastError;

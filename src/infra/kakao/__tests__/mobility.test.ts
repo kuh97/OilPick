@@ -102,6 +102,19 @@ describe("fetchDirections — 경유지 1개 (경유 경로)", () => {
 });
 
 describe("오류 처리", () => {
+  it("호출 신호가 이미 중단되었으면 카카오 API를 호출하지 않는다", async () => {
+    const controller = new AbortController();
+    controller.abort();
+
+    await expect(
+      fetchDirections({
+        origin: ORIGIN,
+        destination: DESTINATION,
+        signal: controller.signal,
+      }),
+    ).rejects.toMatchObject({ name: "AbortError" });
+  });
+
   it("result_code !== 0 (경로 없음) → 에러 throw", async () => {
     server.use(
       http.get(KAKAO_MOBILITY_URL, () =>
