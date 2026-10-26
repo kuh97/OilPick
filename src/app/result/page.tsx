@@ -248,12 +248,7 @@ export default function ResultPage() {
         <div className="flex gap-2">
           <Button
             variant="outline"
-            render={
-              <Link
-                href="/home"
-                onClick={() => useSearchStore.getState().clearRoute()}
-              />
-            }
+            render={<Link href="/home" />}
             nativeButton={false}
           >
             홈으로
@@ -313,7 +308,6 @@ export default function ResultPage() {
           <Link
             href="/home"
             className="min-w-0 truncate text-sm text-muted-foreground"
-            onClick={() => useSearchStore.getState().clearRoute()}
           >
             <span className="md:hidden">
               ← {origin.name ?? "출발지"} → {destination.name ?? "목적지"}
@@ -476,12 +470,7 @@ export default function ResultPage() {
                         <Button
                           variant="outline"
                           render={
-                            <Link
-                              href="/home"
-                              onClick={() =>
-                                useSearchStore.getState().clearRoute()
-                              }
-                            />
+                            <Link href="/home" />
                           }
                           nativeButton={false}
                         >

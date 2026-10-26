@@ -4,7 +4,7 @@
  * 홈 (F1) — 경로 입력. PRODUCT.md §5.1, ARCHITECTURE.md §10 Phase 9.
  */
 
-import { useMemo, useState } from "react";
+import { useLayoutEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -39,6 +39,14 @@ export default function HomePage() {
   const setDestination = useSearchStore((s) => s.setDestination);
   const setFuel = useSearchStore((s) => s.setFuel);
   const setAvoidHighway = useSearchStore((s) => s.setAvoidHighway);
+  const clearRoute = useSearchStore((s) => s.clearRoute);
+
+  // 결과 화면에서 홈으로 이동할 때는 홈이 마운트된 뒤 휘발성 경로를 비운다.
+  // 결과 페이지의 Link 클릭 시 먼저 비우면 결과 페이지가 잠깐 "검색 컨텍스트 없음"
+  // 상태로 다시 렌더링되는 문제가 생긴다.
+  useLayoutEffect(() => {
+    clearRoute();
+  }, [clearRoute]);
 
   const [activeField, setActiveField] = useState<HomeMapField>("origin");
   // "다시입력"을 누르면 입력창에 남아있는 편집 중 텍스트(아직 좌표로 확정 안 된 상태 —
