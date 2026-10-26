@@ -90,7 +90,7 @@ export function FilterSheet(props: FilterSheetProps) {
         <SlidersHorizontal className="size-3.5" aria-hidden />
         필터
       </DrawerTrigger>
-      <DrawerContent className="sm:mx-auto sm:max-w-md">
+      <DrawerContent className="h-[calc(100dvh-6rem)] sm:h-auto sm:mx-auto sm:max-w-md">
         <DrawerHeader className="flex flex-row items-center justify-between">
           <DrawerTitle>필터</DrawerTitle>
           <button
@@ -109,7 +109,7 @@ export function FilterSheet(props: FilterSheetProps) {
           </button>
         </DrawerHeader>
 
-        <div className="flex flex-col gap-5 px-4 pb-4">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain flex flex-col gap-5 px-4 pb-4 touch-pan-y">
           {detourProps && (
             <MaxDetourBar
               value={maxDetourDraft}
@@ -118,7 +118,7 @@ export function FilterSheet(props: FilterSheetProps) {
             />
           )}
 
-          <section className="flex flex-col gap-2">
+          <section className="flex shrink-0 flex-col gap-2">
             <h3 className="text-sm font-semibold">시설</h3>
             <div className="flex flex-col divide-y divide-border overflow-hidden rounded-xl border border-border">
               {FACILITIES.map((f) => (
@@ -143,7 +143,7 @@ export function FilterSheet(props: FilterSheetProps) {
             </div>
           </section>
 
-          <section className="flex flex-col gap-2">
+          <section className="flex shrink-0 flex-col gap-2">
             <h3 className="text-sm font-semibold">브랜드</h3>
             <div className="flex flex-wrap gap-2">
               {BRAND_GROUPS.map((g) => {
@@ -174,7 +174,7 @@ export function FilterSheet(props: FilterSheetProps) {
             </div>
           </section>
 
-          <section className="flex flex-col divide-y divide-border overflow-hidden rounded-xl border border-border">
+          <section className="flex shrink-0 flex-col divide-y divide-border overflow-hidden rounded-xl border border-border">
             <label className="flex items-center justify-between bg-card px-3.5 py-2.5 text-sm">
               <span className="font-semibold">셀프 주유소만</span>
               <Switch

@@ -24,7 +24,7 @@ export function MaxDetourBar({
   const steps = maxDetourSteps(ceilingMinutes);
   const ceil = steps[steps.length - 1];
   return (
-    <section className="flex flex-col gap-1.5">
+    <section className="flex shrink-0 flex-col gap-1.5">
       <h3 className="text-sm font-medium text-foreground">
         우회 허용 시간(분)
       </h3>
