@@ -22,7 +22,7 @@ export interface ReasonInput {
 }
 
 const MODE_LABEL: Record<Mode, string> = {
-  balanced: "균형",
+  balanced: "추천",
   minCost: "비용",
   minDistance: "거리",
 };
@@ -80,5 +80,5 @@ export function buildReason(input: ReasonInput): string {
   }
 
   // 그 외
-  return "가격과 우회 거리의 균형이 좋습니다.";
+  return "가격과 우회 거리를 함께 고려한 추천입니다.";
 }

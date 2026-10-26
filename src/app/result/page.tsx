@@ -6,7 +6,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { AlertTriangle, Info } from "lucide-react";
+import { AlertTriangle, CircleSmall, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { HelpDrawer } from "@/components/help-drawer";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -27,7 +27,14 @@ import {
   durationSToMin,
   maxDetourCeilingMinutesForRoutes,
 } from "@/domain/pricing";
-import type { WireFilters, WireWarning } from "@/app/api/_lib/types";
+import type {
+  RefPriceSource,
+  WireBaseRoute,
+  WireFilters,
+  WirePoint,
+  WireVehicle,
+  WireWarning,
+} from "@/app/api/_lib/types";
 
 function WarningBanner({ warning }: { warning: WireWarning }) {
   return (
@@ -40,21 +47,79 @@ function WarningBanner({ warning }: { warning: WireWarning }) {
   );
 }
 
-/**
- * 시설 필터가 켜졌을 때의 커버리지 고지 — docs/MIGRATION-DB.md §9.3.
- * 시설 정보는 상세 API 백필(§7 Phase E, 무인 ~34일)로 채워지는 중이라, 필터를 걸면
- * 아직 확인 안 된 주유소가 통째로 빠진다. 결과가 적은 게 데이터 커버리지 때문임을
- * 알린다. 백필이 끝나면 이 배너와 호출부를 함께 제거한다.
- */
-function FacilityCoverageBanner() {
+function SearchRouteSummary({
+  origin,
+  destination,
+  baseRoute,
+  referencePrice,
+  refPriceSource,
+  vehicle,
+  onChangeVehicle,
+}: {
+  origin: WirePoint;
+  destination: WirePoint;
+  baseRoute: WireBaseRoute;
+  referencePrice: number | null;
+  refPriceSource: RefPriceSource | null;
+  vehicle: WireVehicle;
+  onChangeVehicle: (vehicle: Partial<WireVehicle>) => void;
+}) {
+  const durationMinutes = durationSToMin(baseRoute.durationS);
+  const durationLabel =
+    durationMinutes >= 60
+      ? `약 ${Math.floor(durationMinutes / 60)}시간${durationMinutes % 60 > 0 ? ` ${durationMinutes % 60}분` : ""}`
+      : `약 ${durationMinutes}분`;
+
   return (
-    <Alert variant="info">
-      <Info aria-hidden />
-      <AlertDescription className="text-info-foreground">
-        시설 정보가 확인된 주유소만 표시돼요. 데이터 보강이 진행 중이라 실제로는
-        더 많을 수 있어요.
-      </AlertDescription>
-    </Alert>
+    <section
+      aria-label="검색 경로"
+      className="overflow-hidden rounded-2xl border border-blue-100 bg-blue-50/60"
+    >
+      <div className="grid grid-cols-[2rem_minmax(0,1fr)_auto] grid-rows-2 items-center gap-y-1.5 px-4 py-3">
+        <div className="relative row-span-2 grid grid-rows-subgrid items-center justify-items-center self-stretch">
+          <CircleSmall
+            className="size-4 fill-background text-primary"
+            strokeWidth={2}
+            aria-hidden
+          />
+          <span
+            className="absolute top-6.5 left-1/2 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-1"
+            aria-hidden
+          >
+            <span className="h-1 w-0.5 rounded-full bg-muted-foreground/45" />
+            <span className="h-1 w-0.5 rounded-full bg-muted-foreground/45" />
+          </span>
+          <MapPin
+            className="size-4 fill-background text-primary"
+            strokeWidth={2}
+            aria-hidden
+          />
+        </div>
+        <p className="min-w-0 truncate text-sm font-semibold text-foreground">
+          {origin.name ?? "출발지"}
+        </p>
+        <p className="ml-3 text-right text-sm font-semibold text-foreground tabular-nums">
+          약{" "}
+          <span className="text-base">
+            {distanceMToKm(baseRoute.distanceM)}km
+          </span>
+        </p>
+        <p className="min-w-0 truncate text-sm font-semibold text-foreground">
+          {destination.name ?? "목적지"}
+        </p>
+        <p className="ml-3 text-right text-sm text-muted-foreground tabular-nums">
+          {durationLabel}
+        </p>
+      </div>
+      <CalcAssumptionsFooter
+        compact
+        embedded
+        referencePrice={referencePrice}
+        refPriceSource={refPriceSource}
+        vehicle={vehicle}
+        onChangeVehicle={onChangeVehicle}
+      />
+    </section>
   );
 }
 
@@ -187,6 +252,8 @@ export default function ResultPage() {
 
   const referencePrice =
     result?.referencePrice ?? partial?.referencePrice ?? null;
+  const refPriceSource =
+    result?.refPriceSource ?? partial?.refPriceSource ?? null;
   const expansion = result?.expansion ?? partial?.expansion ?? null;
 
   const displayCandidates = useMemo(() => {
@@ -309,9 +376,7 @@ export default function ResultPage() {
             href="/home"
             className="min-w-0 truncate text-sm text-muted-foreground"
           >
-            <span className="md:hidden">
-              ← {origin.name ?? "출발지"} → {destination.name ?? "목적지"}
-            </span>
+            <span className="md:hidden">← 홈</span>
             <span className="hidden md:inline">← 홈으로</span>
           </Link>
           {!showFullScreenLoading && (
@@ -323,12 +388,18 @@ export default function ResultPage() {
             />
           )}
         </div>
-        {(result?.baseRoute ?? baseRoute) && (
-          <p className="text-sm text-muted-foreground md:hidden">
-            기본 경로{" "}
-            {distanceMToKm((result?.baseRoute ?? baseRoute)!.distanceM)}km ·{" "}
-            {durationSToMin((result?.baseRoute ?? baseRoute)!.durationS)}분
-          </p>
+        {!showFullScreenLoading && (result?.baseRoute ?? baseRoute) && (
+          <div className="md:hidden">
+            <SearchRouteSummary
+              origin={origin}
+              destination={destination}
+              baseRoute={(result?.baseRoute ?? baseRoute)!}
+              referencePrice={referencePrice}
+              refPriceSource={refPriceSource}
+              vehicle={vehicle}
+              onChangeVehicle={setVehicle}
+            />
+          </div>
         )}
       </header>
 
@@ -343,10 +414,11 @@ export default function ResultPage() {
       ) : (
         <>
           {expansion && <ExpansionBanner expansion={expansion} fuel={fuel} />}
-          {(result?.warnings ?? streamWarnings).map((w, i) => (
-            <WarningBanner key={`${w.code}-${i}`} warning={w} />
-          ))}
-          {filters.facilities.length > 0 && <FacilityCoverageBanner />}
+          {(result?.warnings ?? streamWarnings)
+            .filter((w) => w.code === "TIMEOUT")
+            .map((w, i) => (
+              <WarningBanner key={`${w.code}-${i}`} warning={w} />
+            ))}
 
           <div className="md:grid md:grid-cols-[280px_minmax(0,1fr)] md:items-start md:gap-6">
             <aside className="hidden flex-col gap-4 md:sticky md:top-6 md:flex">
@@ -469,9 +541,7 @@ export default function ResultPage() {
                       <div className="flex flex-col gap-2">
                         <Button
                           variant="outline"
-                          render={
-                            <Link href="/home" />
-                          }
+                          render={<Link href="/home" />}
                           nativeButton={false}
                         >
                           다른 경로로 다시 찾기
@@ -502,17 +572,6 @@ export default function ResultPage() {
               )}
             </section>
           </div>
-
-          {result && (
-            <div className="md:hidden">
-              <CalcAssumptionsFooter
-                referencePrice={result.referencePrice}
-                refPriceSource={result.refPriceSource}
-                vehicle={vehicle}
-                onChangeVehicle={setVehicle}
-              />
-            </div>
-          )}
         </>
       )}
     </main>

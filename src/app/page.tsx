@@ -18,10 +18,13 @@ export const metadata: Metadata = {
 };
 
 const VALUE_PROPS = [
-  { Icon: PiggyBank, text: "얼마나 이득인지 원 단위로 보여드려요" },
+  {
+    Icon: PiggyBank,
+    text: "주유비를 얼마나 아끼는지 원 단위로 계산",
+  },
   {
     Icon: SlidersHorizontal,
-    text: "균형·최소비용·최단거리 중 원하는 기준으로",
+    text: "추천·최소비용·최단거리 중 원하는 기준으로",
   },
 ];
 
@@ -57,7 +60,7 @@ export default function LandingPage() {
           </div>
 
           <p className="mt-14 text-base font-bold text-primary">
-            경로 위 주유소 찾기
+            어디서 주유할지 고민될 때
           </p>
 
           <h1 className="mt-4 text-[clamp(2rem,3.1vw,2.75rem)] font-extrabold leading-[1.3] tracking-tight text-balance">
@@ -67,8 +70,7 @@ export default function LandingPage() {
           </h1>
 
           <p className="mt-5 max-w-[600px] text-lg leading-[1.65] text-muted-foreground">
-            경로에 딱 맞는 주유소가 없으면, 최소한으로 돌아가는 최적 경로까지
-            알려드려요.
+            가는 길에 있는 주유소부터, 조금 돌아가도 괜찮은 곳까지 찾아드려요.
           </p>
 
           <ul className="mt-8 flex flex-col gap-3.5">

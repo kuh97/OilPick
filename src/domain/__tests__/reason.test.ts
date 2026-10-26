@@ -58,9 +58,9 @@ describe("buildReason — 6분기 전부 커버", () => {
     expect(result).toContain("조건에 맞는 곳");
   });
 
-  it("분기 7: 그 외 → 균형 문구", () => {
+  it("분기 7: 그 외 → 추천 문구", () => {
     const result = buildReason({ ...BASE, detourDurationS: 600 }); // 10분, T2, hasFacilityMatch=false
-    expect(result).toBe("가격과 우회 거리의 균형이 좋습니다.");
+    expect(result).toBe("가격과 우회 거리를 함께 고려한 추천입니다.");
   });
 
   it("분기 1 우선순위 — rank==1 T3는 분기 2·3·4보다 앞", () => {

@@ -12,8 +12,13 @@
  * `getProjection().coordsFromContainerPoint(...)`로 한다.
  */
 
-import { useEffect, useRef, useState } from "react";
-import { useKakaoLoader, Map, Polyline, CustomOverlayMap } from "react-kakao-maps-sdk";
+import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useKakaoLoader,
+  Map,
+  Polyline,
+  CustomOverlayMap,
+} from "react-kakao-maps-sdk";
 import { LocateFixed } from "lucide-react";
 import { reverseGeocode } from "@/lib/api/reverseGeocode";
 import { labelPinImage, PIN_COLOR, PIN_SIZE } from "@/lib/map-pin";
@@ -41,20 +46,37 @@ interface DraggablePinProps {
   point: WirePoint;
   color: string;
   label: string;
-  toLatLng: (clientX: number, clientY: number) => { lat: number; lng: number } | null;
+  toLatLng: (
+    clientX: number,
+    clientY: number,
+  ) => { lat: number; lng: number } | null;
   onDragEnd: (lat: number, lng: number) => void;
 }
 
 /** Pointer Events로 직접 드래그를 처리하는 핀 — 드래그 중엔 로컬 위치만 갱신하고, 놓는
  * 순간에만 부모(onDragEnd)로 알려 역지오코딩을 1번만 호출한다. */
-function DraggablePin({ point, color, label, toLatLng, onDragEnd }: DraggablePinProps) {
+function DraggablePin({
+  point,
+  color,
+  label,
+  toLatLng,
+  onDragEnd,
+}: DraggablePinProps) {
   const [dragging, setDragging] = useState(false);
-  const [dragPos, setDragPos] = useState<{ lat: number; lng: number } | null>(null);
+  const [dragPos, setDragPos] = useState<{ lat: number; lng: number } | null>(
+    null,
+  );
   const { src } = labelPinImage(label, color);
   const position = dragPos ?? point;
 
   return (
-    <CustomOverlayMap position={position} yAnchor={1} xAnchor={0.5} zIndex={dragging ? 10 : 3} clickable>
+    <CustomOverlayMap
+      position={position}
+      yAnchor={1}
+      xAnchor={0.5}
+      zIndex={dragging ? 10 : 3}
+      clickable
+    >
       {/* eslint-disable-next-line @next/next/no-img-element -- 즉석 생성한 data URI 아이콘, next/image 최적화 대상 아님 */}
       <img
         src={src}
@@ -96,15 +118,25 @@ function DraggablePin({ point, color, label, toLatLng, onDragEnd }: DraggablePin
   );
 }
 
-export function HomeMap({ origin, destination, activeField, onPick, className }: HomeMapProps) {
+export function HomeMap({
+  origin,
+  destination,
+  activeField,
+  onPick,
+  className,
+}: HomeMapProps) {
   const [loading, error] = useKakaoLoader({
     appkey: process.env.NEXT_PUBLIC_KAKAO_JS_KEY ?? "",
     url: "https://dapi.kakao.com/v2/maps/sdk.js",
   });
   const [map, setMap] = useState<kakao.maps.Map | null>(null);
-  const [myLocation, setMyLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [myLocation, setMyLocation] = useState<{
+    lat: number;
+    lng: number;
+  } | null>(null);
   const [locating, setLocating] = useState(false);
   const mapWrapRef = useRef<HTMLDivElement>(null);
+  const initialLocateRequestedRef = useRef(false);
 
   useEffect(() => {
     if (!map) return;
@@ -130,20 +162,26 @@ export function HomeMap({ origin, destination, activeField, onPick, className }:
   /** 뷰포트 좌표(클릭·포인터의 clientX/clientY) → 위경도. 지도 컨테이너의 실제 화면
    * 위치를 기준으로 계산해야 하므로 드래그 중에도 매번 getBoundingClientRect를 다시 잰다
    * (스크롤·리사이즈에도 안전). */
-  function toLatLng(clientX: number, clientY: number): { lat: number; lng: number } | null {
+  function toLatLng(
+    clientX: number,
+    clientY: number,
+  ): { lat: number; lng: number } | null {
     if (!map || !mapWrapRef.current) return null;
     const rect = mapWrapRef.current.getBoundingClientRect();
     const coords = map
       .getProjection()
-      .coordsFromContainerPoint(new kakao.maps.Point(clientX - rect.left, clientY - rect.top));
+      .coordsFromContainerPoint(
+        new kakao.maps.Point(clientX - rect.left, clientY - rect.top),
+      );
     return { lat: coords.getLat(), lng: coords.getLng() };
   }
 
   // 지도 위에 "내 현재 위치"만 보여준다 — 누르자마자 출발지/목적지로 확정하지는 않는다
   // (한 번 자동 확정으로 만들었다가 의도치 않게 필드가 채워져 되돌림). 확정하려면
   // 파란 점을 한 번 더 탭해야 한다 — "보기"와 "선택"을 분리한다.
-  function locateMe() {
-    if (typeof navigator === "undefined" || !("geolocation" in navigator)) return;
+  const locateMe = useCallback(() => {
+    if (typeof navigator === "undefined" || !("geolocation" in navigator))
+      return;
     setLocating(true);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
@@ -156,18 +194,35 @@ export function HomeMap({ origin, destination, activeField, onPick, className }:
       () => setLocating(false), // 조용히 무시 — PRODUCT.md §5.1
       { timeout: 5_000 },
     );
-  }
+  }, [map]);
+
+  useEffect(() => {
+    if (!map || origin || destination || initialLocateRequestedRef.current)
+      return;
+    initialLocateRequestedRef.current = true;
+    locateMe();
+  }, [map, origin, destination, locateMe]);
 
   if (loading) {
     return (
-      <div className={cn("flex items-center justify-center rounded-lg bg-muted text-sm text-muted-foreground", className)}>
+      <div
+        className={cn(
+          "flex items-center justify-center rounded-lg bg-muted text-sm text-muted-foreground",
+          className,
+        )}
+      >
         지도를 불러오는 중…
       </div>
     );
   }
   if (error) {
     return (
-      <div className={cn("flex items-center justify-center rounded-lg bg-muted text-sm text-destructive", className)}>
+      <div
+        className={cn(
+          "flex items-center justify-center rounded-lg bg-muted text-sm text-destructive",
+          className,
+        )}
+      >
         지도를 불러오지 못했습니다.
       </div>
     );
@@ -175,13 +230,18 @@ export function HomeMap({ origin, destination, activeField, onPick, className }:
 
   return (
     <div className="flex flex-col gap-1">
-      <div className={cn("relative", className)} ref={mapWrapRef}>
+      <div
+        className={cn("relative overflow-hidden rounded-lg", className)}
+        ref={mapWrapRef}
+      >
         <Map
-          center={origin ?? destination ?? DEFAULT_CENTER}
+          center={origin ?? destination ?? myLocation ?? DEFAULT_CENTER}
           style={{ width: "100%", height: "100%", borderRadius: "0.5rem" }}
-          level={origin || destination ? 5 : 13}
+          level={origin || destination || myLocation ? 5 : 13}
           onCreate={setMap}
-          onClick={(_, e) => pickPoint(activeField, e.latLng.getLat(), e.latLng.getLng())}
+          onClick={(_, e) =>
+            pickPoint(activeField, e.latLng.getLat(), e.latLng.getLng())
+          }
         >
           {origin && destination && (
             <Polyline
@@ -214,7 +274,9 @@ export function HomeMap({ origin, destination, activeField, onPick, className }:
               <button
                 type="button"
                 aria-label={`이 위치를 ${activeField === "origin" ? "출발지" : "목적지"}로 설정`}
-                onClick={() => pickPoint(activeField, myLocation.lat, myLocation.lng)}
+                onClick={() =>
+                  pickPoint(activeField, myLocation.lat, myLocation.lng)
+                }
                 className="relative flex size-4 items-center justify-center"
               >
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-blue-500 opacity-75" />
@@ -233,10 +295,10 @@ export function HomeMap({ origin, destination, activeField, onPick, className }:
         >
           <LocateFixed className="size-4" />
         </button>
+        <p className="pointer-events-none absolute bottom-2 left-2 z-10 rounded-full bg-background/90 px-2 py-1 text-xs text-muted-foreground shadow-sm">
+          탭하면 {activeField === "origin" ? "출발지" : "목적지"}로 설정돼요
+        </p>
       </div>
-      <p className="text-xs text-muted-foreground">
-        지도를 탭하면 {activeField === "origin" ? "출발지" : "목적지"}가 설정돼요. 마커는 드래그로 조정할 수 있어요.
-      </p>
     </div>
   );
 }

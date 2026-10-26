@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 import type { Mode } from "@/app/api/_lib/types";
 
 const MODE_LABEL: Record<Mode, string> = {
-  balanced: "균형",
+  balanced: "추천",
   minCost: "최소비용",
   minDistance: "최단거리",
 };

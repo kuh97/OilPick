@@ -15,7 +15,11 @@ const FUELS: Fuel[] = ["GASOLINE", "DIESEL", "LPG"];
 
 export function FuelSelect({ value, onChange }: { value: Fuel; onChange: (fuel: Fuel) => void }) {
   return (
-    <div className="flex gap-2" role="radiogroup" aria-label="연료 종류">
+    <div
+      className="flex gap-1 rounded-xl bg-muted/60 p-1"
+      role="radiogroup"
+      aria-label="연료 종류"
+    >
       {FUELS.map((fuel) => (
         <button
           key={fuel}
@@ -24,10 +28,10 @@ export function FuelSelect({ value, onChange }: { value: Fuel; onChange: (fuel: 
           aria-checked={value === fuel}
           onClick={() => onChange(fuel)}
           className={cn(
-            "flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition-colors",
+            "flex-1 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors",
             value === fuel
-              ? "border-primary bg-primary text-primary-foreground"
-              : "border-border bg-background text-foreground hover:bg-muted",
+              ? "bg-background text-foreground shadow-[var(--shadow-sm)]"
+              : "text-muted-foreground hover:text-foreground",
           )}
         >
           {FUEL_LABEL[fuel]}

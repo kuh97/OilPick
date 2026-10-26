@@ -5,8 +5,9 @@
  * "장소명 + 주소" 2줄로 최대 5건 표시. 실패 시 안내 + 재시도(검색 자체는 계속 가능).
  */
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { usePlacesSearch } from "@/lib/api/usePlacesSearch";
+import { cn } from "@/lib/utils";
 import type { WirePoint } from "@/app/api/_lib/types";
 
 export interface PlaceAutocompleteInputProps {
@@ -15,6 +16,7 @@ export interface PlaceAutocompleteInputProps {
   value: WirePoint | null;
   onChange: (point: WirePoint | null) => void;
   onFocus?: () => void;
+  leadingIcon?: ReactNode;
   /** 테두리·라벨 없이 — 출발지/도착지를 한 박스로 합칠 때(홈 화면) 쓴다.
    * 라벨은 화면엔 안 보이지만 aria-label로 그대로 남는다. */
   bare?: boolean;
@@ -26,6 +28,7 @@ export function PlaceAutocompleteInput({
   value,
   onChange,
   onFocus,
+  leadingIcon,
   bare = false,
 }: PlaceAutocompleteInputProps) {
   const [query, setQuery] = useState(value?.name ?? "");
@@ -55,11 +58,22 @@ export function PlaceAutocompleteInput({
   return (
     <div className="relative">
       {!bare && <label className="mb-1 block text-sm font-medium text-foreground">{label}</label>}
+      {leadingIcon && (
+        <span
+          className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-primary"
+          aria-hidden
+        >
+          {leadingIcon}
+        </span>
+      )}
       <input
         aria-label={bare ? label : undefined}
         className={
           bare
-            ? "w-full bg-transparent px-3.5 py-3 text-sm outline-none placeholder:text-muted-foreground focus:bg-muted/40"
+            ? cn(
+                "w-full bg-transparent px-3.5 py-3 text-sm outline-none placeholder:text-muted-foreground transition-colors hover:bg-muted/40 focus:bg-muted/40",
+                leadingIcon && "pl-10",
+              )
             : "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
         }
         placeholder={placeholder}
