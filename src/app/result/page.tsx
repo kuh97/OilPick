@@ -28,6 +28,7 @@ import {
   maxDetourCeilingMinutesForRoutes,
 } from "@/domain/pricing";
 import type {
+  Fuel,
   RefPriceSource,
   WireBaseRoute,
   WireFilters,
@@ -118,6 +119,81 @@ function SearchRouteSummary({
         refPriceSource={refPriceSource}
         vehicle={vehicle}
         onChangeVehicle={onChangeVehicle}
+      />
+    </section>
+  );
+}
+
+function DesktopSearchContext({
+  origin,
+  destination,
+  baseRoute,
+  referencePrice,
+  refPriceSource,
+  vehicle,
+  onChangeVehicle,
+  fuel,
+  avoidHighway,
+}: {
+  origin: WirePoint;
+  destination: WirePoint;
+  baseRoute: WireBaseRoute | null;
+  referencePrice: number | null;
+  refPriceSource: RefPriceSource | null;
+  vehicle: WireVehicle;
+  onChangeVehicle: (vehicle: Partial<WireVehicle>) => void;
+  fuel: Fuel;
+  avoidHighway: boolean;
+}) {
+  return (
+    <section
+      aria-label="검색 경로 및 계산 기준"
+      className="overflow-hidden rounded-2xl border border-blue-100 bg-blue-50/60 p-5"
+    >
+      <h2 className="text-lg font-semibold text-foreground">검색 경로</h2>
+
+      <div className="mt-3 grid grid-cols-[1.5rem_minmax(0,1fr)] gap-x-3">
+        <div className="relative row-span-2 flex flex-col items-center justify-between self-stretch">
+          <span
+            className="absolute top-3 bottom-3 border-l border-dashed border-muted-foreground/35"
+            aria-hidden
+          />
+          <CircleSmall
+            className="relative size-4 fill-background text-primary"
+            strokeWidth={2}
+            aria-hidden
+          />
+          <MapPin
+            className="relative size-4 fill-background text-primary"
+            strokeWidth={2}
+            aria-hidden
+          />
+        </div>
+        <p className="min-w-0 truncate text-sm font-semibold text-foreground">
+          {origin.name ?? "출발지"}
+        </p>
+        <p className="mt-3 min-w-0 truncate text-sm font-semibold text-foreground">
+          {destination.name ?? "목적지"}
+        </p>
+        {baseRoute && (
+          <p className="col-start-2 mt-2 text-sm text-muted-foreground tabular-nums">
+            기본 경로 {distanceMToKm(baseRoute.distanceM)}km ·{" "}
+            {durationSToMin(baseRoute.durationS)}분
+          </p>
+        )}
+      </div>
+
+      <div className="my-5 border-t border-blue-100" />
+
+      <CalcAssumptionsFooter
+        className="border-0 px-0 py-0"
+        title="계산 기준"
+        referencePrice={referencePrice}
+        refPriceSource={refPriceSource}
+        vehicle={vehicle}
+        onChangeVehicle={onChangeVehicle}
+        fuel={fuel}
+        avoidHighway={avoidHighway}
       />
     </section>
   );
@@ -413,81 +489,31 @@ export default function ResultPage() {
         />
       ) : (
         <>
-          {expansion && <ExpansionBanner expansion={expansion} fuel={fuel} />}
-          {(result?.warnings ?? streamWarnings)
-            .filter((w) => w.code === "TIMEOUT")
-            .map((w, i) => (
-              <WarningBanner key={`${w.code}-${i}`} warning={w} />
-            ))}
-
-          <div className="md:grid md:grid-cols-[280px_minmax(0,1fr)] md:items-start md:gap-6">
+          <div className="md:grid md:grid-cols-[clamp(280px,30vw,340px)_minmax(0,1fr)] md:items-start md:gap-6">
             <aside className="hidden flex-col gap-4 md:sticky md:top-6 md:flex">
-              <section className="rounded-xl border border-border bg-card p-4 shadow-[var(--shadow-sm)]">
-                <h2 className="border-b border-border pb-3 text-base font-semibold">
-                  검색 경로
-                </h2>
-                <dl className="mt-3 min-w-0 space-y-2 text-sm">
-                  <div className="flex items-start justify-between gap-3">
-                    <dt className="text-muted-foreground">출발</dt>
-                    <dd className="text-right font-medium text-foreground">
-                      {origin.name ?? "출발지"}
-                    </dd>
-                  </div>
-                  <div className="flex items-start justify-between gap-3">
-                    <dt className="text-muted-foreground">도착</dt>
-                    <dd className="text-right font-medium text-foreground">
-                      {destination.name ?? "목적지"}
-                    </dd>
-                  </div>
-                  {(result?.baseRoute ?? baseRoute) && (
-                    <div className="flex items-start justify-between gap-3">
-                      <dt className="text-muted-foreground">기본 경로</dt>
-                      <dd className="text-right text-foreground tabular-nums">
-                        {distanceMToKm(
-                          (result?.baseRoute ?? baseRoute)!.distanceM,
-                        )}
-                        km ·{" "}
-                        {durationSToMin(
-                          (result?.baseRoute ?? baseRoute)!.durationS,
-                        )}
-                        분
-                      </dd>
-                    </div>
-                  )}
-                  <div className="flex items-start justify-between gap-3">
-                    <dt className="text-muted-foreground">연료</dt>
-                    <dd className="text-right text-foreground">
-                      {fuel === "GASOLINE"
-                        ? "휘발유"
-                        : fuel === "DIESEL"
-                          ? "경유"
-                          : "LPG"}
-                    </dd>
-                  </div>
-                  <div className="flex items-start justify-between gap-3">
-                    <dt className="text-muted-foreground">도로 옵션</dt>
-                    <dd className="text-right text-foreground">
-                      {avoidHighway ? "고속도로 회피" : "고속도로 포함"}
-                    </dd>
-                  </div>
-                </dl>
-              </section>
-
-              {result && (
-                <section className="rounded-xl border border-border bg-card p-4 shadow-[var(--shadow-sm)]">
-                  <CalcAssumptionsFooter
-                    className="border-0 px-0 py-0"
-                    title="계산 기준"
-                    referencePrice={result.referencePrice}
-                    refPriceSource={result.refPriceSource}
-                    vehicle={vehicle}
-                    onChangeVehicle={setVehicle}
-                  />
-                </section>
-              )}
+              <DesktopSearchContext
+                origin={origin}
+                destination={destination}
+                baseRoute={result?.baseRoute ?? baseRoute}
+                referencePrice={referencePrice}
+                refPriceSource={refPriceSource}
+                vehicle={vehicle}
+                onChangeVehicle={setVehicle}
+                fuel={fuel}
+                avoidHighway={avoidHighway}
+              />
             </aside>
 
             <section className="flex min-w-0 flex-col gap-4">
+              {expansion && (
+                <ExpansionBanner expansion={expansion} fuel={fuel} />
+              )}
+              {(result?.warnings ?? streamWarnings)
+                .filter((w) => w.code === "TIMEOUT")
+                .map((w, i) => (
+                  <WarningBanner key={`${w.code}-${i}`} warning={w} />
+                ))}
+
               <div className="flex items-center justify-between gap-2">
                 <ModeTabs value={mode} onChange={setMode} />
                 {renderFilterSheet()}

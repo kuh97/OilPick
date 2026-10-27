@@ -19,11 +19,21 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
-import type { RefPriceSource, WireVehicle } from "@/app/api/_lib/types";
+import type {
+  Fuel as FuelType,
+  RefPriceSource,
+  WireVehicle,
+} from "@/app/api/_lib/types";
 
 const SOURCE_LABEL: Record<RefPriceSource, string> = {
   MEDIAN_T1T2: "경로 주변 중앙값",
   SIGUNGU_AVG: "지역 평균",
+};
+
+const FUEL_LABEL: Record<FuelType, string> = {
+  GASOLINE: "휘발유",
+  DIESEL: "경유",
+  LPG: "LPG",
 };
 
 type VehicleDraft = Omit<WireVehicle, "efficiency" | "refuelAmount"> & {
@@ -50,6 +60,8 @@ export function CalcAssumptionsFooter({
   embedded = false,
   embeddedDivider = true,
   embeddedInset = true,
+  fuel,
+  avoidHighway,
 }: {
   referencePrice: number | null;
   refPriceSource: RefPriceSource | null;
@@ -61,6 +73,8 @@ export function CalcAssumptionsFooter({
   embedded?: boolean;
   embeddedDivider?: boolean;
   embeddedInset?: boolean;
+  fuel?: FuelType;
+  avoidHighway?: boolean;
 }) {
   const [draft, setDraft] = useState<VehicleDraft>(() =>
     toVehicleDraft(vehicle),
@@ -132,7 +146,7 @@ export function CalcAssumptionsFooter({
                   "shrink-0",
                   embedded && "h-auto px-1.5 text-xs text-primary",
                 )}
-                aria-label="내 차 기준 수정"
+                aria-label="기준 수정"
               />
             }
           >
@@ -146,24 +160,57 @@ export function CalcAssumptionsFooter({
             className,
           )}
         >
-          <div className="flex items-center justify-between gap-3 border-b border-border pb-3">
+          <div className="flex items-center justify-between gap-3">
             <h2 className="text-base font-semibold text-foreground">{title}</h2>
             <DialogTrigger
               render={
                 <Button
                   variant="ghost"
-                  size="icon-xs"
+                  size="sm"
+                  className="h-auto px-1.5 text-xs text-primary"
                   aria-label="계산 기준 수정"
                   title="계산 기준 수정"
                 />
               }
             >
-              <Pencil className="size-4" aria-hidden />
+              수정
             </DialogTrigger>
           </div>
 
           <div className="mt-3 w-full">
             <dl className="min-w-0 space-y-2">
+              {fuel != null && avoidHighway != null && (
+                <div className="flex items-start justify-between gap-3">
+                  <dt>연료 · 도로</dt>
+                  <dd className="text-right text-foreground">
+                    {FUEL_LABEL[fuel]} ·{" "}
+                    {avoidHighway ? "고속도로 회피" : "고속도로 포함"}
+                  </dd>
+                </div>
+              )}
+              {fuel != null && avoidHighway != null ? (
+                <div className="flex items-start justify-between gap-3">
+                  <dt>연비 · 주유량</dt>
+                  <dd className="text-right text-foreground tabular-nums">
+                    {vehicle.efficiency}km/L · {vehicle.refuelAmount}L
+                  </dd>
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-start justify-between gap-3">
+                    <dt>연비</dt>
+                    <dd className="text-right text-foreground tabular-nums">
+                      {vehicle.efficiency}km/L
+                    </dd>
+                  </div>
+                  <div className="flex items-start justify-between gap-3">
+                    <dt>주유량</dt>
+                    <dd className="text-right text-foreground tabular-nums">
+                      {vehicle.refuelAmount}L
+                    </dd>
+                  </div>
+                </>
+              )}
               {referenceSummary && (
                 <div className="flex items-start justify-between gap-3">
                   <dt>
@@ -176,18 +223,6 @@ export function CalcAssumptionsFooter({
                   </dd>
                 </div>
               )}
-              <div className="flex items-start justify-between gap-3">
-                <dt>연비</dt>
-                <dd className="text-right text-foreground tabular-nums">
-                  {vehicle.efficiency}km/L
-                </dd>
-              </div>
-              <div className="flex items-start justify-between gap-3">
-                <dt>주유량</dt>
-                <dd className="text-right text-foreground tabular-nums">
-                  {vehicle.refuelAmount}L
-                </dd>
-              </div>
             </dl>
           </div>
         </div>
@@ -219,7 +254,7 @@ export function CalcAssumptionsFooter({
 
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>내 차 기준 수정</DialogTitle>
+          <DialogTitle>기준 수정</DialogTitle>
         </DialogHeader>
         <div className="flex flex-col gap-3">
           <label className="flex flex-col gap-1 text-sm">
