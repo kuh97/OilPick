@@ -90,7 +90,7 @@ export function FilterSheet(props: FilterSheetProps) {
         <SlidersHorizontal className="size-3.5" aria-hidden />
         필터
       </DrawerTrigger>
-      <DrawerContent className="h-[calc(100dvh-6rem)] sm:h-auto sm:mx-auto sm:max-w-md">
+      <DrawerContent className="h-[min(76dvh,42rem)] sm:h-auto sm:mx-auto sm:max-w-md">
         <DrawerHeader className="flex flex-row items-center justify-between">
           <DrawerTitle>필터</DrawerTitle>
           <button
