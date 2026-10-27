@@ -2,8 +2,6 @@
 
 import { useIsMobile } from "@/lib/use-is-mobile";
 import { RouteMap } from "@/components/route-map";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertTriangle } from "lucide-react";
 import { distanceMToKm, durationSToMin } from "@/domain/pricing";
 import {
   buildStationDeeplink,
@@ -19,6 +17,7 @@ import type {
 } from "@/app/api/_lib/types";
 import {
   StationDetailHeader,
+  StationDetailTitle,
   StationInfoCard,
   StationNaviButtons,
   StationPriceCard,
@@ -65,7 +64,7 @@ export function NearbyStationDetail({
   }
 
   return (
-    <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-4 px-4 py-6 md:max-w-6xl md:gap-6 md:px-8 md:py-8">
+    <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-1 px-4 py-6 md:max-w-6xl md:gap-6 md:px-8 md:py-8">
       <StationDetailHeader
         backHref="/nearby"
         backLabel="내 주변 주유소"
@@ -76,8 +75,12 @@ export function NearbyStationDetail({
         destinationName={station.name}
       />
 
-      <div className="md:grid md:grid-cols-[minmax(0,1fr)_minmax(360px,420px)] md:items-start md:gap-6">
-        <div className="md:sticky md:top-6">
+      <div className="md:grid md:grid-cols-[minmax(0,1fr)_minmax(360px,420px)] md:grid-rows-[auto_1fr] md:items-start md:gap-6">
+        <div className="mb-4 md:col-start-1 md:row-start-1 md:mb-0">
+          <StationDetailTitle stationName={station.name} />
+        </div>
+
+        <div className="md:col-start-1 md:row-start-2 md:sticky md:top-6">
           <RouteMap
             baseRoutePolyline={route?.polyline ?? []}
             station={stationPoint}
@@ -85,11 +88,11 @@ export function NearbyStationDetail({
             destination={origin ? stationPoint : undefined}
             stationLabel="도착"
             showStationMarker={!origin}
-            className="md:h-[clamp(420px,42vw,560px)]"
+            className="md:h-[clamp(460px,42vw,600px)]"
           />
         </div>
 
-        <div className="mt-4 flex flex-col gap-4 md:mt-0">
+        <div className="mt-4 flex flex-col gap-4 md:col-start-2 md:row-start-2 md:mt-0">
           {origin && (
             <section className="rounded-xl border border-border bg-card p-3.5 shadow-[var(--shadow-sm)] md:p-4">
               <h2 className="text-sm font-semibold">이동 정보</h2>
@@ -147,13 +150,6 @@ export function NearbyStationDetail({
             address={station.address}
             tel={station.tel}
           />
-
-          <Alert variant="warning">
-            <AlertTriangle aria-hidden />
-            <AlertDescription className="break-keep text-xs text-warning-foreground">
-              가격은 실제와 다를 수 있습니다.
-            </AlertDescription>
-          </Alert>
 
           {origin && (
             <StationNaviButtons isMobile={isMobile} onClick={handleNaviClick} />

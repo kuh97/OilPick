@@ -148,9 +148,9 @@ describe("StationDetailView — 정상 흐름 (AGENTS.md §6 불변식)", () => 
     expect(screen.getByText(/가격은 실제와 다를 수 있습니다/)).toBeTruthy();
   });
 
-  it("우회 후보는 전화 확인 권고 문구와 전화번호를 함께 보여준다", () => {
+  it("우회 후보는 전화번호를 보여준다", () => {
     renderPage();
-    expect(screen.getByText(/전화 확인을 권합니다/)).toBeTruthy();
+    expect(screen.queryByText(/전화 확인을 권합니다/)).toBeNull();
     expect(screen.getByText("033-000-0000")).toBeTruthy();
     expect(
       screen.getByRole("link", { name: "033-000-0000" }).getAttribute("href"),
@@ -158,36 +158,28 @@ describe("StationDetailView — 정상 흐름 (AGENTS.md §6 불변식)", () => 
     expect(screen.queryByText(/전화걸기/)).toBeNull();
   });
 
-  it("경로상 후보는 전화 확인 권고 문구를 보여주지 않는다", () => {
-    useSearchStore.setState({ result: result({ candidates: [candidate({ tier: "ON_ROUTE" })] }) });
-    renderPage();
-    expect(screen.queryByText(/전화 확인을 권합니다/)).toBeNull();
-  });
-
-  it("데스크톱(비모바일 UA)에서는 티맵 버튼과 안내 문구를 보여주지 않는다 — 티맵은 웹 길찾기가 없음", async () => {
+  it("데스크톱(비모바일 UA)에서는 티맵 버튼과 보조 문구를 보여주지 않는다 — 티맵은 웹 길찾기가 없음", async () => {
     stubUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
     renderPage();
-    await screen.findByText("카카오맵"); // 마운트 이펙트가 반영될 때까지 대기
-    expect(screen.queryByText("티맵")).toBeNull();
-    expect(screen.queryByText(/티맵은 주유소까지만 안내됩니다/)).toBeNull();
+    await screen.findByText("카카오맵으로 길찾기"); // 마운트 이펙트가 반영될 때까지 대기
+    expect(screen.queryByText("TMAP으로 길찾기")).toBeNull();
+    expect(screen.queryByText("TMAP 이용 시 경로는 주유소까지만 안내됩니다.")).toBeNull();
     expect(screen.queryByText(/지도 앱은 설치되어 있어야 열 수 있습니다/)).toBeNull();
   });
 
-  it("모바일 UA에서는 티맵 버튼과 안내 문구를 보여준다", async () => {
+  it("모바일 UA에서는 티맵 버튼과 보조 문구를 보여준다", async () => {
     stubUserAgent("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15");
     renderPage();
-    expect(await screen.findByText("티맵")).toBeTruthy();
-    expect(screen.getByText("지도 앱은 설치되어 있어야 열 수 있습니다.")).toBeTruthy();
-    expect(screen.getByText(/티맵은 주유소까지만 안내됩니다/)).toBeTruthy();
+    expect(await screen.findByText("TMAP으로 길찾기")).toBeTruthy();
+    expect(screen.getByText("TMAP 이용 시 경로는 주유소까지만 안내됩니다.")).toBeTruthy();
   });
 
   it("터치 가능한 iPad 데스크톱 UA에서도 모바일 내비 UI를 보여준다", async () => {
     stubMaxTouchPoints(5);
     stubUserAgent("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15) AppleWebKit/605.1.15");
     renderPage();
-    expect(await screen.findByText("티맵")).toBeTruthy();
-    expect(screen.getByText("지도 앱은 설치되어 있어야 열 수 있습니다.")).toBeTruthy();
-    expect(screen.getByText(/티맵은 주유소까지만 안내됩니다/)).toBeTruthy();
+    expect(await screen.findByText("TMAP으로 길찾기")).toBeTruthy();
+    expect(screen.getByText("TMAP 이용 시 경로는 주유소까지만 안내됩니다.")).toBeTruthy();
   });
 
   it("기본 경로 통행료 + 우회 추가 통행료를 합쳐서 보여준다", () => {
@@ -261,9 +253,9 @@ describe("StationDetailView — 내 주변 목적지 안내", () => {
     expect(screen.getByText("휘발유 · 2026-09-14 기준")).toBeTruthy();
     expect(screen.getByText("45L 주유 시 예상 76,500원")).toBeTruthy();
     expect(screen.getByText("SK에너지")).toBeTruthy();
-    expect(await screen.findByText("카카오맵")).toBeTruthy();
-    expect(screen.getByText("네이버지도")).toBeTruthy();
-    expect(screen.getByText("티맵")).toBeTruthy();
+    expect(await screen.findByText("카카오맵으로 길찾기")).toBeTruthy();
+    expect(screen.getByText("네이버지도로 길찾기")).toBeTruthy();
+    expect(screen.getByText("TMAP으로 길찾기")).toBeTruthy();
     expect(screen.queryByText("추천 이유")).toBeNull();
   });
 });

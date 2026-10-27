@@ -301,7 +301,7 @@ export default function HomePage() {
             destination={destination}
             activeField={activeField}
             onPick={handleMapPick}
-            className="h-64 md:h-[665px] md:max-h-[665px]"
+            className="h-64 md:h-[630px] md:max-h-[630px]"
           />
         </section>
       </div>

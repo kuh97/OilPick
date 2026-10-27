@@ -2,8 +2,7 @@
 
 import { useIsMobile } from "@/lib/use-is-mobile";
 import { RouteMap } from "@/components/route-map";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertTriangle, Lightbulb } from "lucide-react";
+import { Lightbulb } from "lucide-react";
 import { distanceMToKm, durationSToMin } from "@/domain/pricing";
 import {
   buildDeeplink,
@@ -24,6 +23,7 @@ import type {
 import type { DetourResult } from "@/lib/api/useDetour";
 import {
   StationDetailHeader,
+  StationDetailTitle,
   StationInfoCard,
   StationNaviButtons,
   StationPriceCard,
@@ -142,75 +142,83 @@ export function RouteStationDetail({
   }
 
   return (
-    <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-4 px-4 py-6 md:max-w-6xl md:gap-6 md:px-8 md:py-8">
+    <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-1 px-4 py-6 md:max-w-6xl md:gap-6 md:px-8 md:py-8">
       <StationDetailHeader
         backHref="/result"
         backLabel="검색 결과"
         stationName={candidate.name}
         feedbackSource="SEARCH_DETAIL"
-        tier={candidate.tier}
         stationId={candidate.id}
         searchId={result.searchId}
         originName={origin.name}
         destinationName={destination.name}
       />
 
-      <div className="md:grid md:grid-cols-[minmax(0,1fr)_minmax(360px,420px)] md:items-start md:gap-6">
-        <section className="md:sticky md:top-6">
+      <div className="md:grid md:grid-cols-[minmax(0,1fr)_minmax(360px,420px)] md:grid-rows-[auto_1fr] md:items-start md:gap-6">
+        <div className="mb-4 md:col-start-1 md:row-start-1 md:mb-0">
+          <StationDetailTitle stationName={candidate.name} tier={candidate.tier} />
+        </div>
+
+        <section className="md:col-start-1 md:row-start-2 md:sticky md:top-6">
           <RouteMap
             baseRoutePolyline={selectedBaseRoute.polyline}
             viaRoutePolyline={detour?.polyline}
             station={{ lat: candidate.lat, lng: candidate.lng }}
             origin={origin}
             destination={destination}
-            className="md:h-[clamp(420px,42vw,560px)]"
+            className="md:h-[clamp(460px,42vw,600px)]"
           />
-          <div className="hidden md:block">
+          <div>
             <RouteLegend />
           </div>
         </section>
 
-        <div className="mt-4 flex flex-col gap-4 md:mt-0">
-          <section className="flex flex-col gap-1 rounded-xl border border-border bg-card p-3.5 shadow-[var(--shadow-sm)] md:p-4">
+        <div className="mt-4 flex flex-col gap-4 md:col-start-2 md:row-start-2 md:mt-0">
+          <section className="flex flex-col gap-1 rounded-xl border border-blue-100 bg-blue-50/60 p-3.5 md:p-4">
             <h2 className="flex items-center gap-1.5 text-sm font-semibold">
               <Lightbulb className="size-4 text-primary" aria-hidden />
               추천 이유
             </h2>
             <p className="text-sm">{candidate.reason}</p>
-            <dl className="mt-1.5 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
-              <dt className="text-muted-foreground">가격</dt>
-              <dd>
-                이 경로 {result.candidates.length}곳 중 {priceRankAmongAll}번째로
-                저렴
-              </dd>
-              <dt className="text-muted-foreground">우회</dt>
-              <dd className="md:tabular-nums">
-                {!precise && "약 "}
-                {distanceMToKm(distanceM)}km · {durationSToMin(durationS)}분
-              </dd>
+            <dl className="mt-3 space-y-1.5 text-sm">
+              <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 border-t border-blue-100 pt-3">
+                <dt className="text-muted-foreground">가격</dt>
+                <dd className="text-right">
+                  검색 후보 중 {priceRankAmongAll}번째로 저렴
+                </dd>
+              </div>
+              <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3">
+                <dt className="text-muted-foreground">우회</dt>
+                <dd className="text-right md:tabular-nums">
+                  {!precise && "약 "}+{distanceMToKm(distanceM)}km · +
+                  {durationSToMin(durationS)}분
+                </dd>
+              </div>
               {totalTollWon != null && totalTollWon > 0 && (
-                <>
+                <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3">
                   {/* 정보 표시 전용 — 순이득엔 미반영 */}
                   <dt className="text-muted-foreground">통행료</dt>
-                  <dd className="text-muted-foreground md:tabular-nums">
+                  <dd className="text-right text-muted-foreground md:tabular-nums">
                     {totalTollWon.toLocaleString()}원
                     {additionalTollWon! > 0 &&
                       ` (우회로 +${additionalTollWon!.toLocaleString()}원)`}
                   </dd>
-                </>
+                </div>
               )}
-              <dt className="text-muted-foreground">순이득</dt>
-              <dd
-                className={
-                  netSavingValue > 0
-                    ? "font-medium text-success-foreground md:tabular-nums"
-                    : "text-muted-foreground md:tabular-nums"
-                }
-              >
-                {netSavingValue > 0
-                  ? `+${netSavingValue.toLocaleString()}원`
-                  : `${netSavingValue.toLocaleString()}원`}
-              </dd>
+              <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3">
+                <dt className="text-muted-foreground">예상 순이득</dt>
+                <dd
+                  className={
+                    netSavingValue > 0
+                      ? "text-right font-medium text-success-foreground md:tabular-nums"
+                      : "text-right text-muted-foreground md:tabular-nums"
+                  }
+                >
+                  {netSavingValue > 0
+                    ? `+${netSavingValue.toLocaleString()}원`
+                    : `${netSavingValue.toLocaleString()}원`}
+                </dd>
+              </div>
             </dl>
           </section>
 
@@ -228,15 +236,6 @@ export function RouteStationDetail({
             address={candidate.address}
             tel={candidate.tel}
           />
-
-          <Alert variant="warning">
-            <AlertTriangle aria-hidden />
-            <AlertDescription className="break-keep text-xs text-warning-foreground">
-              가격은 실제와 다를 수 있습니다.
-              {candidate.tier === "DETOUR" &&
-                " 먼 거리를 우회하므로 전화 확인을 권합니다."}
-            </AlertDescription>
-          </Alert>
 
           <StationNaviButtons isMobile={isMobile} onClick={handleNaviClick} />
         </div>
