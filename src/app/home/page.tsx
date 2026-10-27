@@ -135,7 +135,7 @@ export default function HomePage() {
           <section className="flex flex-col gap-4 rounded-b-2xl border border-t-0 border-border bg-card px-3.5 py-3 md:rounded-xl md:border md:p-5 md:shadow-[var(--shadow-sm)]">
             <div className="flex flex-col gap-3">
               <div className="grid grid-cols-[minmax(0,1fr)_2rem] gap-2">
-                <div className="relative overflow-hidden rounded-lg border border-input bg-background">
+                <div className="relative overflow-visible rounded-lg border border-input bg-background">
                   <PlaceAutocompleteInput
                     key={`origin-${resetToken}`}
                     label="출발지"
