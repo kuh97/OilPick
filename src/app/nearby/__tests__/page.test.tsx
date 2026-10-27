@@ -111,8 +111,13 @@ describe("NearbyPage — F10 내 주변 주유소", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: /주변 주유소, 1,700원\/L/ }));
-    expect(screen.getAllByText("현재 위치에서 0km")).toHaveLength(2);
-    const detailLinks = screen.getAllByRole("link", { name: "상세 보기" });
+    expect(screen.getAllByText("직선거리 0km")).toHaveLength(2);
+    expect(screen.getAllByText("2026-09-14 기준")).toHaveLength(2);
+    expect(screen.getAllByText("45L 주유 시 예상 76,500원")).toHaveLength(2);
+    expect(screen.getAllByText("가격은 실제와 다를 수 있습니다.")).toHaveLength(2);
+    const detailLinks = screen
+      .getAllByRole("link")
+      .filter((link) => link.getAttribute("href") === "/station/A1");
     expect(detailLinks).toHaveLength(2);
     expect(detailLinks.every((link) => link.getAttribute("href") === "/station/A1")).toBe(true);
 

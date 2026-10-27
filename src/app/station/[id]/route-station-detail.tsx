@@ -154,7 +154,7 @@ export function RouteStationDetail({
         destinationName={destination.name}
       />
 
-      <div className="md:grid md:grid-cols-[minmax(0,1fr)_minmax(360px,420px)] md:grid-rows-[auto_1fr] md:items-start md:gap-6">
+      <div className="md:grid md:grid-cols-[minmax(0,1fr)_minmax(340px,360px)] md:grid-rows-[auto_1fr] md:items-start md:gap-6">
         <div className="mb-4 md:col-start-1 md:row-start-1 md:mb-0">
           <StationDetailTitle stationName={candidate.name} tier={candidate.tier} />
         </div>

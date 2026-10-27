@@ -5,7 +5,12 @@
  */
 
 import { useCallback, useState } from "react";
-import { CustomOverlayMap, Map, useKakaoLoader } from "react-kakao-maps-sdk";
+import {
+  CustomOverlayMap,
+  Map,
+  Polyline,
+  useKakaoLoader,
+} from "react-kakao-maps-sdk";
 import { LocateFixed } from "lucide-react";
 import type { WireNearbyStation } from "@/app/api/_lib/types";
 import type { NearbyPoint } from "@/lib/api/useNearbyStations";
@@ -105,6 +110,9 @@ export function NearbyMap({
           station.lng <= viewportBounds.east,
       )
     : [];
+  const selectedStation = selectedStationId
+    ? (stations.find((station) => station.id === selectedStationId) ?? null)
+    : null;
 
   const recenterMap = useCallback(() => {
     if (!map) return;
@@ -145,7 +153,12 @@ export function NearbyMap({
 
   if (loading) {
     return (
-      <div className={cn("flex h-72 items-center justify-center bg-muted text-sm text-muted-foreground", className)}>
+      <div
+        className={cn(
+          "flex h-72 items-center justify-center bg-muted text-sm text-muted-foreground",
+          className,
+        )}
+      >
         지도를 불러오는 중…
       </div>
     );
@@ -153,7 +166,12 @@ export function NearbyMap({
 
   if (error) {
     return (
-      <div className={cn("flex h-72 items-center justify-center bg-muted px-4 text-center text-sm text-destructive", className)}>
+      <div
+        className={cn(
+          "flex h-72 items-center justify-center bg-muted px-4 text-center text-sm text-destructive",
+          className,
+        )}
+      >
         지도를 불러오지 못했습니다.
       </div>
     );
@@ -171,6 +189,19 @@ export function NearbyMap({
         onIdle={updateViewportBounds}
         onZoomChanged={updateViewportBounds}
       >
+        {selectedStation && (
+          <Polyline
+            path={[
+              currentLocation,
+              { lat: selectedStation.lat, lng: selectedStation.lng },
+            ]}
+            strokeColor="#2272EB"
+            strokeWeight={4}
+            strokeOpacity={0.85}
+            strokeStyle="dot"
+          />
+        )}
+
         <CustomOverlayMap position={currentLocation} zIndex={1}>
           <div
             role="img"

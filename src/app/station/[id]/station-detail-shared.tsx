@@ -3,15 +3,14 @@
 import Link from "next/link";
 import Image from "next/image";
 import {
-  AlertTriangle,
   Droplets,
+  Info,
   PhoneCall,
   SearchAlert,
   Store,
   Wrench,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { TierBadge } from "@/components/result/tier-badge";
 import { HelpDrawer } from "@/components/help-drawer";
 import { brandName, type Tier } from "@/domain/types";
@@ -116,12 +115,13 @@ export function StationPriceCard({
   return (
     <section className="rounded-xl border border-border bg-card p-3.5 shadow-[var(--shadow-sm)] md:p-4">
       <h2 className="sr-only">가격</h2>
-      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+      <p className="text-xs font-medium text-muted-foreground">{FUEL_LABEL[fuel]}</p>
+      <div className="mt-1 flex flex-wrap items-baseline gap-x-2 gap-y-1">
         <p className="text-2xl font-bold tracking-tight md:tabular-nums">
           {price != null ? `${price.toLocaleString()}원/L` : "가격 정보 없음"}
         </p>
         <p className="text-xs text-muted-foreground">
-          {FUEL_LABEL[fuel]} · {formatPriceDate(priceUpdatedAt)}
+          {formatPriceDate(priceUpdatedAt)}
         </p>
       </div>
       {estimatedTotalWon != null && (
@@ -129,12 +129,12 @@ export function StationPriceCard({
           {refuelAmountL}L 주유 시 예상 {estimatedTotalWon.toLocaleString()}원
         </p>
       )}
-      <Alert variant="warning" className="mt-3">
-        <AlertTriangle aria-hidden />
-        <AlertDescription className="break-keep text-xs text-warning-foreground">
-          가격은 실제와 다를 수 있습니다.
-        </AlertDescription>
-      </Alert>
+      <div className="mt-3 border-t border-border pt-2.5">
+        <p className="flex items-center gap-1.5 break-keep text-xs text-warning-foreground">
+          <Info className="size-3.5 shrink-0" aria-hidden />
+          <span>가격은 실제와 다를 수 있습니다.</span>
+        </p>
+      </div>
     </section>
   );
 }
@@ -160,17 +160,17 @@ export function StationInfoCard({
     <section className="rounded-xl border border-border bg-card p-3.5 text-sm shadow-[var(--shadow-sm)] md:p-4">
       <dl className="space-y-2">
         <div className="grid min-h-7 grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3">
-          <dt className="text-muted-foreground">브랜드</dt>
-          <dd className="min-w-0 text-right">{brandName(brand)}</dd>
+          <dt className="font-medium text-muted-foreground">브랜드</dt>
+          <dd className="min-w-0 text-right font-medium">{brandName(brand)}</dd>
         </div>
         <div className="grid min-h-7 grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3">
-          <dt className="text-muted-foreground">시설</dt>
+          <dt className="font-medium text-muted-foreground">시설</dt>
           <dd className="flex min-w-0 flex-wrap items-center justify-end gap-1.5">
             {facilityItems.length > 0 ? (
               facilityItems.map(({ icon: Icon, label }) => (
                 <span
                   key={label}
-                  className="inline-flex h-7 items-center gap-1 rounded-full border border-border bg-muted/40 px-2 text-xs text-muted-foreground"
+                  className="inline-flex h-7 items-center gap-1 rounded-full border border-border bg-muted/40 px-2 text-xs font-medium text-muted-foreground"
                 >
                   <Icon className="size-3.5" aria-hidden />
                   {label}
@@ -182,18 +182,18 @@ export function StationInfoCard({
           </dd>
         </div>
         <div className="grid min-h-7 grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3">
-          <dt className="text-muted-foreground">주소</dt>
-          <dd className="min-w-0 break-keep text-right text-muted-foreground">
+          <dt className="font-medium text-muted-foreground">주소</dt>
+          <dd className="min-w-0 break-keep text-right font-medium text-muted-foreground">
             {address}
           </dd>
         </div>
         <div className="grid min-h-7 grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3">
-          <dt className="text-muted-foreground">전화</dt>
+          <dt className="font-medium text-muted-foreground">전화</dt>
           <dd className="min-w-0 text-right">
             {tel ? (
               <a
                 href={`tel:${tel}`}
-                className="inline-flex items-center justify-end gap-1 text-primary underline"
+                className="inline-flex items-center justify-end gap-1 font-semibold text-primary underline"
               >
                 <PhoneCall className="size-3.5" aria-hidden />
                 {tel}

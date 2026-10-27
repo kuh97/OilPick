@@ -245,12 +245,14 @@ describe("StationDetailView — 내 주변 목적지 안내", () => {
 
     renderPage();
 
-    expect(screen.getByText("출발")).toBeTruthy();
-    expect(screen.getByText("도착")).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "이동 정보" })).toBeTruthy();
-    expect(screen.getByText("3.2km · 약 8분")).toBeTruthy();
+    expect(screen.getByText("서울 테스트구 테스트로 1")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "주변 테스트 주유소" })).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "이동 정보" })).toBeNull();
+    expect(screen.getByText("기본 경로 3.2km · 약 8분")).toBeTruthy();
     expect(screen.getByRole("heading", { name: "가격" })).toBeTruthy();
-    expect(screen.getByText("휘발유 · 2026-09-14 기준")).toBeTruthy();
+    expect(screen.getByText("휘발유")).toBeTruthy();
+    expect(screen.getByText("2026-09-14 기준")).toBeTruthy();
+    expect(screen.getByText("가격은 실제와 다를 수 있습니다.")).toBeTruthy();
     expect(screen.getByText("45L 주유 시 예상 76,500원")).toBeTruthy();
     expect(screen.getByText("SK에너지")).toBeTruthy();
     expect(await screen.findByText("카카오맵으로 길찾기")).toBeTruthy();

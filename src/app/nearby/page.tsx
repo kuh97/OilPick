@@ -6,7 +6,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { MapPin, Store, Wrench, Droplets } from "lucide-react";
+import { ChevronRight, Info, MapPin, Store, Wrench, Droplets } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { HelpDrawer } from "@/components/help-drawer";
 import { FuelSelect } from "@/components/fuel-select";
@@ -46,69 +46,83 @@ function distanceFromCurrentLocationM(
 function NearbyStationSummary({
   station,
   currentLocation,
+  refuelAmountL,
 }: {
   station: WireNearbyStation;
   currentLocation: NearbyPoint;
+  refuelAmountL: number;
 }) {
   const distanceM = distanceFromCurrentLocationM(station, currentLocation);
 
   return (
-    <section className="rounded-xl border border-border bg-card p-3.5 shadow-[var(--shadow-sm)]">
-      <div className="flex items-center justify-between gap-2">
-        <div className="min-w-0">
-          <h2 className="truncate text-sm font-semibold">{station.name}</h2>
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            {brandName(station.brand)}
-          </p>
-        </div>
-        <p className="shrink-0 text-xl font-bold tracking-tight">
-          {station.price.toLocaleString()}원/L
-        </p>
-      </div>
-      <p className="mt-1.5 text-sm text-muted-foreground">
-        현재 위치에서 {distanceMToKm(distanceM)}km
+    <Link
+      href={`/station/${station.id}`}
+      className="block rounded-xl border border-border bg-card p-3.5 shadow-[var(--shadow-sm)] transition-all hover:shadow-[var(--shadow-md)] active:scale-[0.98] md:p-4"
+    >
+      <p className="inline-flex items-center gap-1.5 rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-primary">
+        <MapPin className="size-3.5" aria-hidden />
+        직선거리 {distanceMToKm(distanceM)}km
       </p>
-      {(station.facilities.carWash ||
-        station.facilities.maintenance ||
-        station.facilities.cvs) && (
-        <p className="mt-1.5 flex gap-3 text-sm text-muted-foreground">
-          {station.facilities.carWash && (
-            <span className="flex items-center gap-1">
-              <Droplets className="size-3.5" aria-hidden />
-              세차
-            </span>
-          )}
-          {station.facilities.maintenance && (
-            <span className="flex items-center gap-1">
-              <Wrench className="size-3.5" aria-hidden />
-              경정비
-            </span>
-          )}
-          {station.facilities.cvs && (
-            <span className="flex items-center gap-1">
-              <Store className="size-3.5" aria-hidden />
-              편의점
-            </span>
-          )}
+      <h2 className="mt-2 text-base font-semibold leading-snug">
+        {station.name}
+      </h2>
+      <p className="mt-0.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-muted-foreground">
+        <span>{brandName(station.brand)}</span>
+        {(station.facilities.carWash ||
+          station.facilities.maintenance ||
+          station.facilities.cvs) && (
+          <span className="flex flex-wrap gap-3">
+            {station.facilities.carWash && (
+              <span className="flex items-center gap-1">
+                <Droplets className="size-3.5" aria-hidden />
+                세차
+              </span>
+            )}
+            {station.facilities.maintenance && (
+              <span className="flex items-center gap-1">
+                <Wrench className="size-3.5" aria-hidden />
+                경정비
+              </span>
+            )}
+            {station.facilities.cvs && (
+              <span className="flex items-center gap-1">
+                <Store className="size-3.5" aria-hidden />
+                편의점
+              </span>
+            )}
+          </span>
+        )}
+      </p>
+      <div className="mt-2 flex flex-wrap items-baseline gap-x-2 gap-y-1">
+        <p className="text-2xl font-bold tracking-tight md:tabular-nums">
+          {station.price.toLocaleString()}
+          <span className="ml-1 text-base font-medium">원/L</span>
         </p>
-      )}
-      <div className="mt-2.5 border-t border-border pt-2 text-xs text-muted-foreground">
-        <div className="flex items-center justify-between gap-3">
-          <span>{priceDate(station.priceUpdatedAt)}</span>
-          <Link
-            href={`/station/${station.id}`}
-            className="font-semibold text-primary hover:underline"
-          >
-            상세 보기
-          </Link>
-        </div>
+        <p className="text-xs text-muted-foreground tabular-nums">
+          {priceDate(station.priceUpdatedAt)}
+        </p>
       </div>
-    </section>
+      <p className="mt-1 text-sm text-muted-foreground md:tabular-nums">
+        {refuelAmountL}L 주유 시 예상{" "}
+        {(station.price * refuelAmountL).toLocaleString()}원
+      </p>
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-t border-border pt-2.5">
+        <p className="flex min-w-0 items-center gap-1.5 break-keep text-xs text-warning-foreground">
+          <Info className="size-3.5 shrink-0" aria-hidden />
+          <span>가격은 실제와 다를 수 있습니다.</span>
+        </p>
+        <span className="flex shrink-0 items-center gap-0.5 text-sm font-medium text-primary">
+          상세 보기
+          <ChevronRight className="size-3.5" aria-hidden />
+        </span>
+      </div>
+    </Link>
   );
 }
 
 export default function NearbyPage() {
   const fuel = useSearchStore((s) => s.fuel);
+  const refuelAmountL = useSearchStore((s) => s.vehicle.refuelAmount);
   const filters = useSearchStore((s) => s.filters);
   const setFuel = useSearchStore((s) => s.setFuel);
   const setFilters = useSearchStore((s) => s.setFilters);
@@ -163,9 +177,11 @@ export default function NearbyPage() {
         setCurrentLocation(nextPoint);
         setSearchCenter(nextPoint);
         setNearbyOrigin(nextPoint);
-        void reverseGeocode(wgs84(nextPoint.lat, nextPoint.lng)).then((name) => {
-          if (name) setNearbyOrigin({ ...nextPoint, name });
-        });
+        void reverseGeocode(wgs84(nextPoint.lat, nextPoint.lng)).then(
+          (name) => {
+            if (name) setNearbyOrigin({ ...nextPoint, name });
+          },
+        );
       },
       () => {
         setNearbyOrigin(null);
@@ -255,10 +271,14 @@ export default function NearbyPage() {
                 <NearbyStationSummary
                   station={selectedStation}
                   currentLocation={currentLocation}
+                  refuelAmountL={refuelAmountL}
                 />
               ) : (
                 <section className="flex min-h-56 flex-col items-center justify-center gap-3 rounded-xl border border-border bg-card px-6 text-center shadow-[var(--shadow-sm)]">
-                  <MapPin className="size-6 text-muted-foreground" aria-hidden />
+                  <MapPin
+                    className="size-6 text-muted-foreground"
+                    aria-hidden
+                  />
                   <p className="text-sm text-muted-foreground">
                     {isLoading
                       ? "주변 주유소를 찾고 있어요."
@@ -299,6 +319,7 @@ export default function NearbyPage() {
               <NearbyStationSummary
                 station={selectedStation}
                 currentLocation={currentLocation}
+                refuelAmountL={refuelAmountL}
               />
             </div>
           )}

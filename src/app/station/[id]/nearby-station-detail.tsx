@@ -1,6 +1,7 @@
 "use client";
 
 import { useIsMobile } from "@/lib/use-is-mobile";
+import { CircleSmall, MapPin } from "lucide-react";
 import { RouteMap } from "@/components/route-map";
 import { distanceMToKm, durationSToMin } from "@/domain/pricing";
 import {
@@ -75,7 +76,7 @@ export function NearbyStationDetail({
         destinationName={station.name}
       />
 
-      <div className="md:grid md:grid-cols-[minmax(0,1fr)_minmax(360px,420px)] md:grid-rows-[auto_1fr] md:items-start md:gap-6">
+      <div className="md:grid md:grid-cols-[minmax(0,1fr)_minmax(340px,360px)] md:grid-rows-[auto_1fr] md:items-start md:gap-6">
         <div className="mb-4 md:col-start-1 md:row-start-1 md:mb-0">
           <StationDetailTitle stationName={station.name} />
         </div>
@@ -90,45 +91,59 @@ export function NearbyStationDetail({
             showStationMarker={!origin}
             className="md:h-[clamp(460px,42vw,600px)]"
           />
+          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+            <span className="flex items-center gap-1.5">
+              <span className="h-0.5 w-4 bg-muted-foreground" aria-hidden />
+              기본 경로
+            </span>
+          </div>
         </div>
 
         <div className="mt-4 flex flex-col gap-4 md:col-start-2 md:row-start-2 md:mt-0">
           {origin && (
-            <section className="rounded-xl border border-border bg-card p-3.5 shadow-[var(--shadow-sm)] md:p-4">
-              <h2 className="text-sm font-semibold">이동 정보</h2>
-              <dl className="mt-3 space-y-1.5 text-sm">
-                <div className="flex gap-3">
-                  <dt className="w-10 shrink-0 text-muted-foreground">출발</dt>
-                  <dd className="min-w-0 truncate">
-                    {originName}{" "}
-                    <span className="text-muted-foreground">(현위치)</span>
-                  </dd>
+            <section
+              aria-label="이동 정보"
+              className="rounded-xl border border-border p-3.5 md:p-4"
+            >
+              <div className="grid grid-cols-[1.5rem_minmax(0,1fr)] gap-x-3">
+                <div className="relative row-span-2 flex flex-col items-center justify-between self-stretch">
+                  <span
+                    className="absolute top-3 bottom-3 border-l border-dashed border-muted-foreground/35"
+                    aria-hidden
+                  />
+                  <CircleSmall
+                    className="relative size-4 fill-background text-primary"
+                    strokeWidth={2}
+                    aria-hidden
+                  />
+                  <MapPin
+                    className="relative size-4 fill-background text-primary"
+                    strokeWidth={2}
+                    aria-hidden
+                  />
                 </div>
-                <div className="flex gap-3">
-                  <dt className="w-10 shrink-0 text-muted-foreground">도착</dt>
-                  <dd className="min-w-0 truncate">{station.name}</dd>
+                <p className="min-w-0 truncate text-sm font-semibold text-foreground">
+                  {originName} <span className="text-muted-foreground">(현위치)</span>
+                </p>
+                <p className="mt-3 min-w-0 truncate text-sm font-semibold text-foreground">
+                  {station.name}
+                </p>
+                <div className="col-start-2 mt-2 text-sm text-muted-foreground tabular-nums">
+                  {route ? (
+                    <span>
+                      기본 경로 {distanceMToKm(route.distanceM)}km · 약 {durationSToMin(route.durationS)}분
+                    </span>
+                  ) : routeLoading ? (
+                    <span className="text-muted-foreground">
+                      경로를 계산하고 있어요.
+                    </span>
+                  ) : routeError ? (
+                    <span className="text-muted-foreground">{routeError.message}</span>
+                  ) : (
+                    <span className="text-muted-foreground">정보 없음</span>
+                  )}
                 </div>
-                <div className="flex gap-3">
-                  <dt className="w-10 shrink-0 text-muted-foreground">거리</dt>
-                  <dd className="min-w-0">
-                    {route ? (
-                      <span className="font-semibold md:tabular-nums">
-                        {distanceMToKm(route.distanceM)}km · 약 {durationSToMin(route.durationS)}분
-                      </span>
-                    ) : routeLoading ? (
-                      <span className="text-muted-foreground">
-                        경로를 계산하고 있어요.
-                      </span>
-                    ) : routeError ? (
-                      <span className="text-muted-foreground">
-                        {routeError.message}
-                      </span>
-                    ) : (
-                      <span className="text-muted-foreground">정보 없음</span>
-                    )}
-                  </dd>
-                </div>
-              </dl>
+              </div>
             </section>
           )}
 
