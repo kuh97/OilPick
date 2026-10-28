@@ -106,8 +106,8 @@ export default function HomePage() {
   }
 
   return (
-    <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-6 px-4 py-8 md:max-w-6xl md:gap-8 md:px-8 md:py-10">
-      <div className="flex items-center justify-between">
+    <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-7 px-4 py-7 md:max-w-6xl md:gap-8 md:px-8 md:py-10">
+      <div className="flex items-center justify-between gap-4">
         <h1 className="flex items-center gap-2">
           <Image src="/icon.svg" width={32} height={32} alt="" aria-hidden />
           {/* eslint-disable-next-line @next/next/no-img-element -- 벡터 워드마크, next/image svg 최적화 미지원 */}
@@ -121,21 +121,25 @@ export default function HomePage() {
         </h1>
         <HelpDrawer feedbackSource="HOME" />
       </div>
-      <div className="space-y-1">
-        <h2 className="text-xl font-bold tracking-tight md:text-2xl">
+      <div className="max-w-2xl space-y-2">
+        <h2 className="text-2xl font-bold tracking-tight text-text-strong md:text-3xl">
           출발지와 목적지만 입력하세요
         </h2>
-        <p className="text-sm text-muted-foreground md:text-base">
+        <p className="text-sm leading-6 text-text-body md:text-base">
           가는 길에 있는 주유소부터, 조금 돌아가도 괜찮은 곳까지 찾아드려요.
         </p>
       </div>
 
-      <div className="grid gap-0 md:grid-cols-[minmax(320px,380px)_minmax(0,1fr)] md:items-start md:gap-6">
-        <div className="order-last flex flex-col gap-4 md:order-none">
-          <section className="flex flex-col gap-4 rounded-b-2xl border border-t-0 border-border bg-card px-3.5 py-3 md:rounded-xl md:border md:p-5 md:shadow-route-sm">
+      <div className="grid gap-4 md:grid-cols-[minmax(320px,380px)_minmax(0,1fr)] md:items-start md:gap-6">
+        <div className="order-last flex flex-col gap-3 md:order-none">
+          <section className="flex flex-col gap-4 rounded-card border border-border bg-surface p-4 shadow-route-sm md:p-5">
             <div className="flex flex-col gap-3">
-              <div className="grid grid-cols-[minmax(0,1fr)_2rem] gap-2">
-                <div className="relative overflow-visible rounded-lg border border-input bg-background">
+              <div className="grid grid-cols-[minmax(0,1fr)_2.75rem] gap-2">
+                <div className="relative overflow-visible rounded-card border border-input bg-surface">
+                  <span
+                    aria-hidden
+                    className="pointer-events-none absolute bottom-6 left-5 top-6 z-10 border-l border-dashed border-route-cyan/70"
+                  />
                   <PlaceAutocompleteInput
                     key={`origin-${resetToken}`}
                     label="출발지"
@@ -172,7 +176,7 @@ export default function HomePage() {
                     type="button"
                     aria-label="출발지와 목적지 바꾸기"
                     onClick={swapOriginDestination}
-                    className="flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground active:scale-90"
+                    className="flex size-11 items-center justify-center rounded-control text-muted-foreground transition-colors hover:bg-route-sky hover:text-route-strong active:scale-95"
                   >
                     <ArrowUpDown className="size-4" />
                   </button>
@@ -181,7 +185,7 @@ export default function HomePage() {
                     aria-label="출발지와 목적지 다시 입력"
                     title="다시 입력"
                     onClick={resetRoute}
-                    className="flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground active:scale-90"
+                    className="flex size-11 items-center justify-center rounded-control text-muted-foreground transition-colors hover:bg-route-sky hover:text-route-strong active:scale-95"
                   >
                     <RotateCcw className="size-3.5" aria-hidden />
                   </button>
@@ -241,7 +245,7 @@ export default function HomePage() {
 
           <Link
             href="/nearby"
-            className="flex min-h-11 items-center justify-between gap-3 rounded-xl border border-border bg-card px-3.5 py-3 text-left shadow-route-sm transition-colors hover:bg-muted active:scale-[0.99]"
+            className="flex min-h-14 items-center justify-between gap-3 rounded-card border border-route-sky bg-surface px-4 py-3 text-left shadow-route-sm transition-colors hover:bg-route-sky active:scale-[0.99]"
           >
             <span className="flex min-w-0 items-start gap-2.5">
               <MapPinned
@@ -266,7 +270,7 @@ export default function HomePage() {
           {recentSearches.length > 0 && (
             <section
               aria-label="최근 검색"
-              className="min-w-0 max-w-full overflow-hidden rounded-2xl border border-border bg-card"
+              className="min-w-0 max-w-full overflow-hidden rounded-card border border-border bg-surface shadow-route-sm"
             >
               <ul className="min-w-0 divide-y divide-border">
                 {recentSearches.map((entry, i) => (
@@ -295,13 +299,16 @@ export default function HomePage() {
           )}
         </div>
 
-        <section className="order-first rounded-t-2xl border border-b-0 border-border bg-card p-3 md:order-none md:sticky md:top-6 md:rounded-xl md:border md:shadow-route-sm">
+        <section
+          aria-label="경로 지도"
+          className="order-first rounded-card border border-border bg-surface p-3 shadow-route-sm md:order-none md:sticky md:top-6"
+        >
           <HomeMap
             origin={origin}
             destination={destination}
             activeField={activeField}
             onPick={handleMapPick}
-            className="h-64 md:h-[630px] md:max-h-[630px]"
+            className="h-48 md:h-[630px] md:max-h-[630px]"
           />
         </section>
       </div>
