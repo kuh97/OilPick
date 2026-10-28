@@ -9,7 +9,6 @@
 import Link from "next/link";
 import { ChevronRight, Droplets, PiggyBank, Store, Wrench } from "lucide-react";
 import { TierBadge } from "./tier-badge";
-import { distanceMToKm, durationSToMin } from "@/domain/pricing";
 import type { WireCandidate } from "@/app/api/_lib/types";
 
 const FACILITY_ICON: { key: keyof WireCandidate["facilities"]; Icon: typeof Droplets; label: string }[] = [
@@ -56,16 +55,6 @@ export function ResultCard({
       </div>
 
       <p className="mt-1.5 text-xl font-bold tracking-tight">{candidate.price.toLocaleString()}원/L</p>
-
-      <p className="mt-1 text-sm text-muted-foreground">
-        {candidate.detour.precise ? (
-          <>
-            +{distanceMToKm(candidate.detour.distanceM)}km · +{durationSToMin(candidate.detour.durationS)}분 우회
-          </>
-        ) : (
-          <>경로에서 약 {distanceMToKm(candidate.perpDistanceM)}km 떨어져 있어요.</>
-        )}
-      </p>
 
       {perLiterDiff != null && (
         <p className="mt-1 flex items-center gap-1 text-sm">

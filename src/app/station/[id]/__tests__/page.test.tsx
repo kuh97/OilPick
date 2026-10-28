@@ -158,6 +158,18 @@ describe("StationDetailView — 정상 흐름 (AGENTS.md §6 불변식)", () => 
     expect(screen.queryByText(/전화걸기/)).toBeNull();
   });
 
+  it("상세 화면에서는 우회 km·분을 계속 보여준다", () => {
+    renderPage();
+    expect(
+      screen.getByText(
+        (_, element) =>
+          element?.tagName === "DD" &&
+          element.textContent?.includes("12.4km") === true &&
+          element.textContent.includes("18분"),
+      ),
+    ).toBeTruthy();
+  });
+
   it("데스크톱(비모바일 UA)에서는 티맵 버튼과 보조 문구를 보여주지 않는다 — 티맵은 웹 길찾기가 없음", async () => {
     stubUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
     renderPage();

@@ -31,14 +31,15 @@ function candidate(overrides: Partial<WireCandidate> = {}): WireCandidate {
 }
 
 describe("ResultCard", () => {
-  it("우회 배지·정밀 우회 정보·리터당 이득 문구를 보여준다", () => {
+  it("정밀 후보도 우회 배지·리터당 이득은 보여주고 km·분은 표시하지 않는다", () => {
     render(<ResultCard rank={1} candidate={candidate()} referencePrice={1210} />);
     expect(screen.getByText("우회")).toBeTruthy();
-    expect(screen.getByText(/\+12\.4km · \+18분 우회/)).toBeTruthy();
     expect(screen.getByText(/평균보다 리터당 108원 저렴/)).toBeTruthy();
+    expect(screen.queryByText(/\+12\.4km/)).toBeNull();
+    expect(screen.queryByText(/\+18분/)).toBeNull();
   });
 
-  it("미계산(precise:false) 후보는 '약 N km 떨어져 있어요'로 표시하고 정밀 우회 문구를 쓰지 않는다", () => {
+  it("미계산(precise:false) 후보도 추정 km·분을 표시하지 않는다", () => {
     render(
       <ResultCard
         rank={3}
@@ -46,8 +47,8 @@ describe("ResultCard", () => {
         referencePrice={1210}
       />,
     );
-    expect(screen.getByText(/경로에서 약 2\.1km 떨어져 있어요\./)).toBeTruthy();
-    // 정밀 우회 라인("+N km · +N분 우회")은 없어야 한다 (배지 텍스트 "우회"와 구분)
+    expect(screen.getByText("우회")).toBeTruthy();
+    expect(screen.queryByText(/경로에서 약 2\.1km 떨어져 있어요\./)).toBeNull();
     expect(screen.queryByText(/\+\d+(?:\.\d+)?km · \+\d+분 우회/)).toBeNull();
   });
 
