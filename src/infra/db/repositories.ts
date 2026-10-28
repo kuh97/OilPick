@@ -319,7 +319,11 @@ export async function findNearestRoadLinkProbes(
       ST_Azimuth(ST_StartPoint(rl.geometry), ST_EndPoint(rl.geometry)) AS heading_rad
     FROM station_points p
     CROSS JOIN LATERAL (
-      SELECT ST_SetSRID(ST_MakePoint(p.x, p.y), 5179) AS geom
+      -- Neon이 VALUES 파라미터를 text로 전달할 수 있으므로 PostGIS 입력 타입을 고정한다.
+      SELECT ST_SetSRID(
+        ST_MakePoint(p.x::double precision, p.y::double precision),
+        5179
+      ) AS geom
     ) point
     CROSS JOIN LATERAL (
       SELECT geometry

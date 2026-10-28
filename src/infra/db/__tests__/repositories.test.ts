@@ -43,6 +43,7 @@ describe("findNearestRoadLinkProbes — PostGIS 방향 조회", () => {
       ),
     ).resolves.toEqual([{ stationId: "S1", distanceM: 25.5, headingRad: 1.5708 }]);
     expect(execute).toHaveBeenCalledTimes(1);
+    expect(JSON.stringify(execute.mock.calls[0][0])).toContain("double precision");
   });
 
   it("후보가 없으면 PostGIS를 호출하지 않는다", async () => {
