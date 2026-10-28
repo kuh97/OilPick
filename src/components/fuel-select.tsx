@@ -30,7 +30,7 @@ export function FuelSelect({ value, onChange }: { value: Fuel; onChange: (fuel: 
           className={cn(
             "flex-1 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors",
             value === fuel
-              ? "bg-background text-foreground shadow-[var(--shadow-sm)]"
+              ? "bg-background text-foreground shadow-route-sm"
               : "text-muted-foreground hover:text-foreground",
           )}
         >

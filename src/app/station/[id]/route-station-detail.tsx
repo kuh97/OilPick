@@ -190,14 +190,14 @@ export function RouteStationDetail({
         </section>
 
         <div className="mt-4 flex flex-col gap-4 md:col-start-2 md:row-start-2 md:mt-0">
-          <section className="flex flex-col gap-1 rounded-xl border border-blue-100 bg-blue-50/60 p-3.5 md:p-4">
+          <section className="flex flex-col gap-1 rounded-xl border border-route-sky bg-route-sky/60 p-3.5 md:p-4">
             <h2 className="flex items-center gap-1.5 text-sm font-semibold">
               <Lightbulb className="size-4 text-primary" aria-hidden />
               추천 이유
             </h2>
             <p className="text-sm">{reason}</p>
             <dl className="mt-3 space-y-1.5 text-sm">
-              <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 border-t border-blue-100 pt-3">
+              <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 border-t border-route-sky pt-3">
                 <dt className="text-muted-foreground">가격</dt>
                 <dd className="text-right">
                   검색 후보 중 {priceRankAmongAll}번째로 저렴

@@ -30,7 +30,7 @@ const VALUE_PROPS = [
 
 export default function LandingPage() {
   return (
-    <main className="relative isolate flex min-h-screen w-full overflow-hidden bg-[#fbfdff]">
+    <main className="relative isolate flex min-h-screen w-full overflow-hidden bg-canvas">
       <div className="pointer-events-none absolute inset-y-0 right-0 z-0 hidden w-[68vw] min-w-[760px] max-w-[2600px] xl:block">
         <Image
           src="/brand/landing-background.png"
@@ -42,7 +42,7 @@ export default function LandingPage() {
           unoptimized
           className="object-cover object-right"
         />
-        <div className="absolute inset-y-0 left-0 w-[34%] bg-gradient-to-r from-[#fbfdff] via-[#fbfdff]/90 to-transparent" />
+        <div className="absolute inset-y-0 left-0 w-[34%] bg-gradient-to-r from-canvas via-canvas/90 to-transparent" />
       </div>
 
       <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-[1480px] items-center justify-center px-6 py-16 sm:px-10 xl:justify-start xl:px-0">
@@ -104,7 +104,7 @@ export default function LandingPage() {
             className={buttonVariants({
               size: "xl",
               className:
-                "mt-10 h-[56px] w-full max-w-[604px] rounded-2xl text-xl",
+                "mt-10 h-14 w-full max-w-[604px] rounded-action text-xl",
             })}
           >
             지금 경로 찾기

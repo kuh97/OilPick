@@ -57,9 +57,9 @@ function NearbyStationSummary({
   return (
     <Link
       href={`/station/${station.id}`}
-      className="block rounded-xl border border-border bg-card p-3.5 shadow-[var(--shadow-sm)] transition-all hover:shadow-[var(--shadow-md)] active:scale-[0.98] md:p-4"
+      className="block rounded-xl border border-border bg-card p-3.5 shadow-route-sm transition-all hover:shadow-route-md active:scale-[0.98] md:p-4"
     >
-      <p className="inline-flex items-center gap-1.5 rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-primary">
+      <p className="inline-flex items-center gap-1.5 rounded-full bg-route-sky px-2.5 py-0.5 text-xs font-medium text-primary">
         <MapPin className="size-3.5" aria-hidden />
         직선거리 {distanceMToKm(distanceM)}km
       </p>
@@ -212,12 +212,12 @@ export default function NearbyPage() {
         </div>
       </header>
 
-      <section className="flex flex-col gap-3 rounded-xl border border-border bg-card p-3.5 shadow-[var(--shadow-sm)] md:hidden">
+      <section className="flex flex-col gap-3 rounded-xl border border-border bg-card p-3.5 shadow-route-sm md:hidden">
         <FuelSelect value={fuel} onChange={setFuel} />
       </section>
 
       {locationError ? (
-        <section className="flex flex-col items-center gap-3 rounded-xl border border-border bg-card px-4 py-10 text-center shadow-[var(--shadow-sm)]">
+        <section className="flex flex-col items-center gap-3 rounded-xl border border-border bg-card px-4 py-10 text-center shadow-route-sm">
           <MapPin className="size-6 text-muted-foreground" aria-hidden />
           <p className="text-sm text-muted-foreground">
             현재 위치를 가져오지 못했어요.
@@ -233,7 +233,7 @@ export default function NearbyPage() {
       ) : (
         <>
           <div className="md:grid md:grid-cols-[minmax(0,1fr)_minmax(300px,360px)] md:items-start md:gap-6">
-            <section className="relative min-w-0 overflow-hidden rounded-xl border border-border bg-card shadow-[var(--shadow-sm)]">
+            <section className="relative min-w-0 overflow-hidden rounded-xl border border-border bg-card shadow-route-sm">
               {currentLocation && searchCenter && (
                 <NearbyMap
                   currentLocation={currentLocation}
@@ -263,7 +263,7 @@ export default function NearbyPage() {
             </section>
 
             <aside className="hidden md:sticky md:top-6 md:flex md:flex-col md:gap-4">
-              <section className="rounded-xl border border-border bg-card p-3.5 shadow-[var(--shadow-sm)]">
+              <section className="rounded-xl border border-border bg-card p-3.5 shadow-route-sm">
                 <FuelSelect value={fuel} onChange={setFuel} />
               </section>
 
@@ -274,7 +274,7 @@ export default function NearbyPage() {
                   refuelAmountL={refuelAmountL}
                 />
               ) : (
-                <section className="flex min-h-56 flex-col items-center justify-center gap-3 rounded-xl border border-border bg-card px-6 text-center shadow-[var(--shadow-sm)]">
+                <section className="flex min-h-56 flex-col items-center justify-center gap-3 rounded-xl border border-border bg-card px-6 text-center shadow-route-sm">
                   <MapPin
                     className="size-6 text-muted-foreground"
                     aria-hidden

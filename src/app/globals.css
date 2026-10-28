@@ -12,10 +12,31 @@ html[data-mobile-ua] [data-desktop-only] {
 }
 
 @theme inline {
+  --spacing: var(--oilpick-space-unit);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-pretendard), system-ui, -apple-system, "Apple SD Gothic Neo", sans-serif;
-  --font-heading: var(--font-sans);
+  --font-sans: var(--oilpick-font-primary);
+  --font-heading: var(--oilpick-font-primary);
+  --font-route: var(--oilpick-font-route);
+
+  /* OilPick Route Atlas semantic colors — docs/DESIGN.md §2 */
+  --color-route-blue: var(--oilpick-route-blue);
+  --color-route-strong: var(--oilpick-route-strong);
+  --color-route-navy: var(--oilpick-route-navy);
+  --color-route-cyan: var(--oilpick-route-cyan);
+  --color-route-sky: var(--oilpick-route-sky);
+  --color-route-amber: var(--oilpick-route-amber);
+  --color-canvas: var(--oilpick-canvas);
+  --color-surface: var(--oilpick-surface);
+  --color-surface-quiet: var(--oilpick-surface-quiet);
+  --color-text-strong: var(--oilpick-text-strong);
+  --color-text-body: var(--oilpick-text-body);
+  --color-text-muted: var(--oilpick-text-muted);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -30,8 +51,8 @@ html[data-mobile-ua] [data-desktop-only] {
   --color-chart-2: var(--chart-2);
   --color-chart-1: var(--chart-1);
   --color-ring: var(--ring);
-  --color-input: var(--input);
   --color-border: var(--border);
+  --color-input: var(--input);
   --color-destructive: var(--destructive);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
@@ -45,123 +66,161 @@ html[data-mobile-ua] [data-desktop-only] {
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
-  /* 로컬 확장 — DESIGN.md에 없는 정보/성공/경고 시맨틱 색 (§2 참고: info는 문서의
-     "weak marketing CTA" 색 쌍을 재사용, success·warning은 primary/danger와
-     부딪히지 않게 새로 고른 값) */
-  --color-info: var(--info);
-  --color-info-foreground: var(--info-foreground);
-  --color-success: var(--success);
-  --color-success-foreground: var(--success-foreground);
-  --color-warning: var(--warning);
-  --color-warning-foreground: var(--warning-foreground);
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
+
+  /* Named shape and elevation tokens — docs/DESIGN.md §2, §4, §6 */
+  --radius-control-sm: var(--oilpick-radius-control-sm);
+  --radius-control: var(--oilpick-radius-control);
+  --radius-action: var(--oilpick-radius-action);
+  --radius-card: var(--oilpick-radius-card);
+  --radius-panel: var(--oilpick-radius-panel);
+  --radius-pill: var(--oilpick-radius-pill);
+  --radius-sm: var(--oilpick-radius-control-sm);
+  --radius-md: var(--oilpick-radius-control);
+  --radius-lg: var(--oilpick-radius-action);
+  --radius-xl: var(--oilpick-radius-card);
+  --radius-2xl: var(--oilpick-radius-panel);
+  --radius-3xl: var(--oilpick-radius-panel);
+  --radius-4xl: var(--oilpick-radius-pill);
+  --shadow-route-sm: var(--oilpick-shadow-route-sm);
+  --shadow-route-md: var(--oilpick-shadow-route-md);
+  --shadow-sm: var(--oilpick-shadow-route-sm);
+  --shadow-md: var(--oilpick-shadow-route-md);
 }
 
 /*
- * 색상·반경 토큰 — docs/DESIGN.md §2 Foundations의 값을 그대로 옮겼다. info/
- * success/warning·그림자 두 토큰은 문서에 근거가 없는 로컬 확장이다(문서 §7
- * Governance — "발명한 컴포넌트/토큰은 확장이라고 표시하라"에 따름).
+ * OilPick visual tokens.
+ *
+ * 이 블록이 화면 UI의 색·폰트·간격·반경·그림자의 단일 CSS 정의다.
+ * 컴포넌트에서는 raw hex/그림자 값을 반복하지 않고 semantic utility를 사용한다.
+ * 지도 SDK의 strokeColor와 SVG data URI처럼 CSS를 해석하지 않는 외부 경계는
+ * src/lib/map-pin.ts와 지도 컴포넌트의 adapter 상수에서만 구체적인 값을 사용한다.
  */
 :root {
-  --font-pretendard: "Pretendard Variable";
-  --background: #ffffff; /* Canvas */
-  --foreground: #191f28; /* Foreground */
-  --card: #ffffff;
-  --card-foreground: #191f28;
-  --popover: #ffffff;
-  --popover-foreground: #191f28;
-  --primary: #3182f6; /* Product primary */
-  --primary-foreground: #ffffff; /* On Primary */
-  --secondary: #f2f4f6; /* Surface */
-  --secondary-foreground: #191f28;
-  --muted: #f2f4f6; /* Surface */
-  --muted-foreground: #4e5968; /* Body */
-  --accent: #f2f4f6; /* Surface */
-  --accent-foreground: #191f28;
-  --destructive: #e42939; /* Danger */
-  --border: #e5e8eb; /* Border */
-  --input: #e5e8eb;
-  --ring: #3182f6;
-  --chart-1: #3182f6;
-  --chart-2: #0a8a3f;
-  --chart-3: #b54708;
-  --chart-4: #4e5968;
-  --chart-5: #8b95a1;
-  --radius: 0.75rem; /* 카드·인풋 베이스 — 버튼은 button.tsx에서 사이즈별로 별도 지정 */
-  --sidebar: #ffffff;
-  --sidebar-foreground: #191f28;
-  --sidebar-primary: #3182f6;
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #f2f4f6;
-  --sidebar-accent-foreground: #191f28;
-  --sidebar-border: #e5e8eb;
-  --sidebar-ring: #3182f6;
+  /* Typography */
+  --oilpick-font-primary: "Pretendard Variable", system-ui, -apple-system,
+    "Apple SD Gothic Neo", sans-serif;
+  --oilpick-font-route: "Space Grotesk", var(--oilpick-font-primary);
 
-  /* 확장 — docs/DESIGN.md에 없는 값 */
-  --info: #e8f3ff; /* docs/DESIGN.md §4의 weak 마케팅 CTA 배경색 재사용 */
-  --info-foreground: #1b64da; /* 같은 CTA의 텍스트색 재사용 */
-  --success: #e6f7ed;
-  --success-foreground: #0a8a3f;
-  --warning: #fff3e0;
-  --warning-foreground: #b54708;
-  --shadow-sm: 0 1px 2px rgba(25, 31, 40, 0.06);
-  --shadow-md: 0 4px 16px rgba(25, 31, 40, 0.08);
+  /* Route Atlas brand and route colors */
+  --oilpick-route-blue: #3182f6;
+  --oilpick-route-strong: #177ddc;
+  --oilpick-route-navy: #102a43;
+  --oilpick-route-cyan: #5ac8fa;
+  --oilpick-route-sky: #e8f4fb;
+  --oilpick-route-amber: #f2b544;
+
+  /* Neutral and semantic colors */
+  --oilpick-canvas: #f8fbfd;
+  --oilpick-surface: #ffffff;
+  --oilpick-surface-quiet: #f2f4f6;
+  --oilpick-border: #dce6ef;
+  --oilpick-text-strong: #102a43;
+  --oilpick-text-body: #4e5968;
+  --oilpick-text-muted: #829ab1;
+  --oilpick-success: #0a8a3f;
+  --oilpick-success-soft: #e8f7ee;
+  --oilpick-warning: #b26a00;
+  --oilpick-warning-soft: #fff4dc;
+  --oilpick-danger: #d92d20;
+
+  /* Spacing scale — 4px base, with product-critical 12px/20px steps */
+  --oilpick-space-unit: 0.25rem;
+  --oilpick-space-1: 0.25rem;
+  --oilpick-space-2: 0.5rem;
+  --oilpick-space-3: 0.75rem;
+  --oilpick-space-4: 1rem;
+  --oilpick-space-5: 1.25rem;
+  --oilpick-space-6: 1.5rem;
+  --oilpick-space-8: 2rem;
+  --oilpick-space-10: 2.5rem;
+  --oilpick-space-12: 3rem;
+
+  /* Radius: small control → action → card → panel */
+  --oilpick-radius-control-sm: 0.5rem;
+  --oilpick-radius-control: 0.75rem;
+  --oilpick-radius-action: 0.875rem;
+  --oilpick-radius-card: 1rem;
+  --oilpick-radius-panel: 1.25rem;
+  --oilpick-radius-pill: 9999px;
+
+  /* Flat-first elevation */
+  --oilpick-shadow-route-sm: 0 1px 2px rgb(16 42 67 / 0.06);
+  --oilpick-shadow-route-md: 0 4px 16px rgb(16 42 67 / 0.08);
+  --shadow-sm: var(--oilpick-shadow-route-sm);
+  --shadow-md: var(--oilpick-shadow-route-md);
+
+  /* shadcn semantic aliases */
+  --background: var(--oilpick-canvas);
+  --foreground: var(--oilpick-text-strong);
+  --card: var(--oilpick-surface);
+  --card-foreground: var(--oilpick-text-strong);
+  --popover: var(--oilpick-surface);
+  --popover-foreground: var(--oilpick-text-strong);
+  --primary: var(--oilpick-route-blue);
+  --primary-foreground: var(--oilpick-surface);
+  --secondary: var(--oilpick-surface-quiet);
+  --secondary-foreground: var(--oilpick-text-strong);
+  --muted: var(--oilpick-surface-quiet);
+  --muted-foreground: var(--oilpick-text-body);
+  --accent: var(--oilpick-surface-quiet);
+  --accent-foreground: var(--oilpick-text-strong);
+  --destructive: var(--oilpick-danger);
+  --destructive-foreground: var(--oilpick-surface);
+  --border: var(--oilpick-border);
+  --input: var(--oilpick-border);
+  --ring: var(--oilpick-route-blue);
+  --chart-1: var(--oilpick-route-blue);
+  --chart-2: var(--oilpick-success);
+  --chart-3: var(--oilpick-warning);
+  --chart-4: var(--oilpick-text-body);
+  --chart-5: var(--oilpick-text-muted);
+  --radius: var(--oilpick-radius-card);
+  --sidebar: var(--oilpick-surface);
+  --sidebar-foreground: var(--oilpick-text-strong);
+  --sidebar-primary: var(--oilpick-route-blue);
+  --sidebar-primary-foreground: var(--oilpick-surface);
+  --sidebar-accent: var(--oilpick-surface-quiet);
+  --sidebar-accent-foreground: var(--oilpick-text-strong);
+  --sidebar-border: var(--oilpick-border);
+  --sidebar-ring: var(--oilpick-route-blue);
+
+  /* Soft semantic fills are used through opacity in components. */
+  --info: var(--oilpick-route-sky);
+  --info-foreground: var(--oilpick-route-strong);
+  --success: var(--oilpick-success);
+  --success-foreground: var(--oilpick-success);
+  --warning: var(--oilpick-warning);
+  --warning-foreground: var(--oilpick-warning);
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: #5b9bf8; /* 확장 — 어두운 배경에서 대비를 살린 톤 */
-  --primary-foreground: #0b1220;
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: #5b9bf8;
-  --chart-1: #5b9bf8;
-  --chart-2: #34c778;
-  --chart-3: #f0a556;
-  --chart-4: oklch(0.708 0 0);
-  --chart-5: oklch(0.556 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: #5b9bf8;
-  --sidebar-primary-foreground: #0b1220;
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: #5b9bf8;
-
-  /* 확장 — docs/DESIGN.md에 없는 값 */
-  --info: oklch(0.3 0.06 255);
-  --info-foreground: #bcdcff;
-  --success: oklch(0.3 0.07 155);
-  --success-foreground: #8fe0b3;
-  --warning: oklch(0.32 0.08 60);
-  --warning-foreground: #ffcd94;
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.4);
+  --oilpick-route-blue: #5b9bf8;
+  --oilpick-route-strong: #8db9ff;
+  --oilpick-route-navy: #e6f0f7;
+  --oilpick-route-cyan: #73d3ff;
+  --oilpick-route-sky: #16324a;
+  --oilpick-route-amber: #f6c85f;
+  --oilpick-canvas: #0b1220;
+  --oilpick-surface: #111b2b;
+  --oilpick-surface-quiet: #1b2a3d;
+  --oilpick-border: #30465e;
+  --oilpick-text-strong: #f5f9fc;
+  --oilpick-text-body: #c6d3df;
+  --oilpick-text-muted: #9fb3c8;
+  --oilpick-success: #57c785;
+  --oilpick-success-soft: #123c2a;
+  --oilpick-warning: #f6c85f;
+  --oilpick-warning-soft: #493916;
+  --oilpick-danger: #ff8378;
+  --oilpick-shadow-route-sm: 0 1px 2px rgb(0 0 0 / 0.3);
+  --oilpick-shadow-route-md: 0 4px 16px rgb(0 0 0 / 0.4);
 }
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
+
   body {
     @apply bg-background text-foreground;
     /* 한국어: 음절 단위 줄바꿈을 막고 어절(띄어쓰기) 경계에서만 끊는다.
@@ -169,6 +228,7 @@ html[data-mobile-ua] [data-desktop-only] {
     word-break: keep-all;
     overflow-wrap: break-word;
   }
+
   html {
     @apply font-sans;
   }

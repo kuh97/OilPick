@@ -108,7 +108,7 @@ export function CalcAssumptionsFooter({
             embedded
               ? cn(
                   "flex items-center justify-between gap-3 py-1.5",
-                  embeddedDivider && "border-t border-blue-100",
+                  embeddedDivider && "border-t border-route-sky",
                   embeddedInset ? "px-4" : "px-0 py-0",
                 )
               : "flex items-center justify-between gap-3 rounded-xl border border-border bg-card px-3.5 py-3",

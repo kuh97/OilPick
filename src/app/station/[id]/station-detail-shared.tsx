@@ -113,7 +113,7 @@ export function StationPriceCard({
   estimatedTotalWon?: number | null;
 }) {
   return (
-    <section className="rounded-xl border border-border bg-card p-3.5 shadow-[var(--shadow-sm)] md:p-4">
+    <section className="rounded-xl border border-border bg-card p-3.5 shadow-route-sm md:p-4">
       <h2 className="sr-only">가격</h2>
       <p className="text-xs font-medium text-muted-foreground">{FUEL_LABEL[fuel]}</p>
       <div className="mt-1 flex flex-wrap items-baseline gap-x-2 gap-y-1">
@@ -157,7 +157,7 @@ export function StationInfoCard({
   ].filter((facility) => facility.enabled);
 
   return (
-    <section className="rounded-xl border border-border bg-card p-3.5 text-sm shadow-[var(--shadow-sm)] md:p-4">
+    <section className="rounded-xl border border-border bg-card p-3.5 text-sm shadow-route-sm md:p-4">
       <dl className="space-y-2">
         <div className="grid min-h-7 grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3">
           <dt className="font-medium text-muted-foreground">브랜드</dt>

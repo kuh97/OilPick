@@ -246,7 +246,7 @@ export function HomeMap({
           {origin && destination && (
             <Polyline
               path={[origin, destination]}
-              strokeColor="#9CA3AF"
+              strokeColor={PIN_COLOR.baseRoute}
               strokeWeight={3}
               strokeStyle="shortdash"
             />
@@ -279,8 +279,8 @@ export function HomeMap({
                 }
                 className="relative flex size-4 items-center justify-center"
               >
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-blue-500 opacity-75" />
-                <span className="relative inline-flex size-3 rounded-full border-2 border-white bg-blue-500" />
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-route-blue opacity-75" />
+                <span className="relative inline-flex size-3 rounded-full border-2 border-white bg-route-blue" />
               </button>
             </CustomOverlayMap>
           )}

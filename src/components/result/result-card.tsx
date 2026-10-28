@@ -44,7 +44,7 @@ export function ResultCard({
   return (
     <Link
       href={`/station/${candidate.id}`}
-      className="block rounded-xl border border-border bg-card p-3.5 shadow-[var(--shadow-sm)] transition-all hover:shadow-[var(--shadow-md)] active:scale-[0.98]"
+      className="block rounded-xl border border-border bg-card p-3.5 shadow-route-sm transition-all hover:shadow-route-md active:scale-[0.98]"
     >
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">

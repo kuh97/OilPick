@@ -74,7 +74,7 @@ function SearchRouteSummary({
   return (
     <section
       aria-label="검색 경로"
-      className="overflow-hidden rounded-2xl border border-blue-100 bg-blue-50/60"
+      className="overflow-hidden rounded-2xl border border-route-sky bg-route-sky/60"
     >
       <div className="grid grid-cols-[2rem_minmax(0,1fr)_auto] grid-rows-2 items-center gap-y-1.5 px-4 py-3">
         <div className="relative row-span-2 grid grid-rows-subgrid items-center justify-items-center self-stretch">
@@ -148,7 +148,7 @@ function DesktopSearchContext({
   return (
     <section
       aria-label="검색 경로 및 계산 기준"
-      className="overflow-hidden rounded-2xl border border-blue-100 bg-blue-50/60 p-5"
+      className="overflow-hidden rounded-2xl border border-route-sky bg-route-sky/60 p-5"
     >
       <h2 className="text-lg font-semibold text-foreground">검색 경로</h2>
 
@@ -183,7 +183,7 @@ function DesktopSearchContext({
         )}
       </div>
 
-      <div className="my-5 border-t border-blue-100" />
+      <div className="my-5 border-t border-route-sky" />
 
       <CalcAssumptionsFooter
         className="border-0 px-0 py-0"

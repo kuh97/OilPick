@@ -4,11 +4,15 @@
  * 라벨은 핀 안에 바로 박아 넣어 화면을 덜 차지한다.
  */
 
-// docs/DESIGN.md §2 색상 토큰과 통일 — origin은 Product primary, destination은 Danger.
+// CSS를 해석하지 않는 Kakao SDK/SVG data URI 경계용 구체 색상이다.
+// 화면 UI는 src/app/globals.css의 Route Atlas semantic token을 사용한다.
 export const PIN_COLOR = {
-  origin: "#3182f6", // Product primary — 출발
-  destination: "#e42939", // Danger — 도착
-  waypoint: "#F59E0B", // amber-500 — 경유 (문서에 없는 확장 색)
+  origin: "#3182f6", // Route Blue — 출발
+  destination: "#d92d20", // Danger — 도착
+  waypoint: "#b26a00", // Route Amber — 경유
+  baseRoute: "#829ab1", // Text Muted — 기본 경로
+  viaRoute: "#3182f6", // Route Blue — 경유 경로
+  selection: "#177ddc", // Route Strong — 선택 경로
 } as const;
 
 export const PIN_SIZE = { width: 32, height: 40 };

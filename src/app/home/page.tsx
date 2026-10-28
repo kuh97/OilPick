@@ -132,7 +132,7 @@ export default function HomePage() {
 
       <div className="grid gap-0 md:grid-cols-[minmax(320px,380px)_minmax(0,1fr)] md:items-start md:gap-6">
         <div className="order-last flex flex-col gap-4 md:order-none">
-          <section className="flex flex-col gap-4 rounded-b-2xl border border-t-0 border-border bg-card px-3.5 py-3 md:rounded-xl md:border md:p-5 md:shadow-[var(--shadow-sm)]">
+          <section className="flex flex-col gap-4 rounded-b-2xl border border-t-0 border-border bg-card px-3.5 py-3 md:rounded-xl md:border md:p-5 md:shadow-route-sm">
             <div className="flex flex-col gap-3">
               <div className="grid grid-cols-[minmax(0,1fr)_2rem] gap-2">
                 <div className="relative overflow-visible rounded-lg border border-input bg-background">
@@ -241,7 +241,7 @@ export default function HomePage() {
 
           <Link
             href="/nearby"
-            className="flex min-h-11 items-center justify-between gap-3 rounded-xl border border-border bg-card px-3.5 py-3 text-left shadow-[var(--shadow-sm)] transition-colors hover:bg-muted active:scale-[0.99]"
+            className="flex min-h-11 items-center justify-between gap-3 rounded-xl border border-border bg-card px-3.5 py-3 text-left shadow-route-sm transition-colors hover:bg-muted active:scale-[0.99]"
           >
             <span className="flex min-w-0 items-start gap-2.5">
               <MapPinned
@@ -295,7 +295,7 @@ export default function HomePage() {
           )}
         </div>
 
-        <section className="order-first rounded-t-2xl border border-b-0 border-border bg-card p-3 md:order-none md:sticky md:top-6 md:rounded-xl md:border md:shadow-[var(--shadow-sm)]">
+        <section className="order-first rounded-t-2xl border border-b-0 border-border bg-card p-3 md:order-none md:sticky md:top-6 md:rounded-xl md:border md:shadow-route-sm">
           <HomeMap
             origin={origin}
             destination={destination}

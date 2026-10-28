@@ -93,10 +93,10 @@ export function RouteMap({
         onCreate={setMap}
       >
         {baseRoutePolyline.length > 0 && (
-          <Polyline path={baseRoutePolyline} strokeColor="#9CA3AF" strokeWeight={4} strokeOpacity={0.8} />
+          <Polyline path={baseRoutePolyline} strokeColor={PIN_COLOR.baseRoute} strokeWeight={4} strokeOpacity={0.8} />
         )}
         {viaRoutePolyline && viaRoutePolyline.length > 0 && (
-          <Polyline path={viaRoutePolyline} strokeColor="#3182f6" strokeWeight={5} />
+          <Polyline path={viaRoutePolyline} strokeColor={PIN_COLOR.viaRoute} strokeWeight={5} />
         )}
         {origin && <MapMarker position={origin} image={labelPinImage("출발", PIN_COLOR.origin)} />}
         {destination && <MapMarker position={destination} image={labelPinImage("도착", PIN_COLOR.destination)} />}

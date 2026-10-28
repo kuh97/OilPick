@@ -14,6 +14,7 @@ import {
 import { LocateFixed } from "lucide-react";
 import type { WireNearbyStation } from "@/app/api/_lib/types";
 import type { NearbyPoint } from "@/lib/api/useNearbyStations";
+import { PIN_COLOR } from "@/lib/map-pin";
 import { cn } from "@/lib/utils";
 
 const DEFAULT_MAP_LEVEL = 5;
@@ -70,9 +71,9 @@ function StationPriceMarker({
           event.stopPropagation();
           onSelect();
         }}
-        className={`relative flex items-center rounded-full border-2 border-white px-2 py-1 text-xs font-bold text-primary-foreground shadow-[var(--shadow-md)] transition-transform ${
+        className={`relative flex items-center rounded-full border-2 border-white px-2 py-1 text-xs font-bold text-primary-foreground shadow-route-md transition-transform ${
           selected
-            ? "scale-110 bg-[#2272eb] ring-2 ring-primary ring-offset-1"
+            ? "scale-110 bg-route-strong ring-2 ring-primary ring-offset-1"
             : "bg-primary"
         }`}
       >
@@ -195,7 +196,7 @@ export function NearbyMap({
               currentLocation,
               { lat: selectedStation.lat, lng: selectedStation.lng },
             ]}
-            strokeColor="#2272EB"
+            strokeColor={PIN_COLOR.selection}
             strokeWeight={4}
             strokeOpacity={0.85}
             strokeStyle="dot"
@@ -208,8 +209,8 @@ export function NearbyMap({
             aria-label="현재 위치"
             className="relative flex size-5 items-center justify-center"
           >
-            <span className="absolute inline-flex size-5 animate-ping rounded-full bg-blue-500 opacity-40" />
-            <span className="relative size-3 rounded-full border-2 border-white bg-blue-500 shadow-sm" />
+            <span className="absolute inline-flex size-5 animate-ping rounded-full bg-route-blue opacity-40" />
+            <span className="relative size-3 rounded-full border-2 border-white bg-route-blue shadow-route-sm" />
           </div>
         </CustomOverlayMap>
 
@@ -227,7 +228,7 @@ export function NearbyMap({
         <button
           type="button"
           onClick={searchAtMapCenter}
-          className="absolute bottom-3 left-1/2 z-10 -translate-x-1/2 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-[var(--shadow-md)] transition-transform active:scale-95"
+          className="absolute bottom-3 left-1/2 z-10 -translate-x-1/2 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-route-md transition-transform active:scale-95"
         >
           이 위치에서 다시 찾기
         </button>
@@ -237,7 +238,7 @@ export function NearbyMap({
         type="button"
         aria-label="내 위치로 돌아가기"
         onClick={recenterMap}
-        className="absolute bottom-3 right-3 z-10 flex size-10 items-center justify-center rounded-full border border-border bg-background text-foreground shadow-[var(--shadow-md)] transition-colors hover:bg-muted active:scale-95"
+        className="absolute bottom-3 right-3 z-10 flex size-10 items-center justify-center rounded-full border border-border bg-background text-foreground shadow-route-md transition-colors hover:bg-muted active:scale-95"
       >
         <LocateFixed className="size-5" aria-hidden="true" />
       </button>
