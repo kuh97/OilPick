@@ -411,11 +411,8 @@ export async function search(
   const findProbes =
     deps.findNearestRoadLinkProbes ?? findNearestRoadLinkProbes;
   internal = await classifyAccessDirections(internal, db, findProbes);
-  // 진입 링크가 모든 경우를 설명하지는 못하므로 UNKNOWN은 보존하고,
-  // 가장 가까운 링크가 명백히 반대 방향인 후보만 검색 단계에서 제외한다.
-  internal = internal.filter(
-    (item) => item.accessDirection !== "OPPOSITE_DIRECTION",
-  );
+  // 반대 방향 링크는 경로상으로 승격하지 않지만, 실제 우회 경로가
+  // 가능할 수 있으므로 STAGE 2 후보로 보존한다.
   const onRoute = dedupeByStation(
     internal.filter((item) => item.tier === "ON_ROUTE"),
   );

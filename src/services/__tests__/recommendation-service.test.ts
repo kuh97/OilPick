@@ -145,7 +145,7 @@ describe("search — 표준 링크 방향 필터", () => {
     expect(result.candidates[0].detour.precise).toBe(false);
   });
 
-  it("명백히 반대 방향인 링크 후보를 제외한다", async () => {
+  it("경로상 후보가 있으면 반대 방향 후보를 STAGE 1에 섞지 않는다", async () => {
     findRoadLinkProbesMock.mockImplementation(async (points) =>
       points.map((point: { stationId: string }) => ({
         stationId: point.stationId,
@@ -164,6 +164,27 @@ describe("search — 표준 링크 방향 필터", () => {
 
     expect(result.stage).toBe("ON_ROUTE");
     expect(result.candidates.map((candidate) => candidate.station.id)).toEqual(["SAME"]);
+  });
+
+  it("경로상 후보가 없으면 반대 방향 후보도 STAGE 2 우회 후보로 보존한다", async () => {
+    setRoadProbes(["OPPOSITE"], -Math.PI / 2);
+    collectStationsMock.mockResolvedValue({
+      stations: [
+        collected({
+          id: "OPPOSITE",
+          location: wgs84(37.05, 127.15),
+          price: 1400,
+        }),
+      ],
+    });
+
+    const result = await search(baseInput(), undefined, FAKE_DEPS);
+
+    expect(result.stage).toBe("DETOUR");
+    expect(result.candidates.map((candidate) => candidate.station.id)).toEqual([
+      "OPPOSITE",
+    ]);
+    expect(result.candidates[0].tier).toBe("DETOUR");
   });
 
   it("링크를 못 찾은 후보는 UNKNOWN으로 보존하고, 같은 방향 후보가 없을 때만 우회로 구성한다", async () => {
