@@ -7,16 +7,8 @@
  * (제품 결정 — 날짜 자체가 정보이므로 별도 낙인 문구 없이 사실만 보여준다).
  */
 import Link from "next/link";
-import { ChevronRight, Droplets, Info, PiggyBank, Store, Wrench } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+import { ChevronRight, Droplets, PiggyBank, Store, Wrench } from "lucide-react";
+import { NetSavingDialog } from "./net-saving-dialog";
 import { TierBadge } from "./tier-badge";
 import type { WireCandidate, WireVehicle } from "@/app/api/_lib/types";
 
@@ -33,12 +25,6 @@ function formatPriceTime(iso: string | null): string {
   const m = String(date.getUTCMonth() + 1).padStart(2, "0");
   const d = String(date.getUTCDate()).padStart(2, "0");
   return `${y}-${m}-${d} 기준`;
-}
-
-function formatSignedWon(amountWon: number): string {
-  if (amountWon === 0) return "0원";
-  const sign = amountWon > 0 ? "+" : "-";
-  return `${sign}${Math.abs(amountWon).toLocaleString()}원`;
 }
 
 export function ResultCard({
@@ -80,132 +66,79 @@ export function ResultCard({
         : "text-text-muted";
 
   return (
-    <Dialog>
-      <div className="group relative overflow-hidden rounded-card border border-route-strong/20 bg-surface shadow-route-sm transition-all hover:border-route-cyan hover:shadow-route-md">
-        <Link
-          href={`/station/${candidate.id}`}
-          aria-label={`${candidate.name} 상세 보기`}
-          className="absolute inset-0 z-0 rounded-card focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-route-strong/30"
-        >
-          <span className="sr-only">{candidate.name} 상세 보기</span>
-        </Link>
+    <div className="group relative overflow-hidden rounded-card border border-route-strong/20 bg-surface shadow-route-sm transition-all hover:border-route-cyan hover:shadow-route-md">
+      <Link
+        href={`/station/${candidate.id}`}
+        aria-label={`${candidate.name} 상세 보기`}
+        className="absolute inset-0 z-0 rounded-card focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-route-strong/30"
+      >
+        <span className="sr-only">{candidate.name} 상세 보기</span>
+      </Link>
 
-        <div className="relative z-10 pointer-events-none p-3.5">
-          <div className="flex items-center gap-3">
-            <span className="flex size-8 shrink-0 items-center justify-center rounded-control bg-route-sky font-route text-sm font-semibold text-route-strong">
-              {rank}
-            </span>
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <TierBadge tier={candidate.tier} />
-                <span className="min-w-0 truncate text-base font-semibold text-text-strong">
-                  {candidate.name}
-                </span>
-              </div>
+      <div className="relative z-10 pointer-events-none p-3.5">
+        <div className="flex items-center gap-3">
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-control bg-route-sky font-route text-sm font-semibold text-route-strong">
+            {rank}
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <TierBadge tier={candidate.tier} />
+              <span className="min-w-0 truncate text-base font-semibold text-text-strong">
+                {candidate.name}
+              </span>
             </div>
-          </div>
-
-          <div className="mt-3 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-            <p className="font-route text-2xl font-bold tracking-tight text-text-strong">
-              {candidate.price.toLocaleString()}원/L
-            </p>
-            <div className={`flex items-center gap-1 font-route text-sm font-semibold ${netSavingClassName}`}>
-              <span>{netSavingLabel}</span>
-              <DialogTrigger
-                render={
-                  <Button
-                    variant="ghost"
-                    size="icon-xs"
-                    className="pointer-events-auto text-text-body hover:bg-route-sky hover:text-route-strong"
-                    aria-label="절약액 계산 방법"
-                    title="절약액 계산 방법"
-                  />
-                }
-              >
-                <Info className="size-3.5" aria-hidden />
-              </DialogTrigger>
-            </div>
-          </div>
-
-          {perLiterDiff != null && (
-            <p className={`mt-1 flex items-center gap-1 text-sm ${priceDiffClassName}`}>
-              <PiggyBank className="size-3.5" aria-hidden />
-              {perLiterDiff > 0 ? (
-                <span className="font-medium">평균보다 리터당 {perLiterDiff.toLocaleString()}원 저렴</span>
-              ) : perLiterDiff === 0 ? (
-                <span>평균가</span>
-              ) : (
-                <span>평균보다 리터당 {Math.abs(perLiterDiff).toLocaleString()}원 비쌈</span>
-              )}
-            </p>
-          )}
-
-          {activeFacilities.length > 0 && (
-            <p className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-sm text-text-body">
-              {activeFacilities.map(({ key, Icon, label }) => (
-                <span key={key} className="flex items-center gap-1">
-                  <Icon className="size-3.5" aria-hidden />
-                  {label}
-                </span>
-              ))}
-            </p>
-          )}
-
-          <div className="mt-2 flex items-center justify-between border-t border-route-strong/15 pt-2">
-            <span className="text-xs text-text-body">{priceTimeText}</span>
-            <span className="flex items-center gap-0.5 text-sm font-semibold text-route-strong">
-              상세
-              <ChevronRight className="size-3.5" aria-hidden />
-            </span>
           </div>
         </div>
-      </div>
 
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>절약액 계산 방법</DialogTitle>
-          <DialogDescription>
-            기준가 대비 주유비에서 우회 연료비를 뺀 금액이에요.
-          </DialogDescription>
-        </DialogHeader>
-
-        {priceSavingWon == null ? (
-          <p className="text-sm text-text-body">
-            기준가를 계산할 수 없어 절약액을 산출하지 않았어요.
+        <div className="mt-3 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+          <p className="font-route text-2xl font-bold tracking-tight text-text-strong">
+            {candidate.price.toLocaleString()}원/L
           </p>
-        ) : (
-          <>
-            <div className="space-y-2 rounded-control bg-route-sky/60 p-3 text-sm">
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-text-body">기준가 대비 주유비</span>
-                <span className="font-route font-semibold text-text-strong">
-                  {formatSignedWon(priceSavingWon)}
-                </span>
-              </div>
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-text-body">우회 연료비</span>
-                <span className="font-route font-semibold text-text-strong">
-                  {detourFuelCostWon > 0
-                    ? `-${detourFuelCostWon.toLocaleString()}원`
-                    : "0원"}
-                </span>
-              </div>
-              <div className="flex items-center justify-between gap-3 border-t border-route-strong/15 pt-2">
-                <span className="font-semibold text-text-strong">최종 금액</span>
-                <span className={`font-route font-bold ${netSavingClassName}`}>
-                  {netSavingLabel}
-                </span>
-              </div>
-            </div>
-            <p className="text-xs leading-5 text-text-body">
-              <span className="block">
-                예상 우회거리 기준으로 계산하며, 시간·통행료는 포함하지 않아요.
-              </span>
-              <span className="mt-1 block">상세에서 실제 경로 기준으로 다시 계산해요.</span>
-            </p>
-          </>
+          <div className={`flex items-center gap-0 font-route text-sm font-semibold ${netSavingClassName}`}>
+            <span>{netSavingLabel}</span>
+            <NetSavingDialog
+              netSavingWon={candidate.netSaving}
+              priceSavingWon={priceSavingWon}
+              detourFuelCostWon={detourFuelCostWon}
+              finalLabel={netSavingLabel}
+              dialogTitle="절약액 계산 방법"
+              unavailableMessage="기준가를 계산할 수 없어 절약액을 산출하지 않았어요."
+            />
+          </div>
+        </div>
+
+        {perLiterDiff != null && (
+          <p className={`mt-1 flex items-center gap-1 text-sm ${priceDiffClassName}`}>
+            <PiggyBank className="size-3.5" aria-hidden />
+            {perLiterDiff > 0 ? (
+              <span className="font-medium">평균보다 리터당 {perLiterDiff.toLocaleString()}원 저렴</span>
+            ) : perLiterDiff === 0 ? (
+              <span>평균가</span>
+            ) : (
+              <span>평균보다 리터당 {Math.abs(perLiterDiff).toLocaleString()}원 비쌈</span>
+            )}
+          </p>
         )}
-      </DialogContent>
-    </Dialog>
+
+        {activeFacilities.length > 0 && (
+          <p className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-sm text-text-body">
+            {activeFacilities.map(({ key, Icon, label }) => (
+              <span key={key} className="flex items-center gap-1">
+                <Icon className="size-3.5" aria-hidden />
+                {label}
+              </span>
+            ))}
+          </p>
+        )}
+
+        <div className="mt-2 flex items-center justify-between border-t border-route-strong/15 pt-2">
+          <span className="text-xs text-text-body">{priceTimeText}</span>
+          <span className="flex items-center gap-0.5 text-sm font-semibold text-route-strong">
+            상세
+            <ChevronRight className="size-3.5" aria-hidden />
+          </span>
+        </div>
+      </div>
+    </div>
   );
 }

@@ -11,7 +11,13 @@ import { Info } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import type { Fuel, WireExpansion } from "@/app/api/_lib/types";
 
-export function ExpansionBanner({ expansion, fuel }: { expansion: WireExpansion; fuel: Fuel }) {
+export function ExpansionBanner({
+  expansion,
+  fuel,
+}: {
+  expansion: WireExpansion;
+  fuel: Fuel;
+}) {
   if (!expansion.triggered) return null;
 
   const stationWord = fuel === "LPG" ? "충전소" : "주유소";
@@ -19,12 +25,12 @@ export function ExpansionBanner({ expansion, fuel }: { expansion: WireExpansion;
 
   return (
     <Alert
-      variant="info"
-      className="rounded-card border border-route-strong/25 border-l-4 border-l-route-amber bg-route-sky"
+      variant="default"
+      className="rounded-card border border-border bg-surface-quiet/70 text-text-body"
     >
-      <Info aria-hidden />
-      <AlertDescription className="text-info-foreground">
-        경로 주변에서 조건에 맞는 {stationWord}를 충분히 찾지 못해 {km}km까지 넓혀 찾았어요.
+      <Info className="size-4 text-text-muted" aria-hidden />
+      <AlertDescription className="text-xs leading-5 text-text-body">
+        경로 주변에 조건에 맞는 {stationWord}가 적어 {km}km까지 넓혀 찾았어요.
       </AlertDescription>
     </Alert>
   );

@@ -3,6 +3,10 @@
 import { useIsMobile } from "@/lib/use-is-mobile";
 import { RouteMap } from "@/components/route-map";
 import { Lightbulb } from "lucide-react";
+import {
+  NetSavingDialog,
+  formatSignedWon,
+} from "@/components/result/net-saving-dialog";
 import { distanceMToKm, durationSToMin } from "@/domain/pricing";
 import { buildReason } from "@/domain/reason";
 import {
@@ -46,13 +50,13 @@ function reportNaviClick(event: NaviEvent) {
 
 function RouteLegend() {
   return (
-    <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+    <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-text-body">
       <span className="flex items-center gap-1.5">
-        <span className="h-0.5 w-4 bg-muted-foreground" aria-hidden />
+        <span className="h-0.5 w-4 rounded-full bg-text-muted" aria-hidden />
         기본 경로
       </span>
       <span className="flex items-center gap-1.5">
-        <span className="h-0.5 w-4 bg-primary" aria-hidden />
+        <span className="h-0.5 w-4 rounded-full bg-route-blue" aria-hidden />
         경유 경로
       </span>
     </div>
@@ -82,6 +86,13 @@ export function RouteStationDetail({
   const distanceM = detour?.distanceM ?? candidate.detour.distanceM;
   const durationS = detour?.durationS ?? candidate.detour.durationS;
   const netSavingValue = detour?.netSaving ?? candidate.netSaving;
+  const priceSavingWon =
+    result.referencePrice != null
+      ? Math.round((result.referencePrice - candidate.price) * vehicle.refuelAmount)
+      : null;
+  const detourFuelCostWon = Math.round(
+    (distanceM / 1000 / vehicle.efficiency) * candidate.price,
+  );
   const selectedBaseRoute =
     result.baseRoutes?.find(
       ({ priority }) => priority === (candidate.routePriority ?? "RECOMMEND"),
@@ -158,7 +169,7 @@ export function RouteStationDetail({
   }
 
   return (
-    <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-1 px-4 py-6 md:max-w-6xl md:gap-6 md:px-8 md:py-8">
+    <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-2 px-4 py-6 md:max-w-6xl md:gap-6 md:px-8 md:py-8">
       <StationDetailHeader
         backHref="/result"
         backLabel="검색 결과"
@@ -170,69 +181,81 @@ export function RouteStationDetail({
         destinationName={destination.name}
       />
 
-      <div className="md:grid md:grid-cols-[minmax(0,1fr)_minmax(340px,360px)] md:grid-rows-[auto_1fr] md:items-start md:gap-6">
-        <div className="mb-4 md:col-start-1 md:row-start-1 md:mb-0">
-          <StationDetailTitle stationName={candidate.name} tier={candidate.tier} />
+      <div className="grid gap-5 md:grid-cols-[minmax(0,1fr)_minmax(340px,360px)] md:grid-rows-[auto_1fr] md:items-start md:gap-6">
+        <div className="md:col-start-1 md:row-start-1">
+          <StationDetailTitle
+            stationName={candidate.name}
+            tier={candidate.tier}
+          />
         </div>
 
-        <section className="md:col-start-1 md:row-start-2 md:sticky md:top-6">
-          <RouteMap
-            baseRoutePolyline={selectedBaseRoute.polyline}
-            viaRoutePolyline={detour?.polyline}
-            station={{ lat: candidate.lat, lng: candidate.lng }}
-            origin={origin}
-            destination={destination}
-            className="md:h-[clamp(460px,42vw,600px)]"
-          />
-          <div>
+        <div className="md:col-start-1 md:row-start-2 md:sticky md:top-6">
+          <section className="overflow-hidden rounded-card border border-route-strong/15 bg-surface shadow-route-sm">
+            <RouteMap
+              baseRoutePolyline={selectedBaseRoute.polyline}
+              viaRoutePolyline={detour?.polyline}
+              station={{ lat: candidate.lat, lng: candidate.lng }}
+              origin={origin}
+              destination={destination}
+              className="md:h-[clamp(460px,42vw,600px)]"
+            />
+          </section>
+          <div className="mt-2 px-1 pt-1">
             <RouteLegend />
           </div>
-        </section>
+        </div>
 
-        <div className="mt-4 flex flex-col gap-4 md:col-start-2 md:row-start-2 md:mt-0">
-          <section className="flex flex-col gap-1 rounded-xl border border-route-sky bg-route-sky/60 p-3.5 md:p-4">
-            <h2 className="flex items-center gap-1.5 text-sm font-semibold">
-              <Lightbulb className="size-4 text-primary" aria-hidden />
+        <div className="mt-0 flex flex-col gap-5 md:col-start-2 md:row-start-2 md:mt-0 md:gap-6">
+          <section className="flex flex-col gap-1 rounded-card border border-route-strong/35 bg-surface p-4 shadow-route-md md:p-5">
+            <h2 className="flex items-center gap-1.5 text-sm font-semibold text-text-strong">
+              <Lightbulb className="size-4 text-route-strong" aria-hidden />
               추천 이유
             </h2>
-            <p className="text-sm">{reason}</p>
-            <dl className="mt-3 space-y-1.5 text-sm">
-              <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 border-t border-route-sky pt-3">
-                <dt className="text-muted-foreground">가격</dt>
-                <dd className="text-right">
+            <p className="mt-1 text-sm leading-6 text-text-strong">{reason}</p>
+            <dl className="mt-3 divide-y divide-route-strong/15 text-sm">
+              <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 py-2 first:pt-0">
+                <dt className="text-text-body">가격</dt>
+                <dd className="text-right text-text-strong">
                   검색 후보 중 {priceRankAmongAll}번째로 저렴
                 </dd>
               </div>
-              <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3">
-                <dt className="text-muted-foreground">우회</dt>
-                <dd className="text-right md:tabular-nums">
+              <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 py-2">
+                <dt className="text-text-body">우회</dt>
+                <dd className="text-right text-text-strong md:tabular-nums">
                   {!precise && "약 "}+{distanceMToKm(distanceM)}km · +
                   {durationSToMin(durationS)}분
                 </dd>
               </div>
               {totalTollWon != null && totalTollWon > 0 && (
-                <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3">
+                <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 py-2">
                   {/* 정보 표시 전용 — 순이득엔 미반영 */}
-                  <dt className="text-muted-foreground">통행료</dt>
-                  <dd className="text-right text-muted-foreground md:tabular-nums">
+                  <dt className="text-text-body">통행료</dt>
+                  <dd className="text-right text-text-body md:tabular-nums">
                     {totalTollWon.toLocaleString()}원
                     {additionalTollWon! > 0 &&
                       ` (우회로 +${additionalTollWon!.toLocaleString()}원)`}
                   </dd>
                 </div>
               )}
-              <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3">
-                <dt className="text-muted-foreground">예상 순이득</dt>
+              <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 py-2 last:pb-0">
+                <dt className="text-text-body">예상 순이득</dt>
                 <dd
                   className={
                     netSavingValue > 0
-                      ? "text-right font-medium text-success-foreground md:tabular-nums"
-                      : "text-right text-muted-foreground md:tabular-nums"
+                      ? "flex items-center justify-end gap-0 text-right font-semibold text-success-foreground md:tabular-nums"
+                      : "flex items-center justify-end gap-0 text-right text-text-body md:tabular-nums"
                   }
                 >
-                  {netSavingValue > 0
-                    ? `+${netSavingValue.toLocaleString()}원`
-                    : `${netSavingValue.toLocaleString()}원`}
+                  <span>{formatSignedWon(netSavingValue)}</span>
+                  <NetSavingDialog
+                    netSavingWon={netSavingValue}
+                    priceSavingWon={priceSavingWon}
+                    detourFuelCostWon={detourFuelCostWon}
+                    finalLabel={formatSignedWon(netSavingValue)}
+                    dialogTitle="예상 순이득 계산 방법"
+                    unavailableMessage="기준가를 계산할 수 없어 순이득을 산출하지 않았어요."
+                    calculationNote="상세에서 실제 경로 기준으로 다시 계산했어요."
+                  />
                 </dd>
               </div>
             </dl>

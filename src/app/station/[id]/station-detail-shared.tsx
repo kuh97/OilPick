@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import { toast } from "sonner";
 import {
+  Copy,
   Droplets,
   Info,
   PhoneCall,
@@ -66,10 +68,14 @@ export function StationDetailHeader({
   destinationName?: string;
 }) {
   return (
-    <header>
-      <div className="flex items-center justify-between">
-        <Link href={backHref} className="text-sm text-muted-foreground">
-          ← {backLabel}
+    <header className="flex flex-col gap-1">
+      <div className="flex items-center justify-between gap-2">
+        <Link
+          href={backHref}
+          className="min-w-0 truncate text-sm text-text-body transition-colors hover:text-route-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route-blue/50"
+        >
+          <span aria-hidden>← </span>
+          {backLabel}
         </Link>
         <HelpDrawer
           stationId={stationId}
@@ -92,10 +98,36 @@ export function StationDetailTitle({
   tier?: Tier;
 }) {
   return (
-    <h1 className="flex flex-wrap items-center gap-2 text-xl font-bold">
+    <h1 className="flex flex-wrap items-center gap-2 text-xl font-bold tracking-tight text-text-strong md:text-2xl">
       <span>{stationName}</span>
       {tier && <TierBadge tier={tier} />}
     </h1>
+  );
+}
+
+function CopyAddressButton({ address }: { address: string }) {
+  async function handleCopy() {
+    if (!navigator.clipboard) return;
+
+    try {
+      await navigator.clipboard.writeText(address);
+      toast("복사되었습니다.", { duration: 1600 });
+    } catch {
+      // 브라우저가 클립보드 권한을 거부하면 조용히 종료한다.
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      aria-label="주소 복사"
+      title="주소 복사"
+      onClick={() => void handleCopy()}
+      className="inline-flex h-7 shrink-0 items-center gap-1 rounded-control-sm border border-border bg-surface px-2 text-xs font-medium text-text-body transition-colors hover:border-route-strong hover:bg-route-sky hover:text-route-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route-blue/50"
+    >
+      <Copy className="size-3.5" aria-hidden />
+      <span>복사</span>
+    </button>
   );
 }
 
@@ -113,24 +145,24 @@ export function StationPriceCard({
   estimatedTotalWon?: number | null;
 }) {
   return (
-    <section className="rounded-xl border border-border bg-card p-3.5 shadow-route-sm md:p-4">
+    <section className="rounded-card border border-route-strong/15 bg-surface p-4 shadow-route-sm md:p-5">
       <h2 className="sr-only">가격</h2>
-      <p className="text-xs font-medium text-muted-foreground">{FUEL_LABEL[fuel]}</p>
+      <p className="text-xs font-semibold text-text-body">{FUEL_LABEL[fuel]}</p>
       <div className="mt-1 flex flex-wrap items-baseline gap-x-2 gap-y-1">
-        <p className="text-2xl font-bold tracking-tight md:tabular-nums">
+        <p className="font-route text-2xl font-bold tracking-tight text-text-strong md:tabular-nums">
           {price != null ? `${price.toLocaleString()}원/L` : "가격 정보 없음"}
         </p>
-        <p className="text-xs text-muted-foreground">
+        <p className="text-xs font-medium text-text-body md:tabular-nums">
           {formatPriceDate(priceUpdatedAt)}
         </p>
       </div>
       {estimatedTotalWon != null && (
-        <p className="mt-1 text-sm text-muted-foreground md:tabular-nums">
+        <p className="mt-2 text-sm text-text-body md:tabular-nums">
           {refuelAmountL}L 주유 시 예상 {estimatedTotalWon.toLocaleString()}원
         </p>
       )}
-      <div className="mt-3 border-t border-border pt-2.5">
-        <p className="flex items-center gap-1.5 break-keep text-xs text-warning-foreground">
+      <div className="mt-4 border-t border-route-strong/15 pt-3">
+        <p className="flex items-center gap-2 break-keep text-xs leading-5 text-warning-foreground">
           <Info className="size-3.5 shrink-0" aria-hidden />
           <span>가격은 실제와 다를 수 있습니다.</span>
         </p>
@@ -157,49 +189,52 @@ export function StationInfoCard({
   ].filter((facility) => facility.enabled);
 
   return (
-    <section className="rounded-xl border border-border bg-card p-3.5 text-sm shadow-route-sm md:p-4">
-      <dl className="space-y-2">
-        <div className="grid min-h-7 grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3">
-          <dt className="font-medium text-muted-foreground">브랜드</dt>
+    <section className="rounded-card border border-route-strong/15 bg-surface p-4 text-sm shadow-route-sm md:p-5">
+      <dl className="divide-y divide-border/70">
+        <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 py-2 first:pt-0">
+          <dt className="font-medium text-text-body">브랜드</dt>
           <dd className="min-w-0 text-right font-medium">{brandName(brand)}</dd>
         </div>
-        <div className="grid min-h-7 grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3">
-          <dt className="font-medium text-muted-foreground">시설</dt>
+        <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 py-2">
+          <dt className="font-medium text-text-body">시설</dt>
           <dd className="flex min-w-0 flex-wrap items-center justify-end gap-1.5">
             {facilityItems.length > 0 ? (
               facilityItems.map(({ icon: Icon, label }) => (
                 <span
                   key={label}
-                  className="inline-flex h-7 items-center gap-1 rounded-full border border-border bg-muted/40 px-2 text-xs font-medium text-muted-foreground"
+                  className="inline-flex h-7 items-center gap-1 rounded-control-sm border border-route-strong/15 bg-surface-quiet px-2 text-xs font-medium text-text-body"
                 >
                   <Icon className="size-3.5" aria-hidden />
                   {label}
                 </span>
               ))
             ) : (
-              <span className="text-muted-foreground">정보 없음</span>
+              <span className="text-text-body">정보 없음</span>
             )}
           </dd>
         </div>
-        <div className="grid min-h-7 grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3">
-          <dt className="font-medium text-muted-foreground">주소</dt>
-          <dd className="min-w-0 break-keep text-right font-medium text-muted-foreground">
-            {address}
+        <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 py-2">
+          <dt className="font-medium text-text-body">주소</dt>
+          <dd className="flex min-w-0 items-center justify-end gap-2">
+            <span className="min-w-0 break-keep text-right font-medium text-text-body">
+              {address}
+            </span>
+            <CopyAddressButton address={address} />
           </dd>
         </div>
-        <div className="grid min-h-7 grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3">
-          <dt className="font-medium text-muted-foreground">전화</dt>
+        <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 py-2 last:pb-0">
+          <dt className="font-medium text-text-body">전화</dt>
           <dd className="min-w-0 text-right">
             {tel ? (
               <a
                 href={`tel:${tel}`}
-                className="inline-flex items-center justify-end gap-1 font-semibold text-primary underline"
+                className="inline-flex items-center justify-end gap-1 font-semibold text-route-strong underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route-blue/50"
               >
                 <PhoneCall className="size-3.5" aria-hidden />
                 {tel}
               </a>
             ) : (
-              <span className="text-muted-foreground">정보 없음</span>
+              <span className="text-text-body">정보 없음</span>
             )}
           </dd>
         </div>
@@ -226,7 +261,7 @@ export function StationNaviButtons({
           key={app}
           variant="outline"
           size="lg"
-          className="gap-2"
+          className="h-12 gap-2 border-route-strong/25 bg-surface text-text-strong hover:border-route-strong hover:bg-route-sky hover:text-text-strong"
           onClick={() => onClick(app, appName)}
         >
           <Image
@@ -248,7 +283,7 @@ function MobileNaviNotes({ isMobile }: { isMobile: boolean | null }) {
   if (!isMobile) return null;
 
   return (
-    <p className="flex items-start justify-center gap-1.5 break-keep text-center text-xs text-muted-foreground">
+    <p className="flex items-start justify-center gap-1.5 break-keep text-center text-xs leading-5 text-text-body">
       <SearchAlert className="size-3.5 shrink-0" aria-hidden />
       <span>TMAP 이용 시 경로는 주유소까지만 안내됩니다.</span>
     </p>

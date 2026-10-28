@@ -192,7 +192,7 @@ export default function NearbyPage() {
   }, [setNearbyOrigin]);
 
   return (
-    <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-4 px-4 py-6 md:max-w-6xl md:gap-6 md:px-8 md:py-8">
+    <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-2 px-4 py-6 md:max-w-6xl md:gap-6 md:px-8 md:py-8">
       <header className="grid grid-cols-[1fr_auto_1fr] items-center">
         <Link
           href="/home"

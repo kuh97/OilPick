@@ -106,7 +106,7 @@ export default function HomePage() {
   }
 
   return (
-    <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-7 px-4 py-7 md:max-w-6xl md:gap-8 md:px-8 md:py-10">
+    <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-2 px-4 py-7 md:max-w-6xl md:gap-8 md:px-8 md:py-10">
       <div className="flex items-center justify-between gap-4">
         <h1 className="flex items-center gap-2">
           <Image src="/icon.svg" width={32} height={32} alt="" aria-hidden />
@@ -138,8 +138,13 @@ export default function HomePage() {
                 <div className="relative overflow-visible rounded-card border border-input bg-surface">
                   <span
                     aria-hidden
-                    className="pointer-events-none absolute bottom-6 left-5 top-6 z-10 border-l border-dashed border-route-cyan/70"
-                  />
+                    className="pointer-events-none absolute left-5 top-[47%] z-10 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-1"
+                  >
+                    <span className="h-1 w-0.5 rounded-full bg-primary" />
+                    <span className="h-1 w-0.5 rounded-full bg-primary" />
+                    <span className="h-1 w-0.5 rounded-full bg-primary" />
+                    <span className="h-1 w-0.5 rounded-full bg-primary" />
+                  </span>
                   <PlaceAutocompleteInput
                     key={`origin-${resetToken}`}
                     label="출발지"

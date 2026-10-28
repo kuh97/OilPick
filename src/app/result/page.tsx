@@ -74,7 +74,7 @@ function SearchRouteSummary({
   return (
     <section
       aria-label="검색 경로"
-      className="overflow-hidden rounded-card border border-route-strong/25 bg-route-sky/40"
+      className="overflow-hidden rounded-card border border-route-strong/20 bg-surface shadow-route-md"
     >
       <div className="grid grid-cols-[2rem_minmax(0,1fr)_auto] grid-rows-2 items-center gap-y-1.5 px-4 py-3">
         <div className="relative row-span-2 grid grid-rows-subgrid items-center justify-items-center self-stretch">
@@ -87,8 +87,8 @@ function SearchRouteSummary({
             className="absolute top-6.5 left-1/2 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-1"
             aria-hidden
           >
-            <span className="h-1 w-0.5 rounded-full bg-route-cyan/80" />
-            <span className="h-1 w-0.5 rounded-full bg-route-cyan/80" />
+            <span className="h-1 w-0.5 rounded-full bg-primary" />
+            <span className="h-1 w-0.5 rounded-full bg-primary" />
           </span>
           <MapPin
             className="size-4 fill-surface text-route-strong"
@@ -148,21 +148,25 @@ function DesktopSearchContext({
   return (
     <section
       aria-label="검색 경로 및 계산 기준"
-      className="overflow-hidden rounded-card border border-route-strong/25 bg-route-sky/40 p-4"
+      className="overflow-hidden rounded-card border border-route-strong/20 bg-surface p-4 shadow-route-md"
     >
       <h2 className="text-base font-semibold text-text-strong">검색 경로</h2>
 
       <div className="mt-3 grid grid-cols-[1.5rem_minmax(0,1fr)] gap-x-3">
         <div className="relative row-span-2 flex flex-col items-center justify-between self-stretch">
-          <span
-            className="absolute top-3 bottom-3 border-l border-dashed border-route-cyan/80"
-            aria-hidden
-          />
           <CircleSmall
             className="relative size-4 fill-surface text-route-strong"
             strokeWidth={2}
             aria-hidden
           />
+          <span
+            className="absolute top-[24.5px] left-1/2 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-1"
+            aria-hidden
+          >
+            <span className="h-1 w-0.5 rounded-full bg-route-strong" />
+            <span className="h-1 w-0.5 rounded-full bg-route-strong" />
+            <span className="h-1 w-0.5 rounded-full bg-route-strong" />
+          </span>
           <MapPin
             className="relative size-4 fill-surface text-route-strong"
             strokeWidth={2}
@@ -331,6 +335,12 @@ export default function ResultPage() {
   const refPriceSource =
     result?.refPriceSource ?? partial?.refPriceSource ?? null;
   const expansion = result?.expansion ?? partial?.expansion ?? null;
+  const timeoutWarnings = (result?.warnings ?? streamWarnings).filter(
+    (warning) => warning.code === "TIMEOUT",
+  );
+  const hasResultNotice = Boolean(
+    expansion?.triggered || timeoutWarnings.length > 0,
+  );
 
   const displayCandidates = useMemo(() => {
     const rawCandidates = result?.candidates ?? partial?.candidates ?? [];
@@ -445,8 +455,8 @@ export default function ResultPage() {
   }
 
   return (
-    <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-5 px-4 py-6 md:max-w-6xl md:gap-6 md:px-8 md:py-8">
-      <header className="flex flex-col gap-1">
+    <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-2 px-4 py-6 md:max-w-6xl md:gap-6 md:px-8 md:py-8">
+      <header className="flex flex-col gap-2">
         <div className="flex items-center justify-between gap-2">
           <Link
             href="/home"
@@ -504,15 +514,18 @@ export default function ResultPage() {
               />
             </aside>
 
-            <section className="flex min-w-0 flex-col gap-5">
+            <section
+              className={`flex min-w-0 flex-col gap-5 ${hasResultNotice ? "" : "pt-4 md:pt-0"}`}
+            >
               {expansion && (
                 <ExpansionBanner expansion={expansion} fuel={fuel} />
               )}
-              {(result?.warnings ?? streamWarnings)
-                .filter((w) => w.code === "TIMEOUT")
-                .map((w, i) => (
-                  <WarningBanner key={`${w.code}-${i}`} warning={w} />
-                ))}
+              {timeoutWarnings.map((warning, index) => (
+                <WarningBanner
+                  key={`${warning.code}-${index}`}
+                  warning={warning}
+                />
+              ))}
 
               <div className="flex flex-col gap-3">
                 <div className="flex items-end justify-between gap-3">
