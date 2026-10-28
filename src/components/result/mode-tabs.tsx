@@ -17,7 +17,7 @@ const MODES: Mode[] = ["balanced", "minCost", "minDistance"];
 
 export function ModeTabs({ value, onChange }: { value: Mode; onChange: (mode: Mode) => void }) {
   return (
-    <div className="flex gap-1 rounded-lg bg-muted p-1" role="tablist" aria-label="기준 모드">
+    <div className="flex min-w-0 flex-1 gap-1 rounded-control bg-surface-quiet p-1" role="tablist" aria-label="기준 모드">
       {MODES.map((mode) => (
         <button
           key={mode}
@@ -26,8 +26,8 @@ export function ModeTabs({ value, onChange }: { value: Mode; onChange: (mode: Mo
           aria-selected={value === mode}
           onClick={() => onChange(mode)}
           className={cn(
-            "flex-1 rounded-md px-1.5 py-1.5 text-center text-xs font-medium whitespace-nowrap transition-colors sm:text-sm",
-            value === mode ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
+            "min-h-10 flex-1 rounded-control-sm px-3 text-center text-sm font-medium whitespace-nowrap transition-colors",
+            value === mode ? "bg-surface text-text-strong shadow-route-sm" : "text-text-body hover:text-text-strong",
           )}
         >
           {MODE_LABEL[mode]}

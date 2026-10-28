@@ -18,7 +18,10 @@ export function ExpansionBanner({ expansion, fuel }: { expansion: WireExpansion;
   const km = (expansion.finalRadiusM / 1000).toFixed(1).replace(/\.0$/, "");
 
   return (
-    <Alert variant="info">
+    <Alert
+      variant="info"
+      className="rounded-card border border-route-strong/25 border-l-4 border-l-route-amber bg-route-sky"
+    >
       <Info aria-hidden />
       <AlertDescription className="text-info-foreground">
         경로 주변에서 조건에 맞는 {stationWord}를 충분히 찾지 못해 {km}km까지 넓혀 찾았어요.

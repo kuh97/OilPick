@@ -74,12 +74,12 @@ function SearchRouteSummary({
   return (
     <section
       aria-label="검색 경로"
-      className="overflow-hidden rounded-2xl border border-route-sky bg-route-sky/60"
+      className="overflow-hidden rounded-card border border-route-strong/25 bg-route-sky/40"
     >
       <div className="grid grid-cols-[2rem_minmax(0,1fr)_auto] grid-rows-2 items-center gap-y-1.5 px-4 py-3">
         <div className="relative row-span-2 grid grid-rows-subgrid items-center justify-items-center self-stretch">
           <CircleSmall
-            className="size-4 fill-background text-primary"
+            className="size-4 fill-surface text-route-strong"
             strokeWidth={2}
             aria-hidden
           />
@@ -87,28 +87,28 @@ function SearchRouteSummary({
             className="absolute top-6.5 left-1/2 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-1"
             aria-hidden
           >
-            <span className="h-1 w-0.5 rounded-full bg-muted-foreground/45" />
-            <span className="h-1 w-0.5 rounded-full bg-muted-foreground/45" />
+            <span className="h-1 w-0.5 rounded-full bg-route-cyan/80" />
+            <span className="h-1 w-0.5 rounded-full bg-route-cyan/80" />
           </span>
           <MapPin
-            className="size-4 fill-background text-primary"
+            className="size-4 fill-surface text-route-strong"
             strokeWidth={2}
             aria-hidden
           />
         </div>
-        <p className="min-w-0 truncate text-sm font-semibold text-foreground">
+        <p className="min-w-0 truncate text-sm font-semibold text-text-strong">
           {origin.name ?? "출발지"}
         </p>
-        <p className="ml-3 text-right text-sm font-semibold text-foreground tabular-nums">
+        <p className="ml-3 text-right text-sm font-semibold text-text-strong tabular-nums">
           약{" "}
           <span className="text-base">
             {distanceMToKm(baseRoute.distanceM)}km
           </span>
         </p>
-        <p className="min-w-0 truncate text-sm font-semibold text-foreground">
+        <p className="min-w-0 truncate text-sm font-semibold text-text-strong">
           {destination.name ?? "목적지"}
         </p>
-        <p className="ml-3 text-right text-sm text-muted-foreground tabular-nums">
+        <p className="ml-3 text-right text-sm text-text-body tabular-nums">
           {durationLabel}
         </p>
       </div>
@@ -148,42 +148,42 @@ function DesktopSearchContext({
   return (
     <section
       aria-label="검색 경로 및 계산 기준"
-      className="overflow-hidden rounded-2xl border border-route-sky bg-route-sky/60 p-5"
+      className="overflow-hidden rounded-card border border-route-strong/25 bg-route-sky/40 p-4"
     >
-      <h2 className="text-lg font-semibold text-foreground">검색 경로</h2>
+      <h2 className="text-base font-semibold text-text-strong">검색 경로</h2>
 
       <div className="mt-3 grid grid-cols-[1.5rem_minmax(0,1fr)] gap-x-3">
         <div className="relative row-span-2 flex flex-col items-center justify-between self-stretch">
           <span
-            className="absolute top-3 bottom-3 border-l border-dashed border-muted-foreground/35"
+            className="absolute top-3 bottom-3 border-l border-dashed border-route-cyan/80"
             aria-hidden
           />
           <CircleSmall
-            className="relative size-4 fill-background text-primary"
+            className="relative size-4 fill-surface text-route-strong"
             strokeWidth={2}
             aria-hidden
           />
           <MapPin
-            className="relative size-4 fill-background text-primary"
+            className="relative size-4 fill-surface text-route-strong"
             strokeWidth={2}
             aria-hidden
           />
         </div>
-        <p className="min-w-0 truncate text-sm font-semibold text-foreground">
+        <p className="min-w-0 truncate text-sm font-semibold text-text-strong">
           {origin.name ?? "출발지"}
         </p>
-        <p className="mt-3 min-w-0 truncate text-sm font-semibold text-foreground">
+        <p className="mt-3 min-w-0 truncate text-sm font-semibold text-text-strong">
           {destination.name ?? "목적지"}
         </p>
         {baseRoute && (
-          <p className="col-start-2 mt-2 text-sm text-muted-foreground tabular-nums">
+          <p className="col-start-2 mt-2 text-sm text-text-body tabular-nums">
             기본 경로 {distanceMToKm(baseRoute.distanceM)}km ·{" "}
             {durationSToMin(baseRoute.durationS)}분
           </p>
         )}
       </div>
 
-      <div className="my-5 border-t border-route-sky" />
+      <div className="my-4 border-t border-route-strong/20" />
 
       <CalcAssumptionsFooter
         className="border-0 px-0 py-0"
@@ -374,7 +374,7 @@ export default function ResultPage() {
   if (!origin || !destination) {
     return (
       <main className="mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-center gap-4 px-4 py-16 text-center">
-        <p className="text-sm text-muted-foreground">
+        <p className="text-sm text-text-body">
           검색 컨텍스트가 없습니다. 홈에서 먼저 검색해주세요.
         </p>
         <Button render={<Link href="/home" />} nativeButton={false}>
@@ -387,7 +387,7 @@ export default function ResultPage() {
   if (error) {
     return (
       <main className="mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-center gap-4 px-4 py-16 text-center">
-        <p className="text-sm text-muted-foreground">{error.message}</p>
+        <p className="text-sm text-text-body">{error.message}</p>
         <div className="flex gap-2">
           <Button
             variant="outline"
@@ -445,12 +445,12 @@ export default function ResultPage() {
   }
 
   return (
-    <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-4 px-4 py-6 md:max-w-6xl md:gap-6 md:px-8 md:py-8">
+    <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-5 px-4 py-6 md:max-w-6xl md:gap-6 md:px-8 md:py-8">
       <header className="flex flex-col gap-1">
         <div className="flex items-center justify-between gap-2">
           <Link
             href="/home"
-            className="min-w-0 truncate text-sm text-muted-foreground"
+            className="min-w-0 truncate text-sm text-text-body transition-colors hover:text-route-strong"
           >
             <span className="md:hidden">← 홈</span>
             <span className="hidden md:inline">← 홈으로</span>
@@ -504,7 +504,7 @@ export default function ResultPage() {
               />
             </aside>
 
-            <section className="flex min-w-0 flex-col gap-4">
+            <section className="flex min-w-0 flex-col gap-5">
               {expansion && (
                 <ExpansionBanner expansion={expansion} fuel={fuel} />
               )}
@@ -514,16 +514,31 @@ export default function ResultPage() {
                   <WarningBanner key={`${w.code}-${i}`} warning={w} />
                 ))}
 
-              <div className="flex items-center justify-between gap-2">
-                <ModeTabs value={mode} onChange={setMode} />
-                {renderFilterSheet()}
+              <div className="flex flex-col gap-3">
+                <div className="flex items-end justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-semibold text-text-body">
+                      검색 결과
+                    </p>
+                    <h1 className="mt-1 text-xl font-bold tracking-tight text-text-strong">
+                      경로에 맞는 주유소
+                    </h1>
+                  </div>
+                  <span className="font-route text-sm tabular-nums text-text-body">
+                    {displayCandidates.length}곳
+                  </span>
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <ModeTabs value={mode} onChange={setMode} />
+                  {renderFilterSheet()}
+                </div>
               </div>
 
               {displayCandidates.length === 0 ? (
-                <div className="flex flex-col items-center gap-3 py-12 text-center">
+                <div className="flex flex-col items-center gap-3 rounded-card border border-dashed border-border bg-surface px-6 py-12 text-center">
                   {hasActiveFilters ? (
                     <>
-                      <p className="text-sm text-muted-foreground">
+                      <p className="text-sm text-text-body">
                         선택하신 필터 조건에 맞는 주유소가 없습니다.
                       </p>
                       <Button
@@ -535,7 +550,7 @@ export default function ResultPage() {
                     </>
                   ) : minutesNeededForOneResult != null ? (
                     <>
-                      <p className="text-sm text-muted-foreground">
+                      <p className="text-sm text-text-body">
                         우회 허용 시간({maxDetourMinutes}분) 안에 드는 주유소가
                         없습니다.
                       </p>
@@ -553,7 +568,7 @@ export default function ResultPage() {
                           늘리기
                         </Button>
                       ) : (
-                        <p className="text-xs text-muted-foreground">
+                        <p className="text-xs text-text-body">
                           허용 시간을 최대({maxDetourCeiling}분)로 늘려도 이
                           경로에는 조건에 맞는 주유소가 없습니다.
                         </p>
@@ -561,7 +576,7 @@ export default function ResultPage() {
                     </>
                   ) : (
                     <>
-                      <p className="text-sm text-muted-foreground">
+                      <p className="text-sm text-text-body">
                         이 경로에서는 조건에 맞는 주유소를 찾지 못했습니다.
                       </p>
                       <div className="flex flex-col gap-2">
@@ -584,13 +599,14 @@ export default function ResultPage() {
                   )}
                 </div>
               ) : (
-                <ul className="flex flex-col gap-2 md:gap-3">
+                <ul className="flex flex-col gap-3 md:gap-4">
                   {displayCandidates.map((c, i) => (
                     <li key={c.id}>
                       <ResultCard
                         rank={i + 1}
                         candidate={c}
                         referencePrice={referencePrice}
+                        vehicle={vehicle}
                       />
                     </li>
                   ))}

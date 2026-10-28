@@ -187,9 +187,9 @@ html[data-mobile-ua] [data-desktop-only] {
   /* Soft semantic fills are used through opacity in components. */
   --info: var(--oilpick-route-sky);
   --info-foreground: var(--oilpick-route-strong);
-  --success: var(--oilpick-success);
+  --success: var(--oilpick-success-soft);
   --success-foreground: var(--oilpick-success);
-  --warning: var(--oilpick-warning);
+  --warning: var(--oilpick-warning-soft);
   --warning-foreground: var(--oilpick-warning);
 }
 
