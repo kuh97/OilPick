@@ -74,4 +74,15 @@ describe("buildReason — 6분기 전부 커버", () => {
     });
     expect(result).toContain("우회하지만");
   });
+
+  it("실측 전 우회 수치는 약으로 구분한다", () => {
+    const result = buildReason({
+      ...BASE,
+      rank: 1,
+      tier: "DETOUR",
+      precise: false,
+      detourDistanceM: 5000,
+    });
+    expect(result).toContain("약 5km");
+  });
 });

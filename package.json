@@ -14,6 +14,7 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "data:import-csv": "tsx --env-file-if-exists=.env.local scripts/import-price-csv.ts",
+    "data:import-nodelink": "tsx --env-file-if-exists=.env.local scripts/import-standard-nodelink.ts",
     "data:download-csv": "tsx --env-file-if-exists=.env.local scripts/download-opinet-csv.ts",
     "data:backfill-details": "tsx --env-file-if-exists=.env.local scripts/backfill-details.ts",
     "verify:coord": "tsx --env-file=.env.local scripts/verify/coord.mts",

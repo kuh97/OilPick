@@ -152,6 +152,11 @@ CSV `상표`는 신규 주유소의 코드 추정에만 씁니다.
 
 `UNI_ID`가 없어 정확 조인이 불가능하고, 커버리지도 42%에 그칩니다. **쓰지 않습니다.**
 
+여기서 말하는 표준데이터는 주유소 시설 목록입니다. 별도로 내려받은 ITS **표준 노드·링크
+데이터**(`MOCT_NODE`, `MOCT_LINK`, `TURNINFO`)는 주유소 조인용이 아니라 도로 방향
+보조 데이터로 사용합니다. 원본에는 주유소 진입구가 없으므로, PostGIS로 가장 가까운
+링크의 방향만 비교하고 명백한 반대 방향 후보를 줄이는 데 그칩니다.
+
 ---
 
 ## 4. 좌표 조달 — 카카오 지오코딩
@@ -229,6 +234,30 @@ CREATE TABLE csv_import_log (
 
 삭제 대상: `sigungu_avg_price` 테이블 · `scripts/sync-sigungu-avg.ts` ·
 `POST /api/cron/sync-sigungu` · `findSigunguAvgPrice` / `findSidoAvgPrice` / `findNationalAvgPrice`.
+
+### 5.4 `road_node`·`road_link`·`road_turn` — 방향 필터 보조 데이터
+
+```sql
+CREATE EXTENSION IF NOT EXISTS postgis;
+CREATE TABLE road_node (
+  node_id TEXT PRIMARY KEY, node_type TEXT NOT NULL, node_name TEXT,
+  turn_p TEXT, updated_date DATE, geometry geometry(Point, 5179) NOT NULL
+);
+CREATE TABLE road_link (
+  link_id TEXT PRIMARY KEY, from_node TEXT NOT NULL, to_node TEXT NOT NULL,
+  geometry geometry(LineString, 5179) NOT NULL
+);
+CREATE TABLE road_turn (
+  node_id TEXT NOT NULL, turn_id INTEGER NOT NULL,
+  start_link TEXT NOT NULL, end_link TEXT NOT NULL,
+  PRIMARY KEY (node_id, turn_id)
+);
+```
+
+원본 SHP/DBF는 저장소에 넣지 않고 `pnpm data:import-nodelink -- <압축 해제 폴더>`로
+적재합니다. 임포터는 `ITRF2000_Central_Belt_60`을 EPSG:5179로 변환하고, 전체 적재는
+`psql COPY`로 수행합니다. `road_link`의 실제 진입구가 없으므로 링크가 3km 이내에 없거나
+판정이 애매한 후보는 검색에서 제거하지 않습니다.
 
 ---
 
@@ -327,7 +356,8 @@ export async function bulkUpsertFromCsv(rows: CsvRow[], db: Db = getDb()) {
 - STEP0 예산 가드 삭제
 - STEP5 확장 게이트 · STEP6 확장 수집 삭제 (회랑 쿼리가 T3까지 한 번에 덮음)
 - STEP7 `P_ref`: `sigungu_avg_price` 조회 → **회랑 후보의 시군구 실제 중앙값**으로 교체
-- STEP9~11 및 정밀 계산(카카오 경유 경로)은 **변경 없음**
+- STEP9~11의 가격·추정 게이트는 유지합니다. 검색 중 후보별 카카오 경유 경로 호출은
+  제거하고, 실제 경유 경로는 주유소 상세 화면의 `/api/detour`에서 호출합니다.
 
 **완료 기준**
 - 검색 1건의 오피넷 호출 = 0 (Redis 예산 카운터가 증가하지 않을 것)
@@ -589,7 +619,7 @@ Phase C까지는 `collectStations`의 구현만 바뀌므로, 이전 구현을 �
 | ⑥ | 시설 필터 의미 | **정보 확인된 곳만 노출** + 배너 명시 | 미확인 주유소를 통과시키면 가서 보면 없을 수 있음 |
 | ⑦ | 지원 유종 | **3종 유지** (휘발유·경유·LPG) | 고급휘발유·등유는 DB 적재만 하고 UI 미노출 |
 | ⑧ | 실패 알림 | **사용자 화면 배너** | 별도 관리 도구 불필요 |
-| ⑨ | 공간 인덱스 | **PostGIS 미사용**, `(lat, lng)` B-tree + bbox | 11,785행 규모에서 불필요한 의존성 |
+| ⑨ | 공간 인덱스 | `refuel_point`는 `(lat, lng)` B-tree + bbox, 도로 링크는 **PostGIS GiST** | 주유소 마스터는 소규모지만 표준 링크 156만 건은 선분 거리·방위각 조회가 필요 |
 
 ---
 

@@ -13,7 +13,8 @@ import { adminFeedback, refuelPoint, refuelPointStaging, csvImportLog } from "./
 import { mapDetailItem, FUEL_TO_PRODCD } from "@/infra/opinet/mapper";
 import type { OpinetDetailItem } from "@/infra/opinet/schema";
 import { wgs84, katec } from "@/domain/types";
-import type { RefuelPoint, EnergyType, Fuel } from "@/domain/types";
+import type { ProjectedPoint, RefuelPoint, EnergyType, Fuel } from "@/domain/types";
+import { T2_MAX } from "@/domain/params";
 
 /** Fuel → refuel_point 가격 컬럼. bbox 조회·시군구/시도/전국 평균 조회가 공유합니다. */
 function priceColumnFor(fuel: Fuel) {
@@ -283,6 +284,57 @@ export async function findRefuelPointRowById(
 ): Promise<RefuelPointRow | undefined> {
   const [row] = await db.select().from(refuelPoint).where(eq(refuelPoint.id, id));
   return row;
+}
+
+export interface RoadLinkProbe {
+  stationId: string;
+  distanceM: number;
+  headingRad: number;
+}
+
+/**
+ * 주유소 중심점에 가장 가까운 표준 링크 하나를 찾습니다.
+ * 진입구 데이터가 없으므로 이 결과는 방향 기반 1차 필터에만 사용하고,
+ * 링크가 없거나 너무 멀면 호출부가 UNKNOWN으로 보존합니다.
+ */
+export async function findNearestRoadLinkProbes(
+  points: ReadonlyArray<{ stationId: string; point: ProjectedPoint }>,
+  db: Db = getDb(),
+): Promise<RoadLinkProbe[]> {
+  if (points.length === 0) return [];
+
+  const values = sql.join(
+    points.map(({ stationId, point }) =>
+      sql`(${stationId}, ${point.x}, ${point.y})`,
+    ),
+    sql`,`,
+  );
+  const rows = await db.execute(sql`
+    WITH station_points(station_id, x, y) AS (
+      VALUES ${values}
+    )
+    SELECT
+      p.station_id,
+      ST_Distance(rl.geometry, point.geom) AS distance_m,
+      ST_Azimuth(ST_StartPoint(rl.geometry), ST_EndPoint(rl.geometry)) AS heading_rad
+    FROM station_points p
+    CROSS JOIN LATERAL (
+      SELECT ST_SetSRID(ST_MakePoint(p.x, p.y), 5179) AS geom
+    ) point
+    CROSS JOIN LATERAL (
+      SELECT geometry
+      FROM road_link
+      WHERE ST_DWithin(geometry, point.geom, ${T2_MAX})
+      ORDER BY geometry <-> point.geom
+      LIMIT 1
+    ) rl
+  `);
+
+  return rows.rows.map((row) => ({
+    stationId: String(row.station_id),
+    distanceM: Number(row.distance_m),
+    headingRad: Number(row.heading_rad),
+  }));
 }
 
 // ─── refuel_point — 유가 CSV 임포트 (docs/MIGRATION-DB.md §6 컬럼 소유권 규칙) ──

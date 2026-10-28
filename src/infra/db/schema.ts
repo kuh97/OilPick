@@ -18,7 +18,13 @@ import {
   jsonb,
   smallint,
   uuid,
+  customType,
+  primaryKey,
 } from "drizzle-orm/pg-core";
+
+const postgisGeometry = customType<{ data: string; driverData: string }>({
+  dataType: () => "geometry",
+});
 
 // ─── refuel_point — 주유소 마스터 (§7.1, docs/MIGRATION-DB.md §5.1) ────────────
 //
@@ -118,6 +124,81 @@ export const csvImportLog = pgTable("csv_import_log", {
   oilRows: integer("oil_rows"),
   lpgRows: integer("lpg_rows"),
   geocoded: integer("geocoded"),
+});
+
+// ─── 표준 노드·링크 — 방향 기반 후보 필터 (§Phase 3) ───────────────────────
+// 원본은 ITRF2000 Central Belt 60이며, import-standard-nodelink.ts가 EPSG:5179로
+// 변환한 EWKT를 적재합니다. 검색 런타임은 geometry와 F_NODE/T_NODE만 사용합니다.
+
+export const roadNode = pgTable(
+  "road_node",
+  {
+    nodeId: text("node_id").primaryKey(),
+    nodeType: text("node_type").notNull(),
+    nodeName: text("node_name"),
+    turnP: text("turn_p"),
+    updatedDate: date("updated_date"),
+    geometry: postgisGeometry("geometry").notNull(),
+  },
+  (table) => [index("idx_road_node_geometry").using("gist", table.geometry)],
+);
+
+export const roadLink = pgTable(
+  "road_link",
+  {
+    linkId: text("link_id").primaryKey(),
+    fromNode: text("from_node").notNull(),
+    toNode: text("to_node").notNull(),
+    lanes: integer("lanes"),
+    roadRank: text("road_rank"),
+    roadType: text("road_type"),
+    roadNo: text("road_no"),
+    roadName: text("road_name"),
+    roadUse: text("road_use"),
+    multiLink: text("multi_link"),
+    connect: text("connect"),
+    maxSpeed: integer("max_speed"),
+    restVeh: text("rest_veh"),
+    restW: integer("rest_w"),
+    restH: integer("rest_h"),
+    cIts: text("c_its"),
+    lengthM: doublePrecision("length_m"),
+    updatedDate: date("updated_date"),
+    geometry: postgisGeometry("geometry").notNull(),
+  },
+  (table) => [
+    index("idx_road_link_geometry").using("gist", table.geometry),
+    index("idx_road_link_from_node").on(table.fromNode),
+    index("idx_road_link_to_node").on(table.toNode),
+  ],
+);
+
+export const roadTurn = pgTable(
+  "road_turn",
+  {
+    nodeId: text("node_id").notNull(),
+    turnId: integer("turn_id").notNull(),
+    startLink: text("start_link").notNull(),
+    endLink: text("end_link").notNull(),
+    turnType: text("turn_type"),
+    turnOper: text("turn_oper"),
+    remark: text("remark"),
+  },
+  (table) => [
+    primaryKey({ columns: [table.nodeId, table.turnId] }),
+    index("idx_road_turn_start").on(table.startLink),
+    index("idx_road_turn_end").on(table.endLink),
+  ],
+);
+
+export const roadNetworkImport = pgTable("road_network_import", {
+  id: serial("id").primaryKey(),
+  sourceDate: date("source_date").notNull(),
+  importedAt: timestamp("imported_at", { withTimezone: true }).notNull().defaultNow(),
+  nodeCount: integer("node_count").notNull(),
+  linkCount: integer("link_count").notNull(),
+  turnCount: integer("turn_count").notNull(),
+  sourceFile: text("source_file").notNull(),
 });
 
 // ─── 익명 이벤트 로그 (docs/ARCHITECTURE.md §7.3, Phase 11) ────────────────────

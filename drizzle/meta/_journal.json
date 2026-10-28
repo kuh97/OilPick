@@ -64,6 +64,13 @@
       "when": 1792499009523,
       "tag": "0008_cute_warpath",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1793166171969,
+      "tag": "0009_fine_talon",
+      "breakpoints": true
     }
   ]
 }

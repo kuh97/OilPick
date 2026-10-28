@@ -32,9 +32,13 @@ import {
 } from "@/domain/pricing";
 import { buildReason } from "@/domain/reason";
 import {
+  classifyRoadLinkDirections,
+  routeHeadingAtPoint,
+  type RoadAccessDirection,
+} from "@/domain/road-direction";
+import {
   T2_MAX,
   T3_MAX,
-  MAX_PRECISE,
   MAX_RESULTS,
   MIN_ROUTE_DISTANCE,
   DEFAULT_MAX_DETOUR_MINUTES,
@@ -55,6 +59,7 @@ import type {
 } from "@/domain/types";
 import type { RedisLike } from "./route-service";
 import type { Db } from "@/infra/db/client";
+import { findNearestRoadLinkProbes } from "@/infra/db/repositories";
 
 export type ProgressStep = "ROUTE" | "COLLECT" | "EXPAND" | "PRECISE";
 export type ProgressEvent =
@@ -80,6 +85,7 @@ export interface SearchDeps {
   now?: Date;
   jsonFallback?: boolean;
   signal?: AbortSignal;
+  findNearestRoadLinkProbes?: typeof findNearestRoadLinkProbes;
 }
 
 interface InternalCandidate {
@@ -92,13 +98,10 @@ interface InternalCandidate {
   detourDistanceM: number;
   detourDurationS: number;
   tollWon?: number;
-  /** 클램프 전 실제 경유 경로. 중복 주유소의 경로 버전 선택에만 쓴다. */
-  viaDistanceM?: number;
-  viaDurationS?: number;
   precise: boolean;
+  accessDirection: RoadAccessDirection;
 }
 
-const MODES: readonly Mode[] = ["balanced", "minCost", "minDistance"];
 const BASE_PRIORITIES: readonly RoutePriority[] = [
   "RECOMMEND",
   "TIME",
@@ -107,10 +110,6 @@ const BASE_PRIORITIES: readonly RoutePriority[] = [
 
 function priorityRank(priority: RoutePriority): number {
   return BASE_PRIORITIES.indexOf(priority);
-}
-
-function candidateKey(ic: InternalCandidate): string {
-  return `${ic.station.id}:${ic.route.priority}`;
 }
 
 function pricedOnToDate(pricedOn: string | null): Date | undefined {
@@ -162,6 +161,7 @@ function toInternalCandidates(
       detourDistanceM,
       detourDurationS,
       precise: false,
+      accessDirection: "UNKNOWN",
     });
   }
   return result;
@@ -185,20 +185,12 @@ function dedupeForReference(pool: InternalCandidate[]): InternalCandidate[] {
   return [...byStation.values()];
 }
 
-/** 동일 주유소는 최종 도착 시간·거리, 우회량, 우선순위 순으로 하나만 남긴다. */
+/** 동일 주유소는 추정 우회 시간·거리, 기본 경로 우선순위 순으로 하나만 남긴다. */
 function isBetterVariant(
   next: InternalCandidate,
   current: InternalCandidate,
 ): boolean {
   const comparisons: Array<[number, number]> = [
-    [
-      next.viaDurationS ?? Number.POSITIVE_INFINITY,
-      current.viaDurationS ?? Number.POSITIVE_INFINITY,
-    ],
-    [
-      next.viaDistanceM ?? Number.POSITIVE_INFINITY,
-      current.viaDistanceM ?? Number.POSITIVE_INFINITY,
-    ],
     [next.detourDurationS, current.detourDurationS],
     [next.detourDistanceM, current.detourDistanceM],
     [priorityRank(next.route.priority), priorityRank(current.route.priority)],
@@ -291,6 +283,7 @@ function finalizeCandidates(
       totalCandidates: withScores.length,
       detourDistanceM: item.ic.detourDistanceM,
       detourDurationS: item.ic.detourDurationS,
+      precise: item.ic.precise,
       hasFacilityMatch: hasFacilityFilter,
       mode,
     }),
@@ -299,144 +292,43 @@ function finalizeCandidates(
   }));
 }
 
-function selectPreciseTargets(
+async function classifyAccessDirections(
   internal: InternalCandidate[],
-  mode: Mode,
-  vehicle: Vehicle,
-): InternalCandidate[] {
-  const withScores = internal.map((ic) => ({
-    ic,
-    scores: computeScores({
-      priceStationWon: ic.price,
-      refuelAmountL: vehicle.refuelAmountL,
-      detourDistanceM: ic.detourDistanceM,
-      detourDurationS: ic.detourDurationS,
-      efficiencyKmPerL: vehicle.efficiencyKmPerL,
-      timeValuePerMin: vehicle.timeValuePerMin,
-    }),
-  }));
-  const perMode = Math.ceil(MAX_PRECISE / MODES.length);
-  const selected = new Set<string>();
-  for (const selectedMode of MODES) {
-    for (const item of [...withScores]
-      .sort(
-        (a, b) =>
-          scoreByMode(a.scores, selectedMode) -
-          scoreByMode(b.scores, selectedMode),
-      )
-      .slice(0, perMode))
-      selected.add(item.ic.station.id);
-  }
-  if (selected.size < MAX_PRECISE) {
-    for (const item of [...withScores].sort(
-      (a, b) => scoreByMode(a.scores, mode) - scoreByMode(b.scores, mode),
-    )) {
-      if (selected.size >= MAX_PRECISE) break;
-      selected.add(item.ic.station.id);
-    }
-  }
-  const scores = new Map(
-    withScores.map((item) => [item.ic.station.id, item.scores]),
-  );
-  return internal
-    .filter((item) => selected.has(item.station.id))
-    .sort((a, b) => {
-      const byMode =
-        scoreByMode(scores.get(a.station.id)!, mode) -
-        scoreByMode(scores.get(b.station.id)!, mode);
-      return (
-        byMode ||
-        scores.get(a.station.id)!.balanced -
-          scores.get(b.station.id)!.balanced ||
-        a.station.id.localeCompare(b.station.id)
-      );
-    })
-    .slice(0, MAX_PRECISE);
-}
+  db: Db,
+  findProbes: typeof findNearestRoadLinkProbes,
+): Promise<InternalCandidate[]> {
+  const stationPoints = [
+    ...new Map(
+      internal.map((item) => [
+        item.station.id,
+        {
+          stationId: item.station.id,
+          point: wgs84ToProjected(item.station.location),
+        },
+      ]),
+    ).values(),
+  ];
+  const probes = await findProbes(stationPoints, db);
+  const probeByStation = new Map(probes.map((probe) => [probe.stationId, probe]));
 
-interface MeasureCtx {
-  input: SearchInput;
-  redis: RedisLike;
-  prefix: string;
-  signal?: AbortSignal;
-}
-
-async function measureBatch(
-  targets: InternalCandidate[],
-  ctx: MeasureCtx,
-): Promise<{ candidates: InternalCandidate[]; routeCalls: number }> {
-  const results = await Promise.allSettled(
-    targets.map((item) =>
-      getRoute({
-        origin: ctx.input.origin,
-        destination: ctx.input.destination,
-        waypoint: item.station.location,
-        fuel: ctx.input.vehicle.fuel,
-        avoidHighway: ctx.input.avoidHighway,
-        retries: 0,
-        priority: item.route.priority,
-        redis: ctx.redis,
-        prefix: ctx.prefix,
-        signal: ctx.signal,
-      }),
-    ),
-  );
-  ctx.signal?.throwIfAborted();
-  return {
-    routeCalls: targets.length,
-    candidates: targets.map((item, index) => {
-      const result = results[index];
-      if (result.status !== "fulfilled") return item;
-      const viaRoute = result.value;
-      const detourDistanceM = Math.max(
-        0,
-        viaRoute.distanceM - item.route.route.distanceM,
-      );
-      const detourDurationS = Math.max(
-        0,
-        viaRoute.durationS - item.route.route.durationS,
-      );
-      return {
-        ...item,
-        detourDistanceM,
-        detourDurationS,
-        viaDistanceM: viaRoute.distanceM,
-        viaDurationS: viaRoute.durationS,
-        tollWon:
-          viaRoute.tollWon != null && item.route.route.tollWon != null
-            ? Math.max(0, viaRoute.tollWon - item.route.route.tollWon)
-            : undefined,
-        tier: classifyByDetour(detourDurationS, detourDistanceM),
-        precise: true,
-      };
-    }),
-  };
-}
-
-async function findOnRouteCandidates(
-  internal: InternalCandidate[],
-  ctx: MeasureCtx,
-) {
-  const targets = [...internal].sort(
-    (a, b) => a.dPerp - b.dPerp || a.station.id.localeCompare(b.station.id),
-  );
-  const measured = await measureBatch(targets, ctx);
-  return {
-    onRoute: dedupeByStation(
-      measured.candidates.filter(
-        (item) => item.precise && item.tier === "ON_ROUTE",
-      ),
-    ),
-    ...measured,
-  };
-}
-
-function mergeMeasured(
-  pool: InternalCandidate[],
-  measured: InternalCandidate[],
-): InternalCandidate[] {
-  const byKey = new Map(measured.map((item) => [candidateKey(item), item]));
-  return pool.map((item) => byKey.get(candidateKey(item)) ?? item);
+  return internal.map((item) => {
+    const point = wgs84ToProjected(item.station.location);
+    const routePolyline = item.route.route.polyline.map(wgs84ToProjected);
+    const routeHeading = routeHeadingAtPoint(point, routePolyline);
+    const probe = probeByStation.get(item.station.id);
+    const accessDirection = classifyRoadLinkDirections(
+      routeHeading,
+      probe ? [probe.headingRad] : [],
+    );
+    return {
+      ...item,
+      accessDirection,
+      tier:
+        accessDirection === "SAME_DIRECTION" && item.dPerp <= T2_MAX
+          ? "ON_ROUTE"
+          : "DETOUR",
+    };
+  });
 }
 
 function finalRadiusM(items: InternalCandidate[]): number {
@@ -459,7 +351,7 @@ export async function search(
   const now = deps.now ?? new Date();
   const startedAt = now.getTime();
   const warnings: Warning[] = [];
-  let routeCalls = BASE_PRIORITIES.length;
+  const routeCalls = BASE_PRIORITIES.length;
 
   onProgress?.({ type: "progress", step: "ROUTE" });
   const routes = await Promise.all(
@@ -514,6 +406,17 @@ export async function search(
   let internal = collected.flatMap(({ route, collected: found }) =>
     toInternalCandidates(found.stations, route),
   );
+  const findProbes =
+    deps.findNearestRoadLinkProbes ?? findNearestRoadLinkProbes;
+  internal = await classifyAccessDirections(internal, db, findProbes);
+  // 진입 링크가 모든 경우를 설명하지는 못하므로 UNKNOWN은 보존하고,
+  // 가장 가까운 링크가 명백히 반대 방향인 후보만 검색 단계에서 제외한다.
+  internal = internal.filter(
+    (item) => item.accessDirection !== "OPPOSITE_DIRECTION",
+  );
+  const onRoute = dedupeByStation(
+    internal.filter((item) => item.tier === "ON_ROUTE"),
+  );
   const referencePool = dedupeForReference(internal);
   const priceResult = await computeReferencePrice({
     t1t2Prices: referencePool
@@ -535,20 +438,15 @@ export async function search(
     onProgress?.({ type: "warning", data: warning });
   }
 
-  const measureCtx: MeasureCtx = { input, redis, prefix, signal: deps.signal };
-  const stage1 = await findOnRouteCandidates(internal, measureCtx);
-  routeCalls += stage1.routeCalls;
-  internal = mergeMeasured(internal, stage1.candidates);
-
   // 어느 기본 경로에서든 경로상 후보가 있으면 우회 탐색은 하지 않는다.
-  if (stage1.onRoute.length > 0) {
+  if (onRoute.length > 0) {
     onProgress?.({ type: "progress", step: "PRECISE" });
     const result: SearchResult = {
       searchId: crypto.randomUUID(),
       baseRoute,
       baseRoutes,
       candidates: finalizeCandidates(
-        stage1.onRoute,
+        onRoute,
         referencePrice,
         input.vehicle,
         input.mode,
@@ -601,19 +499,16 @@ export async function search(
       })
     );
   });
-  // 상위 후보를 고를 때만 동일 주유소를 하나로 보고, 선택된 주유소는 모든 경로
-  // 버전을 실측한다. 그래야 최종 도착 시간 기준으로 더 좋은 버전을 고를 수 있다.
-  const selectedStations = new Set(
-    selectPreciseTargets(
-      dedupeByStation(detourPool),
-      input.mode,
-      input.vehicle,
-    ).map((item) => item.station.id),
+  const finalDetours = dedupeByStation(detourPool).filter(
+    (item) =>
+      !exceedsDetourCap({
+        detourDistanceM: item.detourDistanceM,
+        detourDurationS: item.detourDurationS,
+        baseDistanceM: item.route.route.distanceM,
+        baseDurationS: item.route.route.durationS,
+      }),
   );
-  const preciseTargets = detourPool.filter((item) =>
-    selectedStations.has(item.station.id),
-  );
-  const radiusForProgress = finalRadiusM(preciseTargets);
+  const radiusForProgress = finalRadiusM(finalDetours);
   if (radiusForProgress > T2_MAX)
     onProgress?.({
       type: "progress",
@@ -624,7 +519,7 @@ export async function search(
     type: "partial",
     data: {
       candidates: finalizeCandidates(
-        preciseTargets,
+        finalDetours,
         referencePrice,
         input.vehicle,
         input.mode,
@@ -640,27 +535,6 @@ export async function search(
     },
   });
   onProgress?.({ type: "progress", step: "PRECISE" });
-  // STAGE 1에서 이미 전 후보를 한 번 실측했다. 경유 경로 호출이 실패한 후보(A8)는
-  // 추정치를 유지하고 재호출하지 않는다(ARCHITECTURE.md §5.4).
-  let finalDetours = dedupeByStation(
-    preciseTargets,
-  );
-  finalDetours = finalDetours.filter(
-    (item) =>
-      !exceedsDetourCap({
-        detourDistanceM: item.detourDistanceM,
-        detourDurationS: item.detourDurationS,
-        baseDistanceM: item.route.route.distanceM,
-        baseDurationS: item.route.route.durationS,
-      }),
-  );
-  finalDetours = finalDetours.filter((item) => {
-    if (item.precise && item.detourDurationS > maxDetourMinutes * 60) {
-      budgetDropped.push(item);
-      return false;
-    }
-    return true;
-  });
   const radius = finalRadiusM(finalDetours);
   const candidates = finalizeCandidates(
     finalDetours,
@@ -669,8 +543,7 @@ export async function search(
     input.mode,
     filters.facilities.length > 0,
   ).slice(0, MAX_RESULTS);
-  const preciseDropped = budgetDropped.filter((item) => item.precise);
-  const basis = preciseDropped.length ? preciseDropped : budgetDropped;
+  const basis = budgetDropped;
   const result: SearchResult = {
     searchId: crypto.randomUUID(),
     baseRoute,

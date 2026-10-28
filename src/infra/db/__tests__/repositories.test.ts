@@ -16,17 +16,42 @@ import {
   updateDetailFields,
   markDetailSyncedEmpty,
   getLatestImportLog,
+  findNearestRoadLinkProbes,
   listAdminFeedbackPage,
   countAdminFeedbackByStatus,
   updateAdminFeedbackStatus,
   type RefuelPointRow,
 } from "../repositories";
 import type { Db } from "../client";
+import { projected } from "@/domain/types";
 import { OpinetDetailResponseSchema } from "@/infra/opinet/schema";
 import detailFixture from "../../../../tests/fixtures/opinet-detail.json";
 
 const detailItem = OpinetDetailResponseSchema.parse(detailFixture).RESULT.OIL[0];
 const NOW = new Date("2026-08-31T00:00:00.000Z");
+
+describe("findNearestRoadLinkProbes — PostGIS 방향 조회", () => {
+  it("링크의 거리·방위각을 stationId별 도메인 값으로 변환한다", async () => {
+    const execute = vi.fn().mockResolvedValue({
+      rows: [{ station_id: "S1", distance_m: "25.5", heading_rad: "1.5708" }],
+    });
+
+    await expect(
+      findNearestRoadLinkProbes(
+        [{ stationId: "S1", point: projected(1_000, 2_000) }],
+        { execute } as unknown as Db,
+      ),
+    ).resolves.toEqual([{ stationId: "S1", distanceM: 25.5, headingRad: 1.5708 }]);
+    expect(execute).toHaveBeenCalledTimes(1);
+  });
+
+  it("후보가 없으면 PostGIS를 호출하지 않는다", async () => {
+    const execute = vi.fn();
+
+    await expect(findNearestRoadLinkProbes([], { execute } as unknown as Db)).resolves.toEqual([]);
+    expect(execute).not.toHaveBeenCalled();
+  });
+});
 
 // ─── 순수 함수 ──────────────────────────────────────────────────────────────
 

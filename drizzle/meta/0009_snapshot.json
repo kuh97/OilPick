@@ -1,0 +1,1229 @@
+{
+  "id": "2e3da76e-da98-4311-89c1-c2e31e882f0c",
+  "prevId": "78ce0fbe-7300-4f1c-9070-97b48d0bf772",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.admin_feedback": {
+      "name": "admin_feedback",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "email": {
+          "name": "email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "subject": {
+          "name": "subject",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "content": {
+          "name": "content",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "feedback_source": {
+          "name": "feedback_source",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "station_id": {
+          "name": "station_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "station_name": {
+          "name": "station_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "search_id": {
+          "name": "search_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "origin_name": {
+          "name": "origin_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "destination_name": {
+          "name": "destination_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'NEW'"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "resolved_at": {
+          "name": "resolved_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "idx_admin_feedback_created": {
+          "name": "idx_admin_feedback_created",
+          "columns": [
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_admin_feedback_status": {
+          "name": "idx_admin_feedback_status",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.csv_import_log": {
+      "name": "csv_import_log",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "started_at": {
+          "name": "started_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "priced_on": {
+          "name": "priced_on",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "failed_gate": {
+          "name": "failed_gate",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "detail": {
+          "name": "detail",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "oil_rows": {
+          "name": "oil_rows",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "lpg_rows": {
+          "name": "lpg_rows",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "geocoded": {
+          "name": "geocoded",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.navi_click_event": {
+      "name": "navi_click_event",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "search_id": {
+          "name": "search_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "app": {
+          "name": "app",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "rank": {
+          "name": "rank",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "tier": {
+          "name": "tier",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "net_saving": {
+          "name": "net_saving",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "detour_distance_m": {
+          "name": "detour_distance_m",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "navi_click_event_search_id_search_event_id_fk": {
+          "name": "navi_click_event_search_id_search_event_id_fk",
+          "tableFrom": "navi_click_event",
+          "tableTo": "search_event",
+          "columnsFrom": [
+            "search_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.refuel_point": {
+      "name": "refuel_point",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "brand_code": {
+          "name": "brand_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "energy_type": {
+          "name": "energy_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "lat": {
+          "name": "lat",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "lng": {
+          "name": "lng",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "katec_x": {
+          "name": "katec_x",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "katec_y": {
+          "name": "katec_y",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "address_road": {
+          "name": "address_road",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "address_jibun": {
+          "name": "address_jibun",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "tel": {
+          "name": "tel",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "sigun_cd": {
+          "name": "sigun_cd",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "is_self": {
+          "name": "is_self",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "coord_source": {
+          "name": "coord_source",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "has_car_wash": {
+          "name": "has_car_wash",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "has_maintenance": {
+          "name": "has_maintenance",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "has_cvs": {
+          "name": "has_cvs",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "is_kpetro": {
+          "name": "is_kpetro",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "last_price": {
+          "name": "last_price",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "last_price_prod": {
+          "name": "last_price_prod",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "price_traded_at": {
+          "name": "price_traded_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "price_gasoline": {
+          "name": "price_gasoline",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "price_diesel": {
+          "name": "price_diesel",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "price_lpg": {
+          "name": "price_lpg",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "price_premium": {
+          "name": "price_premium",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "price_kerosene": {
+          "name": "price_kerosene",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "priced_on": {
+          "name": "priced_on",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "last_seen_on": {
+          "name": "last_seen_on",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "source": {
+          "name": "source",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "detail_synced_at": {
+          "name": "detail_synced_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "idx_refuel_point_sigun": {
+          "name": "idx_refuel_point_sigun",
+          "columns": [
+            {
+              "expression": "sigun_cd",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_refuel_point_energy": {
+          "name": "idx_refuel_point_energy",
+          "columns": [
+            {
+              "expression": "energy_type",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_refuel_point_latlng": {
+          "name": "idx_refuel_point_latlng",
+          "columns": [
+            {
+              "expression": "lat",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "lng",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_refuel_point_seen": {
+          "name": "idx_refuel_point_seen",
+          "columns": [
+            {
+              "expression": "last_seen_on",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.refuel_point_staging": {
+      "name": "refuel_point_staging",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "brand_code": {
+          "name": "brand_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "energy_type": {
+          "name": "energy_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "lat": {
+          "name": "lat",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "lng": {
+          "name": "lng",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "coord_source": {
+          "name": "coord_source",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "address_road": {
+          "name": "address_road",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "sigun_cd": {
+          "name": "sigun_cd",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "is_self": {
+          "name": "is_self",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "priced_on": {
+          "name": "priced_on",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "last_seen_on": {
+          "name": "last_seen_on",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "price_gasoline": {
+          "name": "price_gasoline",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "price_diesel": {
+          "name": "price_diesel",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "price_lpg": {
+          "name": "price_lpg",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "price_premium": {
+          "name": "price_premium",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "price_kerosene": {
+          "name": "price_kerosene",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.road_link": {
+      "name": "road_link",
+      "schema": "",
+      "columns": {
+        "link_id": {
+          "name": "link_id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "from_node": {
+          "name": "from_node",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "to_node": {
+          "name": "to_node",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "lanes": {
+          "name": "lanes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "road_rank": {
+          "name": "road_rank",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "road_type": {
+          "name": "road_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "road_no": {
+          "name": "road_no",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "road_name": {
+          "name": "road_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "road_use": {
+          "name": "road_use",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "multi_link": {
+          "name": "multi_link",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "connect": {
+          "name": "connect",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "max_speed": {
+          "name": "max_speed",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "rest_veh": {
+          "name": "rest_veh",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "rest_w": {
+          "name": "rest_w",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "rest_h": {
+          "name": "rest_h",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "c_its": {
+          "name": "c_its",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "length_m": {
+          "name": "length_m",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "updated_date": {
+          "name": "updated_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "geometry": {
+          "name": "geometry",
+          "type": "geometry",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "idx_road_link_geometry": {
+          "name": "idx_road_link_geometry",
+          "columns": [
+            {
+              "expression": "geometry",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "gist",
+          "with": {}
+        },
+        "idx_road_link_from_node": {
+          "name": "idx_road_link_from_node",
+          "columns": [
+            {
+              "expression": "from_node",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_road_link_to_node": {
+          "name": "idx_road_link_to_node",
+          "columns": [
+            {
+              "expression": "to_node",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.road_network_import": {
+      "name": "road_network_import",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "source_date": {
+          "name": "source_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "imported_at": {
+          "name": "imported_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "node_count": {
+          "name": "node_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "link_count": {
+          "name": "link_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "turn_count": {
+          "name": "turn_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "source_file": {
+          "name": "source_file",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.road_node": {
+      "name": "road_node",
+      "schema": "",
+      "columns": {
+        "node_id": {
+          "name": "node_id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "node_type": {
+          "name": "node_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "node_name": {
+          "name": "node_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "turn_p": {
+          "name": "turn_p",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "updated_date": {
+          "name": "updated_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "geometry": {
+          "name": "geometry",
+          "type": "geometry",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "idx_road_node_geometry": {
+          "name": "idx_road_node_geometry",
+          "columns": [
+            {
+              "expression": "geometry",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "gist",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.road_turn": {
+      "name": "road_turn",
+      "schema": "",
+      "columns": {
+        "node_id": {
+          "name": "node_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "turn_id": {
+          "name": "turn_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "start_link": {
+          "name": "start_link",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "end_link": {
+          "name": "end_link",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "turn_type": {
+          "name": "turn_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "turn_oper": {
+          "name": "turn_oper",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "remark": {
+          "name": "remark",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "idx_road_turn_start": {
+          "name": "idx_road_turn_start",
+          "columns": [
+            {
+              "expression": "start_link",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_road_turn_end": {
+          "name": "idx_road_turn_end",
+          "columns": [
+            {
+              "expression": "end_link",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "road_turn_node_id_turn_id_pk": {
+          "name": "road_turn_node_id_turn_id_pk",
+          "columns": [
+            "node_id",
+            "turn_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.search_event": {
+      "name": "search_event",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "fuel": {
+          "name": "fuel",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "filters": {
+          "name": "filters",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "origin_cell": {
+          "name": "origin_cell",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "dest_cell": {
+          "name": "dest_cell",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "base_distance_m": {
+          "name": "base_distance_m",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "base_duration_s": {
+          "name": "base_duration_s",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "t1_count": {
+          "name": "t1_count",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "t2_count": {
+          "name": "t2_count",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "t3_count": {
+          "name": "t3_count",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "expansion_triggered": {
+          "name": "expansion_triggered",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "final_radius_m": {
+          "name": "final_radius_m",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "reference_price": {
+          "name": "reference_price",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ref_price_source": {
+          "name": "ref_price_source",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "route_calls": {
+          "name": "route_calls",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "duration_ms": {
+          "name": "duration_ms",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "warnings": {
+          "name": "warnings",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "json_fallback": {
+          "name": "json_fallback",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        }
+      },
+      "indexes": {
+        "idx_search_event_created": {
+          "name": "idx_search_event_created",
+          "columns": [
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_search_event_expand": {
+          "name": "idx_search_event_expand",
+          "columns": [
+            {
+              "expression": "expansion_triggered",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {},
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

@@ -86,6 +86,7 @@ oilpick/
 │   │   ├── types.ts
 │   │   ├── geo.ts
 │   │   ├── tier.ts
+│   │   ├── road-direction.ts
 │   │   ├── pricing.ts
 │   │   ├── reason.ts
 │   │   └── deeplink.ts
@@ -93,7 +94,7 @@ oilpick/
 │   │   ├── route-service.ts
 │   │   ├── station-service.ts          # bbox(회랑) 후보 조회 + 필터
 │   │   ├── price-service.ts
-│   │   ├── recommendation-service.ts   # 파이프라인 STEP 1~11
+│   │   ├── recommendation-service.ts   # 기본 경로·공간 후보·방향 필터
 │   │   ├── price-import-service.ts     # 일 1회 유가 CSV 임포트
 │   │   ├── detail-backfill-service.ts  # 시설 정보 백필 크론
 │   │   └── event-service.ts
@@ -104,7 +105,7 @@ oilpick/
 │   │   ├── blob/price-csv.ts           # Vercel Blob (CSV 보관)
 │   │   ├── kakao/{schema,mapper,http,mobility,local}.ts
 │   │   ├── cache/{redis,keys}.ts       # Upstash REST 래퍼
-│   │   └── db/{schema,client,repositories}.ts   # Drizzle
+│   │   └── db/{schema,client,repositories}.ts   # Drizzle + PostGIS 도로 링크
 │   ├── store/
 │   │   └── search-store.ts             # Zustand — 검색결과·vehicle·필터·최근검색
 │   ├── components/
@@ -119,6 +120,7 @@ oilpick/
 ├── drizzle/                            # 생성된 마이그레이션 SQL — 커밋 대상
 ├── scripts/
 │   ├── import-price-csv.ts             # pnpm data:import-csv (마스터 1회성 재구축)
+│   ├── import-standard-nodelink.ts    # pnpm data:import-nodelink (도로 방향 데이터)
 │   ├── download-opinet-csv.ts          # pnpm data:download-csv (GitHub Actions가 실행)
 │   ├── backfill-details.ts             # pnpm data:backfill-details [--status]
 │   └── verify/
@@ -164,6 +166,7 @@ oilpick/
 | `types.ts`    | `WGS84Point` / `KatecPoint` / `ProjectedPoint` / `RefuelPoint` / `Candidate` / `SearchResult` 등. **좌표 타입은 서로 대입 불가하게 분리** |
 | `geo.ts`      | WGS84 ↔ 투영좌표 변환, `pointToPolylineDistance`(`d_perp`), bbox 계산, 격자 스냅                                                          |
 | `tier.ts`     | 실측 `ΔT`·`ΔD` → `ON_ROUTE`/`DETOUR` 배지 판정 (`d_perp`는 회랑·기준가 표본에만 사용)             |
+| `road-direction.ts` | 표준 도로 링크와 기본 경로 선분의 진행 방향 비교. 링크가 없으면 `UNKNOWN`을 반환 |
 | `pricing.ts`  | `computeReferencePrice`, `netSaving`, `computeScores`, `removeOutliers`                                                                   |
 | `reason.ts`   | 추천 이유 템플릿 6분기. **LLM 금지**                                                                                                      |
 | `deeplink.ts` | 카카오맵·네이버지도·티맵 URL 생성                                                                                                         |
@@ -175,7 +178,7 @@ oilpick/
 | `route-service`           | 기본 경로·경유 경로 조회, 폴리라인 정규화, 경로 캐시. 카카오 응답을 도메인 타입으로 변환             |
 | `station-service`         | 경로 폴리라인 bbox(회랑) 계산 → `refuel_point` 후보 조회 → 필터 적용. 외부 호출 없음                 |
 | `price-service`           | 이상치 제거, **`P_ref` 산출** — T1+T2 중앙값, 부족하면 `refuel_point` 시군구→시도→전국 가중평균      |
-| `recommendation-service`  | **파이프라인 STEP 1~11 전체.** 진행 상황을 콜백으로 방출해 SSE로 흘려보냄                            |
+| `recommendation-service`  | 기본 경로 3종 조회 → PostGIS 방향 필터 → 추정 후보 구성. 후보별 경유 경로는 검색에서 호출하지 않음 |
 | `price-import-service`    | 유가 CSV 임포트 오케스트레이션 (decode→parse→게이트→지오코딩→스테이징→원자 스왑). cron·스크립트 공유 |
 | `detail-backfill-service` | 시설 정보 백필 (큐 조회→상세 API 병렬 호출→시설 컬럼 UPDATE). cron·스크립트 공유                     |
 | `event-service`           | 익명 검색·딥링크 이벤트 기록 (Phase 11)                                                              |
@@ -195,7 +198,7 @@ oilpick/
 | `kakao/mobility`   | 길찾기(경유지 0~1개)                                                                                              |
 | `kakao/local`      | 키워드 장소 검색·주소 지오코딩                                                                                    |
 | `cache/*`          | Redis 래퍼, 키 생성 규칙                                                                                          |
-| `db/*`             | 스키마·마이그레이션·리포지토리                                                                                    |
+| `db/*`             | 스키마·마이그레이션·리포지토리. `road_node`·`road_link`·`road_turn`은 표준 노드·링크 임포트 결과 |
 
 ---
 
@@ -208,6 +211,10 @@ oilpick/
 | **WGS84** (위경도)        | 지도 SDK, 카카오 API, 저장, 클라이언트 전달 | `WGS84Point`     |
 | **KATEC (TM128)**         | 오피넷 요청·응답                            | `KatecPoint`     |
 | **EPSG:5179** (미터 투영) | `d_perp`·bbox·격자 스냅 등 모든 거리 계산   | `ProjectedPoint` |
+
+표준 노드·링크 원본은 `ITRF2000_Central_Belt_60`(Korea 2000, 중앙경선 127°)이며,
+임포트 시에만 EPSG:5179로 변환합니다. 원본 좌표를 검색 런타임이나 `refuel_point`에
+그대로 저장하지 않습니다.
 
 ```
 오피넷 호출 전 : WGS84 → KATEC
@@ -337,18 +344,17 @@ JSON API로 한 번에 받을 수 없지만, "과거 판매가격" CSV가 전국
 
 | 시나리오                 | 오피넷 | 카카오 경로                                                                                         | 목표 응답                     |
 | ------------------------ | ------ | --------------------------------------------------------------------------------------------------- | ----------------------------- |
-| 검색 1건                 | 0      | 기본 경로 최대 3회 + 고유 경로별 STAGE 1 전부(`ΣN_stage1`) + STAGE 2 선택 주유소의 경로 버전별 실측 | 경로 수·후보 수에 따라 달라짐 |
-| 카드 탭 (lazy 정밀 계산) | 0      | 1                                                                                                   | 1초                           |
+| 검색 1건                 | 0      | 기본 경로 최대 3회. 후보별 경유 경로는 호출하지 않음                                                   | 경로 수에 따라 달라짐        |
+| 카드 탭 (lazy 정밀 계산) | 0      | 우회 후보일 때 1회(`/api/detour`)                                                                     | 1초                           |
 
-카카오 경로 무료 쿼터는 일 10,000건입니다. 검색당 호출 수가 `N_stage1`에 따라 달라지므로
-처리 가능한 검색 수는 경로별 후보 수에 따라 변합니다 (경유 경로는 1시간 캐시·10m 격자를
-타므로 인기 O/D가 반복되면 실사용 여유는 이보다 큽니다).
+카카오 경로 무료 쿼터는 일 10,000건입니다. 검색은 기본 경로 최대 3회로 상한이 고정되고,
+후보별 경유 경로는 상세 진입 때만 호출합니다(경유 경로는 1시간 캐시·10m 격자를 타므로
+인기 O/D가 반복되면 실사용 여유는 이보다 큽니다).
 
-> **STAGE 1은 T3 회랑 후보를 비용과 무관하게 전부 실측합니다.** `MAX_PRECISE`는
-> STAGE 2 우회 후보에만 적용합니다. 기본 경로는 `RECOMMEND`·`TIME`·`DISTANCE`를
-> 최대 3회 조회하고 같은 폴리라인을 하나로 합칩니다. 이후 호출 수는 고유 경로별 후보 수에
-> 따라 달라집니다. 모든 호출은
-> `Promise.allSettled` 병렬이며 경유 경로 타임아웃 5초·재시도 0회, `maxDuration` 20초입니다.
+> **검색 후보는 표준 도로 링크의 공간·진행 방향을 기준으로 1차 분류합니다.** 가장 가까운
+> 링크가 명백히 반대 방향이면 제외하고, 링크가 없거나 판정할 수 없으면 `UNKNOWN`으로
+> 보존합니다. 같은 방향 후보가 하나라도 있으면 그 후보만 `ON_ROUTE`로 반환합니다.
+> 실제 경유 거리·시간은 카드 상세 진입 시 `/api/detour`에서 계산합니다.
 >
 > **Upstash 쪽이 먼저 바인딩될 수 있습니다.** 경로 1건당 `GET` + (미스 시) `SET`이라 검색
 > 1건이 Redis 명령 약 32회를 씁니다. 무료 티어 일 10,000회 기준 약 300검색/일입니다 (§12 ⑬).
@@ -381,7 +387,7 @@ SSE를 닫지 않습니다.
 | 대상                    | 타임아웃 | 재시도  | 실패 시                               |
 | ----------------------- | -------- | ------- | ------------------------------------- |
 | 카카오 기본 경로        | 5초      | 1회     | 전체 중단 (오류 화면)                 |
-| 카카오 경유 경로        | 5초      | **0회** | 해당 후보만 추정치 유지 (A8)          |
+| 카카오 경유 경로(상세)  | 5초      | **0회** | 상세 화면에서 확정 수치를 표시하지 않음 |
 | 카카오 로컬 검색        | 3초      | 1회     | 검색 실패 안내                        |
 | 오피넷 상세 (백필 크론) | 4초      | 1회     | 그 건은 건너뛰고 다음 실행에서 재시도 |
 
@@ -845,9 +851,59 @@ CREATE INDEX idx_refuel_point_seen   ON refuel_point (last_seen_on);
   좌표는 CSV에 없어 카카오 지오코딩으로 조달합니다.
 - **시설 정보**(세차·정비·편의점·KPETRO·전화)는 CSV에 없어 오피넷 상세 API로
   백그라운드 백필합니다 (`upsertRefuelPointFromDetail` 계열, `detail_synced_at`만 갱신).
-- **행안부 표준데이터는 쓰지 않습니다** — `verify:standard-data` 결과 `UNI_ID`·시설
-  컬럼이 없고 도로명주소 매칭 커버리지가 42%에 그칩니다. `import-standard-data.ts`도
-  만들지 않습니다.
+- **행안부 주유소 표준데이터는 쓰지 않습니다** — `verify:standard-data` 결과 `UNI_ID`·시설
+  컬럼이 없고 도로명주소 매칭 커버리지가 42%에 그칩니다. 단, 별도 ITS 표준 **노드·링크**
+  데이터는 도로 방향 보조용으로 `road_*` 테이블에 적재합니다(§7.1.1).
+
+### 7.1.1 `road_node`·`road_link`·`road_turn` — 표준 도로 방향 데이터
+
+검색 시 반대 방향 후보를 줄이는 데 사용하는 보조 데이터입니다. 원본은 국토교통부 ITS
+표준 노드·링크 파일(`MOCT_NODE`, `MOCT_LINK`, `TURNINFO`)이며 원본 ZIP은 저장소에
+커밋하지 않습니다. `scripts/import-standard-nodelink.ts`가 원본의
+`ITRF2000_Central_Belt_60` 좌표를 EPSG:5179로 변환해 Neon PostGIS에 적재합니다.
+
+```sql
+CREATE TABLE road_node (
+  node_id TEXT PRIMARY KEY,
+  node_type TEXT NOT NULL,
+  node_name TEXT,
+  turn_p TEXT,
+  updated_date DATE,
+  geometry geometry(Point, 5179) NOT NULL
+);
+
+CREATE TABLE road_link (
+  link_id TEXT PRIMARY KEY,
+  from_node TEXT NOT NULL,
+  to_node TEXT NOT NULL,
+  -- 표준 링크 속성 생략
+  geometry geometry(LineString, 5179) NOT NULL
+);
+
+CREATE TABLE road_turn (
+  node_id TEXT NOT NULL,
+  turn_id INTEGER NOT NULL,
+  start_link TEXT NOT NULL,
+  end_link TEXT NOT NULL,
+  PRIMARY KEY (node_id, turn_id)
+);
+```
+
+검색은 주유소 중심점마다 `T2_MAX` 이내 가장 가까운 `road_link`의 선분 방향을 조회합니다.
+진입구가 표준 데이터에 직접 포함되어 있지 않으므로 이는 확정적인 진입 가능 판정이
+아니며, 명백히 반대 방향인 링크만 제외하는 보수적 1차 필터입니다. 링크가 없거나
+방향을 계산할 수 없는 후보는 `UNKNOWN`으로 보존합니다. 실제 우회 경로와 `ΔD`·`ΔT`는
+주유소 상세 화면의 `/api/detour`가 계산합니다.
+
+임포트는 마이그레이션 적용 후 다음처럼 실행합니다.
+
+```bash
+pnpm data:import-nodelink -- "/path/to/[2026-10-14]NODELINKDATA"
+```
+
+원본 전체를 읽는 `--dry-run`은 DB를 변경하지 않으며, `--limit=N`은 dry-run에서만
+허용됩니다. 현재 다운로드 파일의 실측 건수는 노드 1,184,340개·링크 1,564,022개·회전
+정보 44,077개입니다.
 
 ### 7.2 `P_ref` 폴백 — `refuel_point` 실시간 집계
 

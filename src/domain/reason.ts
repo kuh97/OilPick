@@ -17,6 +17,7 @@ export interface ReasonInput {
   totalCandidates: number;
   detourDistanceM: number;
   detourDurationS: number;
+  precise?: boolean;
   hasFacilityMatch: boolean;    // 필터 조건 매칭 여부
   mode: Mode;
 }
@@ -40,6 +41,7 @@ export function buildReason(input: ReasonInput): string {
     priceRankAmongAll,
     detourDistanceM,
     detourDurationS,
+    precise = true,
     hasFacilityMatch,
     mode,
   } = input;
@@ -47,10 +49,12 @@ export function buildReason(input: ReasonInput): string {
   const priceDiff = priceRefWon - priceStationWon;
   const detourKm = distanceMToKm(detourDistanceM);
   const detourMin = durationSToMin(detourDurationS);
+  const estimatedPrefix = precise ? "" : "약 ";
+  const detourDistanceLabel = `${estimatedPrefix}${detourKm}km`;
 
   // 1위 & 우회
   if (rank === 1 && tier === "DETOUR") {
-    return `${detourKm}km 우회하지만 리터당 ${priceDiff}원 저렴합니다.`;
+    return `${detourDistanceLabel} 우회하지만 리터당 ${priceDiff}원 저렴합니다.`;
   }
 
   // 1위 & 경로상
@@ -61,7 +65,7 @@ export function buildReason(input: ReasonInput): string {
   // 최저가 (가격 1위)
   if (priceRankAmongAll === 1) {
     if (detourDistanceM > 0) {
-      return `이 경로에서 가장 저렴합니다. 다만 ${detourKm}km 우회가 필요합니다.`;
+      return `이 경로에서 가장 저렴합니다. 다만 ${detourDistanceLabel} 우회가 필요합니다.`;
     }
     return "이 경로에서 가장 저렴합니다.";
   }
@@ -71,6 +75,7 @@ export function buildReason(input: ReasonInput): string {
     return "가는 길에 그대로 들를 수 있습니다. 우회 없음.";
   }
   if (tier === "ON_ROUTE") {
+    if (!precise) return "가는 길에 들를 수 있습니다.";
     return `가는 길에 들를 수 있습니다. ${detourMin}분만 더 걸립니다.`;
   }
 
