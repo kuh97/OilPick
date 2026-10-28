@@ -3,6 +3,8 @@ import * as P from "../params";
 
 describe("params — 상수 불변식", () => {
   it("거리 경계가 단조증가한다", () => {
+    expect(P.ON_ROUTE_CORRIDOR_MAX_M).toBe(300);
+    expect(P.ON_ROUTE_CORRIDOR_MAX_M).toBeLessThan(P.T2_MAX);
     expect(P.T2_MAX).toBeLessThan(P.T3_MAX);
   });
 

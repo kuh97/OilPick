@@ -11,7 +11,7 @@ import { collectStations } from "../station-service";
 import { computeReferencePrice } from "../price-service";
 import { logSearch } from "../event-service";
 import { wgs84 } from "@/domain/types";
-import { T2_MAX } from "@/domain/params";
+import { ON_ROUTE_CORRIDOR_MAX_M, T2_MAX } from "@/domain/params";
 import type { BaseRoute, Fuel, RefuelPoint, SearchInput } from "@/domain/types";
 import type { RedisLike } from "../route-service";
 import type { Db } from "@/infra/db/client";
@@ -189,6 +189,21 @@ describe("search — 표준 링크 방향 필터", () => {
     expect(result.stage).toBe("DETOUR");
     expect(result.candidates[0].tier).toBe("DETOUR");
     expect(result.candidates[0].detour.precise).toBe(false);
+  });
+
+  it("같은 방향 링크여도 폴리라인에서 300m를 넘으면 우회 후보로 남긴다", async () => {
+    setRoadProbes(["NEAR_OUTSIDE"]);
+    collectStationsMock.mockResolvedValue({
+      stations: [
+        collected({ id: "NEAR_OUTSIDE", location: wgs84(37.003, 127.15), price: 1500 }),
+      ],
+    });
+
+    const result = await search(baseInput(), undefined, FAKE_DEPS);
+
+    expect(result.stage).toBe("DETOUR");
+    expect(result.candidates[0].tier).toBe("DETOUR");
+    expect(result.candidates[0].dPerp).toBeGreaterThan(ON_ROUTE_CORRIDOR_MAX_M);
   });
 });
 

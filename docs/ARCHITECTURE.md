@@ -165,7 +165,7 @@ oilpick/
 | `params.ts`   | 튜닝 파라미터 상수. 값의 정본은 [`PRODUCT.md`](PRODUCT.md) §9                                                                             |
 | `types.ts`    | `WGS84Point` / `KatecPoint` / `ProjectedPoint` / `RefuelPoint` / `Candidate` / `SearchResult` 등. **좌표 타입은 서로 대입 불가하게 분리** |
 | `geo.ts`      | WGS84 ↔ 투영좌표 변환, `pointToPolylineDistance`(`d_perp`), bbox 계산, 격자 스냅                                                          |
-| `tier.ts`     | 상세 실측 `ΔT`·`ΔD` 보조 판정과 기본 경로 평균속도 추정. 검색 목록의 티어는 도로 링크 방향 + `T2_MAX`로 결정             |
+| `tier.ts`     | 상세 실측 `ΔT`·`ΔD` 보조 판정과 기본 경로 평균속도 추정. 검색 목록의 티어는 기본 경로 300m 회랑 + 도로 링크 방향으로 결정             |
 | `road-direction.ts` | 표준 도로 링크와 기본 경로 선분의 진행 방향 비교. 링크가 없으면 `UNKNOWN`을 반환 |
 | `pricing.ts`  | `computeReferencePrice`, `netSaving`, `computeScores`, `removeOutliers`                                                                   |
 | `reason.ts`   | 추천 이유 템플릿 6분기. **LLM 금지**                                                                                                      |
@@ -1028,7 +1028,7 @@ recommendation-service
   │      └─ 필터 적용 (시설·브랜드·품질인증·셀프여부)
   │
   ├─▶ domain/tier + road-direction (d_perp · 링크 방향)  ── STEP 4
-  │      T3 밖 제거. 방향 호환 + T2 공간 후보를 검색 경로상으로 분류 (PRODUCT §6.4)
+  │      T3 밖 제거. 폴리라인 300m 회랑 + 방향 호환 후보를 검색 경로상으로 분류 (PRODUCT §6.4)
   │
   ├─▶ price-service.computeReferencePrice                 ── STEP 5
   │      └─ d_perp ≤ T2_MAX 표본 ≥ P_REF_MIN_BASE ? median
@@ -1036,7 +1036,7 @@ recommendation-service
   │
   │  ┌─ STAGE 1 ─ 경로상 목록 (항상 실행) ──────────────────────────┐
   │   ═══▶ SSE: progress(PRECISE)
-  ├─▶ 도로 링크 방향 + d_perp ≤ T2_MAX 필터                   ── STEP 6
+  ├─▶ 폴리라인 d_perp ≤ ON_ROUTE_CORRIDOR_MAX_M + 도로 링크 방향 필터 ── STEP 6
   │      후보별 경유 경로 API는 호출하지 않고 검색 추정값만 구성
   │      ├─ onRoute ≥1곳 → 같은 주유소를 더 좋은 경로 버전 하나로 합쳐 반환 (STAGE 2 미실행, 배너 OFF)
   │      └─ 0곳           → STAGE 2 로
@@ -1441,7 +1441,7 @@ Client → domain/deeplink.build(app, origin, station, destination)
 | ⑩   | 연료별 평균 연비 통계                                    | 공식 통계 확인                                                   | 기본값 보정 ([`PRODUCT.md`](PRODUCT.md) §9.2)                                                                                                            | 낮음                      |
 | ⑭   | **실측 `ΔT` 분포 — 다노선·다연료**                       | `verify:detour` (노선·연료를 바꿔가며)                           | `DETOUR_TIME_CAP_RATIO`(0.5)가 정당한 후보를 자르거나 39분짜리를 통과시킴                                                                                | Phase 10 이후             |
 | ⑮   | **`SHORT_ROUTE_DETOUR_TIME_CAP_S`(20분) 적정성**         | 다양한 짧은 경로 × 연료로 재측정                                 | 너무 짧으면 수진역 LPG류 정당한 근거리 우회를 막고, 너무 길면 사실상 별도 여정을 통과시킴                                                                | Phase 11 이후             |
-| ⑯   | **도로 링크 방향·`T2_MAX` 검색 기준 적정성**              | 실사용 데이터(search_event) 쌓이면 실제 클릭·이탈률과 대조       | 방향 판정이 너무 느슨하면 반대편 후보가 남고, 너무 엄격하면 진입 가능한 후보가 우회로 밀림                                                               | 실사용 데이터 확보 후     |
+| ⑯   | **도로 링크 방향·`ON_ROUTE_CORRIDOR_MAX_M` 검색 기준 적정성** | 실사용 데이터(search_event) 쌓이면 실제 클릭·이탈률과 대조       | 방향·300m 회랑 판정이 너무 느슨하면 반대편 후보가 남고, 너무 엄격하면 진입 가능한 후보가 우회로 밀림                                                   | 실사용 데이터 확보 후     |
 
 ### 해결된 항목
 

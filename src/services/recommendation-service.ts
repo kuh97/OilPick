@@ -37,6 +37,7 @@ import {
   type RoadAccessDirection,
 } from "@/domain/road-direction";
 import {
+  ON_ROUTE_CORRIDOR_MAX_M,
   T2_MAX,
   T3_MAX,
   MAX_RESULTS,
@@ -324,7 +325,8 @@ async function classifyAccessDirections(
       ...item,
       accessDirection,
       tier:
-        accessDirection === "SAME_DIRECTION" && item.dPerp <= T2_MAX
+        accessDirection === "SAME_DIRECTION" &&
+        item.dPerp <= ON_ROUTE_CORRIDOR_MAX_M
           ? "ON_ROUTE"
           : "DETOUR",
     };
