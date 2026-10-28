@@ -1,5 +1,5 @@
 /**
- * 카드 탭 시 lazy 정밀 계산 — ARCHITECTURE.md §6.3·§10 Phase 8.
+ * 상세 진입 시 lazy 정밀 계산 — ARCHITECTURE.md §6.3·§10 Phase 8.
  * 기본 경로는 route-service 캐시(1시간 TTL)를 그대로 타므로 실질적으로 카카오
  * 경로 API는 경유 경로 1회만 나갑니다.
  */

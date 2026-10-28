@@ -1,4 +1,4 @@
-/** 경로상 / 우회 판정 — PRODUCT.md §6.4, AGENTS.md 불변식 6·6a */
+/** 실측 경로상 / 우회 판정과 검색용 범위 보조 함수 — PRODUCT.md §6.4 */
 
 import {
   T3_MAX,
@@ -10,8 +10,8 @@ import {
 import type { Tier } from "./types";
 
 /**
- * 배지 판정 — `ΔT ≤ ON_ROUTE_MAX_S` AND `ΔD ≤ ON_ROUTE_MAX_D`면 경로상 (§6.4).
- * 실측값을 넘긴다. 실측 실패(A8) 후보만 추정치, 카드는 "약" 표기 유지 (불변식 4).
+ * 상세에서 확정한 실측값으로 배지를 판정한다.
+ * 검색 목록은 이 함수를 호출하지 않고 도로 링크 방향과 T2 범위로 먼저 정리한다.
  */
 export function classifyByDetour(
   detourDurationS: number,

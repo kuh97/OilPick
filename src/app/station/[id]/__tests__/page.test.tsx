@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { StationDetailView } from "../station-detail-view";
 import { useSearchStore } from "@/store/search-store";
 import { wgs84 } from "@/domain/types";
@@ -91,6 +91,7 @@ function result(overrides: Partial<WireSearchResult> = {}): WireSearchResult {
 
 beforeEach(() => {
   fetchDetourMock.mockClear();
+  fetchDetourMock.mockResolvedValue(null);
   useSearchStore.setState({
     origin: wgs84AsPoint(37.42, 127.12),
     destination: wgs84AsPoint(37.88, 127.73),
@@ -168,6 +169,40 @@ describe("StationDetailView — 정상 흐름 (AGENTS.md §6 불변식)", () => 
           element.textContent.includes("18분"),
       ),
     ).toBeTruthy();
+  });
+
+  it("상세 실측값이 도착하면 우회 km·분과 추천 이유에서 추정값을 교체한다", async () => {
+    fetchDetourMock.mockResolvedValue({
+      distanceM: 2400,
+      durationS: 300,
+      precise: true,
+      netSaving: 410,
+      tollWon: 0,
+      polyline: [{ lat: 37.42, lng: 127.12 }],
+    });
+    useSearchStore.setState({
+      result: result({
+        candidates: [
+          candidate({
+            detour: { precise: false, distanceM: 12400, durationS: 1080 },
+            reason: "약 12.4km 우회하지만 리터당 108원 저렴합니다.",
+          }),
+        ],
+      }),
+    });
+
+    renderPage();
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(
+          (_, element) =>
+            element?.tagName === "DD" && element.textContent === "+2.4km · +5분",
+        ),
+      ).toBeTruthy();
+    });
+    expect(screen.queryByText(/약 12\.4km/)).toBeNull();
+    expect(screen.queryByText(/약 2\.4km/)).toBeNull();
   });
 
   it("데스크톱(비모바일 UA)에서는 티맵 버튼과 보조 문구를 보여주지 않는다 — 티맵은 웹 길찾기가 없음", async () => {

@@ -1,8 +1,8 @@
 "use client";
 
 /**
- * POST /api/detour 소비 — 카드 탭 시 lazy 정밀 계산. ARCHITECTURE.md §6.3.
- * `detour.precise === false`인 카드로 상세 진입 시 호출해 실측값으로 교체한다(§5.4).
+ * POST /api/detour 소비 — 주유소 상세 진입 시 lazy 정밀 계산. ARCHITECTURE.md §6.3.
+ * 검색 결과의 추정값을 상세 화면에서 실측값으로 교체한다(§5.4).
  */
 
 import { useCallback, useState } from "react";

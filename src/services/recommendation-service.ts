@@ -1,7 +1,8 @@
 /**
- * 오케스트레이터 — 카카오의 내비추천·최소시간·거리우선 경로를 비교한다.
- * 같은 도형의 기본 경로는 한 번만 탐색하고, 주유소가 겹치면 실제 경유 경로가 더
- * 좋은 버전 하나만 남긴다. 진행 콜백 유무와 무관하게 같은 결과를 만든다.
+ * 오케스트레이터 — 카카오의 내비추천·최소시간·거리우선 기본 경로를 비교한다.
+ * 검색에서는 DB 공간 후보와 표준 도로 링크 방향으로 후보를 정리하고, 후보별 경유
+ * 경로는 주유소 상세 화면의 /api/detour에서만 계산한다. 진행 콜백 유무와 무관하게
+ * 같은 결과를 만든다.
  */
 
 import { getRoute } from "./route-service";
@@ -13,7 +14,6 @@ import { getDb } from "@/infra/db/client";
 import { env } from "@/infra/env";
 import { wgs84ToProjected, pointToPolylineDistanceM } from "@/domain/geo";
 import {
-  classifyByDetour,
   isOutOfRange,
   routeAvgSpeedKmh,
   estimateDetourDurationSAtSpeed,
@@ -157,7 +157,7 @@ function toInternalCandidates(
       pricedOn,
       route,
       dPerp,
-      tier: classifyByDetour(detourDurationS, detourDistanceM),
+      tier: "DETOUR",
       detourDistanceM,
       detourDurationS,
       precise: false,

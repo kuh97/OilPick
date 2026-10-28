@@ -39,7 +39,7 @@ export function projected(x: number, y: number): ProjectedPoint {
 // ─── 연료 · 티어 (§6.3) ──────────────────────────────────────────────────────
 
 export type Fuel = "GASOLINE" | "DIESEL" | "LPG";
-/** 배지 2종 — 실측 `ΔT`·`ΔD`로 판정 (§6.4, 불변식 6). `d_perp`로 만들지 말 것. */
+/** 배지 2종 — 상세에서는 실측 `ΔT`·`ΔD`, 검색에서는 도로 링크 방향 + T2 공간 조건으로 분류 (§6.4). */
 export type Tier = "ON_ROUTE" | "DETOUR";
 export type Facility = "CAR_WASH" | "MAINTENANCE" | "CVS";
 export type Mode = "balanced" | "minCost" | "minDistance";
@@ -103,7 +103,7 @@ export interface Candidate {
   scores: Scores;
   reason: string; // domain/reason.ts 생성 문구
   priceUpdatedAt?: Date; // 오피넷 갱신 스케줄 기반 근사
-  /** 이 후보를 실제로 경유해 계산한 기본 경로 버전. */
+  /** 이 후보를 평가한 기본 경로 버전. 실제 경유 경로는 상세에서 계산한다. */
   routePriority?: RoutePriority;
 }
 

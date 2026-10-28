@@ -312,7 +312,7 @@ export function useSearchStream() {
               refPriceSource: lastPartial.refPriceSource,
               expansion: lastPartial.expansion,
               warnings: [{ code: "TIMEOUT", message: "일부 계산이 완료되지 않았습니다." }],
-              // partial은 STAGE 2에서만 방출된다 — STAGE 1은 실측을 마치고 곧장 result다.
+              // partial은 STAGE 2의 추정 후보를 담는다. STAGE 1도 후보별 경유 호출 없이 result를 만든다.
               stage: "DETOUR",
               minutesNeededForOneResult: null,
             };

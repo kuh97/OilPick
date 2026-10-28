@@ -61,11 +61,8 @@ interface SearchState {
    * "현재 연료의 기본 연비와 다른가"로 판정하므로, 기본값으로 되돌리면 다시 자동 추종한다. */
   efficiencyTouched: boolean;
   /**
-   * 사용자가 허용하는 최대 우회 시간(분) — persist. 서버 API 계약과 무관한 순수
-   * 클라이언트 표시 필터라 `vehicle`과 분리했다(§6 API Contract에 없음). `filters`와
-   * 달리 바뀌어도 재검색하지 않는다 — 이미 받은 후보 목록(전부 실측 완료, §7.3)을
-   * 그대로 다시 거르기만 하면 되므로, `vehicle`(연비·주유량)과 같은 "재요청 없이
-   * 즉시 재계산" 부류다 (PRODUCT.md §5.2).
+   * 사용자가 허용하는 최대 우회 시간(분) — persist. 서버의 STAGE 2 추정 게이트 입력이며,
+   * 경로상 후보가 없을 때 값을 바꾸면 재검색한다 (PRODUCT.md §5.2·§6.6).
    */
   maxDetourMinutes: number;
   mode: Mode;

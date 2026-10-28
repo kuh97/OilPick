@@ -44,9 +44,9 @@ export function recomputeCandidate(
 /**
  * 재계산 + 모드 기준 재정렬까지 한 번에. referencePrice가 없으면(A14) 가격순.
  *
- * 서버(`recommendation-service.finalizeCandidates`)와 **같은 정렬 규칙**이어야 한다 —
- * 실측군(`detour.precise`)이 추정군보다 항상 위. 여기서만 빠뜨리면 사용자가 모드 탭을
- * 누르는 순간 목록이 다시 추정치 우위로 뒤집힌다 (AGENTS.md §5 불변식 4).
+ * 서버(`recommendation-service.finalizeCandidates`)와 **같은 정렬 규칙**이어야 한다.
+ * 현재 검색 결과는 모두 `precise:false`로 시작하지만, 이미 실측값을 가진 호출자가
+ * 이 함수를 재사용할 때도 실측 후보 우선 정렬을 유지한다.
  */
 export function recomputeAndSort(
   candidates: WireCandidate[],
@@ -58,8 +58,7 @@ export function recomputeAndSort(
     recomputeCandidate(c, vehicle, referencePrice),
   );
   return [...recomputed].sort((a, b) => {
-    // 실측으로 확인된 경로상 후보만 비용과 무관하게 우회 후보보다 먼저 보여준다.
-    // 경유 경로 실패로 추정 tier만 남은 후보는 확정 경로상으로 취급하지 않는다.
+    // 실측으로 확인된 경로상 후보가 함께 들어온 경우에만 비용과 무관하게 먼저 보여준다.
     const aOnRoute = a.tier === "ON_ROUTE" && a.detour.precise;
     const bOnRoute = b.tier === "ON_ROUTE" && b.detour.precise;
     if (aOnRoute !== bOnRoute) return Number(bOnRoute) - Number(aOnRoute);

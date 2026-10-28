@@ -66,6 +66,7 @@ export interface WireCandidate {
   perpDistanceM: number;
   /** tollWon: 이 우회로 추가되는 통행료(원, 정보 표시 전용). 모르면 undefined. */
   detour: {
+    /** 검색 결과에서는 false(추정), 상세 /api/detour 응답에서는 true(실측). */
     precise: boolean;
     distanceM: number;
     durationS: number;

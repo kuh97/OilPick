@@ -4,6 +4,7 @@ import { useIsMobile } from "@/lib/use-is-mobile";
 import { RouteMap } from "@/components/route-map";
 import { Lightbulb } from "lucide-react";
 import { distanceMToKm, durationSToMin } from "@/domain/pricing";
+import { buildReason } from "@/domain/reason";
 import {
   buildDeeplink,
   buildWebFallbackUrl,
@@ -106,6 +107,21 @@ export function RouteStationDetail({
     [...result.candidates]
       .sort((a, b) => a.price - b.price)
       .findIndex((c) => c.id === candidate.id) + 1;
+  const reason = detour
+    ? buildReason({
+        rank,
+        tier: candidate.tier,
+        priceRefWon: result.referencePrice ?? candidate.price,
+        priceStationWon: candidate.price,
+        priceRankAmongAll,
+        totalCandidates: result.candidates.length,
+        detourDistanceM: distanceM,
+        detourDurationS: durationS,
+        precise: true,
+        hasFacilityMatch: candidate.reason.startsWith("조건에 맞는 곳 중"),
+        mode,
+      })
+    : candidate.reason;
 
   function handleNaviClick(app: NaviApp, appName?: string) {
     const deeplinkInput = {
@@ -179,7 +195,7 @@ export function RouteStationDetail({
               <Lightbulb className="size-4 text-primary" aria-hidden />
               추천 이유
             </h2>
-            <p className="text-sm">{candidate.reason}</p>
+            <p className="text-sm">{reason}</p>
             <dl className="mt-3 space-y-1.5 text-sm">
               <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 border-t border-blue-100 pt-3">
                 <dt className="text-muted-foreground">가격</dt>
