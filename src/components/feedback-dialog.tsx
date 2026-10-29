@@ -119,38 +119,48 @@ export function FeedbackDialog({
           {buttonLabel}
         </DialogTrigger>
       )}
-      <DialogContent>
+      <DialogContent className="rounded-card border border-route-strong/15 bg-surface p-5 text-text-strong shadow-route-md">
         {submitted ? (
           <>
             <DialogHeader>
-              <DialogTitle>문의가 접수됐어요</DialogTitle>
-              <DialogDescription>확인 후 입력한 이메일로 답변드릴게요.</DialogDescription>
+              <DialogTitle className="text-text-strong">문의가 접수됐어요</DialogTitle>
+              <DialogDescription className="text-text-body">
+                확인 후 입력한 이메일로 답변드릴게요.
+              </DialogDescription>
             </DialogHeader>
-            <DialogFooter>
-              <DialogClose render={<Button />}>닫기</DialogClose>
+            <DialogFooter className="border-border bg-surface-quiet/70">
+              <DialogClose
+                render={
+                  <Button className="bg-route-blue text-white hover:bg-route-strong" />
+                }
+              >
+                닫기
+              </DialogClose>
             </DialogFooter>
           </>
         ) : (
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <DialogHeader>
-              <DialogTitle>서비스 문의</DialogTitle>
-              <DialogDescription>불편한 점이나 잘못된 정보를 알려주세요.</DialogDescription>
+              <DialogTitle className="text-text-strong">서비스 문의</DialogTitle>
+              <DialogDescription className="text-text-body">
+                불편한 점이나 잘못된 정보를 알려주세요.
+              </DialogDescription>
             </DialogHeader>
 
             {feedbackSource || routeLabel || stationName ? (
               <div
                 aria-label="문의에 포함되는 검색 정보"
-                className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm"
+                className="rounded-control-sm border border-route-strong/15 bg-surface-quiet/70 px-3 py-2 text-sm"
               >
-                <p className="text-xs text-muted-foreground">문의에 포함되는 정보</p>
+                <p className="text-xs text-text-body">문의에 포함되는 정보</p>
                 {feedbackSource ? (
-                  <p className="mt-1 text-xs text-muted-foreground">
+                  <p className="mt-1 text-xs text-text-body">
                     문의 경로: {FEEDBACK_SOURCE_LABEL[feedbackSource]}
                   </p>
                 ) : null}
                 {routeLabel ? <p className="mt-1 font-medium">{routeLabel}</p> : null}
                 {stationName ? (
-                  <p className="mt-1 text-xs text-muted-foreground">주유소: {stationName}</p>
+                  <p className="mt-1 text-xs text-text-body">주유소: {stationName}</p>
                 ) : null}
               </div>
             ) : null}
@@ -169,7 +179,7 @@ export function FeedbackDialog({
                   required
                   maxLength={254}
                   autoComplete="email"
-                  className="rounded-lg border border-input bg-background px-3 py-2 outline-none focus:border-ring focus:ring-2 focus:ring-ring/30"
+                  className="rounded-control-sm border border-border bg-surface px-3 py-2.5 text-text-strong outline-none placeholder:text-text-muted focus:border-route-strong focus:ring-2 focus:ring-route-blue/30"
                   value={form.email}
                   onChange={(event) => updateField("email", event.target.value)}
                 />
@@ -179,7 +189,7 @@ export function FeedbackDialog({
                 <input
                   required
                   maxLength={120}
-                  className="rounded-lg border border-input bg-background px-3 py-2 outline-none focus:border-ring focus:ring-2 focus:ring-ring/30"
+                  className="rounded-control-sm border border-border bg-surface px-3 py-2.5 text-text-strong outline-none placeholder:text-text-muted focus:border-route-strong focus:ring-2 focus:ring-route-blue/30"
                   value={form.subject}
                   onChange={(event) => updateField("subject", event.target.value)}
                 />
@@ -190,16 +200,30 @@ export function FeedbackDialog({
                   required
                   maxLength={4_000}
                   rows={5}
-                  className="resize-y rounded-lg border border-input bg-background px-3 py-2 outline-none focus:border-ring focus:ring-2 focus:ring-ring/30"
+                  className="resize-y rounded-control-sm border border-border bg-surface px-3 py-2.5 text-text-strong outline-none placeholder:text-text-muted focus:border-route-strong focus:ring-2 focus:ring-route-blue/30"
                   value={form.content}
                   onChange={(event) => updateField("content", event.target.value)}
                 />
               </label>
             </div>
 
-            <DialogFooter>
-              <DialogClose render={<Button variant="outline" type="button" />}>취소</DialogClose>
-              <Button type="submit" disabled={isSubmitting}>
+            <DialogFooter className="border-border bg-surface-quiet/70">
+              <DialogClose
+                render={
+                  <Button
+                    variant="outline"
+                    type="button"
+                    className="border-route-strong/20 bg-surface text-text-strong hover:border-route-strong hover:bg-route-sky"
+                  />
+                }
+              >
+                취소
+              </DialogClose>
+              <Button
+                type="submit"
+                disabled={isSubmitting}
+                className="bg-route-blue text-white hover:bg-route-strong"
+              >
                 {isSubmitting ? "보내는 중..." : "문의 보내기"}
               </Button>
             </DialogFooter>

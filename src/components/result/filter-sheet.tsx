@@ -86,16 +86,24 @@ export function FilterSheet(props: FilterSheetProps) {
         }
       }}
     >
-      <DrawerTrigger render={<Button variant="outline" size="sm" />}>
+      <DrawerTrigger
+        render={
+          <Button
+            variant="outline"
+            size="sm"
+            className="border-route-strong/20 bg-surface text-text-strong hover:border-route-strong hover:bg-route-sky hover:text-route-strong"
+          />
+        }
+      >
         <SlidersHorizontal className="size-3.5" aria-hidden />
         필터
       </DrawerTrigger>
-      <DrawerContent className="h-[min(76dvh,42rem)] sm:h-auto sm:mx-auto sm:max-w-md">
-        <DrawerHeader className="flex flex-row items-center justify-between">
-          <DrawerTitle>필터</DrawerTitle>
+      <DrawerContent className="h-[min(76dvh,42rem)] rounded-t-card border-route-strong/15 bg-surface sm:mx-auto sm:h-auto sm:max-w-md">
+        <DrawerHeader className="flex flex-row items-center justify-between border-b border-border bg-surface px-4 pb-3 pt-4 text-left">
+          <DrawerTitle className="text-text-strong">필터</DrawerTitle>
           <button
             type="button"
-            className="text-sm text-muted-foreground underline underline-offset-2"
+            className="text-sm text-text-body underline underline-offset-2 hover:text-route-strong"
             onClick={() => {
               setDraft(EMPTY_FILTERS);
               if (detourProps) {
@@ -109,7 +117,7 @@ export function FilterSheet(props: FilterSheetProps) {
           </button>
         </DrawerHeader>
 
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain flex flex-col gap-5 px-4 pb-4 touch-pan-y">
+        <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto overscroll-contain bg-surface px-4 pb-4 pt-4 touch-pan-y [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {detourProps && (
             <MaxDetourBar
               value={maxDetourDraft}
@@ -119,12 +127,12 @@ export function FilterSheet(props: FilterSheetProps) {
           )}
 
           <section className="flex shrink-0 flex-col gap-2">
-            <h3 className="text-sm font-semibold">시설</h3>
-            <div className="flex flex-col divide-y divide-border overflow-hidden rounded-xl border border-border">
+            <h3 className="text-sm font-semibold text-text-strong">시설</h3>
+            <div className="flex flex-col divide-y divide-border overflow-hidden rounded-card border border-route-strong/15">
               {FACILITIES.map((f) => (
                 <label
                   key={f}
-                  className="flex items-center justify-between bg-card px-3.5 py-2.5 text-sm"
+                  className="flex items-center justify-between bg-surface px-4 py-3 text-sm text-text-body"
                 >
                   {FACILITY_LABEL[f]}
                   <Switch
@@ -144,7 +152,7 @@ export function FilterSheet(props: FilterSheetProps) {
           </section>
 
           <section className="flex shrink-0 flex-col gap-2">
-            <h3 className="text-sm font-semibold">브랜드</h3>
+            <h3 className="text-sm font-semibold text-text-strong">브랜드</h3>
             <div className="flex flex-wrap gap-2">
               {BRAND_GROUPS.map((g) => {
                 const isOn = g.codes.every((c) => draft.brands.includes(c));
@@ -161,10 +169,10 @@ export function FilterSheet(props: FilterSheetProps) {
                       }))
                     }
                     className={cn(
-                      "rounded-full border px-3 py-1.5 text-sm font-medium transition-colors",
+                      "rounded-control-sm border px-3 py-1.5 text-sm font-medium transition-colors",
                       isOn
-                        ? "border-primary bg-primary text-primary-foreground"
-                        : "border-border bg-card text-foreground hover:bg-muted",
+                        ? "border-route-strong bg-route-sky text-route-strong shadow-route-sm"
+                        : "border-route-strong/15 bg-surface-quiet/60 text-text-body hover:border-route-strong hover:bg-route-sky hover:text-route-strong",
                     )}
                   >
                     {g.label}
@@ -174,9 +182,9 @@ export function FilterSheet(props: FilterSheetProps) {
             </div>
           </section>
 
-          <section className="flex shrink-0 flex-col divide-y divide-border overflow-hidden rounded-xl border border-border">
-            <label className="flex items-center justify-between bg-card px-3.5 py-2.5 text-sm">
-              <span className="font-semibold">셀프 주유소만</span>
+          <section className="flex shrink-0 flex-col divide-y divide-border overflow-hidden rounded-card border border-route-strong/15">
+            <label className="flex items-center justify-between bg-surface px-4 py-3 text-sm text-text-body">
+              <span className="font-semibold text-text-strong">셀프 주유소만</span>
               <Switch
                 checked={draft.selfOnly}
                 onCheckedChange={(checked) =>
@@ -184,8 +192,8 @@ export function FilterSheet(props: FilterSheetProps) {
                 }
               />
             </label>
-            <label className="flex items-center justify-between bg-card px-3.5 py-2.5 text-sm">
-              <span className="font-semibold">품질인증 주유소만</span>
+            <label className="flex items-center justify-between bg-surface px-4 py-3 text-sm text-text-body">
+              <span className="font-semibold text-text-strong">품질인증 주유소만</span>
               <Switch
                 checked={draft.kpetroOnly}
                 onCheckedChange={(checked) =>
@@ -195,14 +203,14 @@ export function FilterSheet(props: FilterSheetProps) {
             </label>
           </section>
 
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs leading-5 text-text-body">
             바꾼 뒤 &apos;적용&apos;을 누르면 조건에 맞는 주유소를 다시 찾아요.
             <br />
             운영시간 필터는 공공데이터에서 제공되지 않아 지원하지 않습니다.
           </p>
         </div>
 
-        <DrawerFooter>
+        <DrawerFooter className="border-t border-border bg-surface-quiet/70 p-4 pt-3">
           <DrawerClose
             render={
               <Button
