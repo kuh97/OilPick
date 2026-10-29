@@ -232,4 +232,11 @@ html[data-mobile-ua] [data-desktop-only] {
   html {
     @apply font-sans;
   }
+
+  /* 클릭 가능한 링크·컨트롤은 화면 전체에서 동일한 포인터 피드백을 사용한다. */
+  button:not(:disabled),
+  [role="button"],
+  a[href] {
+    cursor: pointer;
+  }
 }
