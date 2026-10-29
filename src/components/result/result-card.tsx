@@ -134,7 +134,7 @@ export function ResultCard({
         <div className="mt-2 flex items-center justify-between border-t border-route-strong/15 pt-2">
           <span className="text-xs text-text-body">{priceTimeText}</span>
           <span className="flex items-center gap-0.5 text-sm font-semibold text-route-strong">
-            상세
+            상세 보기
             <ChevronRight className="size-3.5" aria-hidden />
           </span>
         </div>

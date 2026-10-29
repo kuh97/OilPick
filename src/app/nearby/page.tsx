@@ -116,20 +116,20 @@ function NearbyStationSummary({
             {priceDate(station.priceUpdatedAt)}
           </p>
         </div>
-        <span className="flex shrink-0 items-center gap-0.5 text-sm font-semibold text-route-strong transition-colors group-hover:text-route-blue">
-          상세 보기
-          <ChevronRight className="size-4" aria-hidden />
-        </span>
       </div>
       <p className="mt-2 text-sm text-text-body md:tabular-nums">
         {refuelAmountL}L 주유 시 예상{" "}
         {(station.price * refuelAmountL).toLocaleString()}원
       </p>
-      <div className="mt-3 flex items-center gap-1.5 border-t border-border pt-3">
+      <div className="mt-3 flex items-center justify-between gap-3 border-t border-border pt-3">
         <p className="flex min-w-0 items-center gap-1.5 break-keep text-xs text-warning-foreground">
           <Info className="size-3.5 shrink-0" aria-hidden />
           <span>가격은 실제와 다를 수 있습니다.</span>
         </p>
+        <span className="flex shrink-0 items-center gap-0.5 text-sm font-semibold text-route-strong transition-colors group-hover:text-route-blue">
+          상세 보기
+          <ChevronRight className="size-4" aria-hidden />
+        </span>
       </div>
     </Link>
   );
