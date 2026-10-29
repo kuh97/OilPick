@@ -15,8 +15,8 @@ UI의 기본 문법은 **도로의 선, 경로의 분기, 탐색 범위**다. �
 - **Mood**: 차분한 도로 지도, 이동 전의 탐색, 근거가 보이는 비교
 - **Primary feeling**: “어디를 선택하면 되는지 한눈에 보인다”
 - **Visual metaphor**: 기본 경로는 실선, 우회 경로는 점선, 탐색 범위는 지도 위 회랑으로 표현한다.
-- **Surface**: 흰색과 아주 옅은 청색의 평평한 면을 기본으로 한다. 깊이는 색의 층과 1px 테두리로 표현한다.
-- **Color behavior**: 색은 브랜드 장식보다 경로·상태·행동을 표시하는 데이터에 우선 사용한다.
+- **Surface**: 흰색 카드와 옅은 중립 캔버스를 기본으로 하고, 화면 상단에서 캔버스로 자연스럽게 가라앉는 명암을 사용한다. 엠버 액션은 한 번의 명확한 다음 행동으로 사용한다. 깊이는 색의 층과 1px 테두리로 표현한다.
+- **Color behavior**: 엠버는 브랜드·행동, 쿨 슬레이트 블루는 현재 위치·경로·지도 데이터, 네이비·슬레이트는 정보, 상태색은 성공·주의·오류의 의미를 담당한다.
 
 ### Principles
 
@@ -32,10 +32,10 @@ UI의 기본 문법은 **도로의 선, 경로의 분기, 탐색 범위**다. �
 | Former Toss rule or asset | Decision in v2 | OilPick interpretation |
 |---|---|---|
 | Toss visual narrative and finance personas | **Remove** | 도로·경로·주유 의사결정 중심의 제품 서사로 교체 |
-| `#3182F6` primary blue | **Keep** | 주요 행동과 기본 경로 강조 색으로 유지 |
-| 밝은 청색 약한 CTA | **Change** | 마케팅 CTA가 아니라 탐색 범위·지도 하이라이트용으로 사용 |
+| 기존 primary blue | **Refine** | 브랜드 색에서는 분리하고 `#2563EB` 쿨 슬레이트 블루로 경로·지도·데이터에 제한적으로 사용 |
+| `#FFB000` amber | **Adopt** | 브랜드 포인트, 주유소 핀과 화면당 하나의 Primary CTA에 사용 |
 | `Toss Product Sans` | **Remove** | Pretendard Variable을 기본, Space Grotesk를 숫자 보조로 사용 |
-| 파란색/회색/흰색 역할 구분 | **Keep** | 경로·지도·상태·신뢰 정보 역할로 재정의 |
+| 색상 역할 구분 | **Keep** | 엠버·쿨 블루·네이비·슬레이트·상태색의 역할로 재정의 |
 | 4/8 기반 간격 | **Keep** | 4px 단위 기반을 유지하되 12/20을 제품 핵심 간격으로 추가 |
 | TDS 버튼·텍스트 필드·배지 상태 계약 | **Change** | OilPick의 입력, 경로 배지, 결과 카드 상태로 재작성 |
 | Toss 마케팅 CTA, Agreement, 금융 전용 컴포넌트 | **Remove** | OilPick에 해당하는 컴포넌트가 아니므로 사용하지 않음 |
@@ -53,36 +53,38 @@ UI의 기본 문법은 **도로의 선, 경로의 분기, 탐색 범위**다. �
 
 | Role | Value | Use | Do not use |
 |---|---|---|---|
-| Route Blue | `#3182F6` | 기본 행동, 기본 경로, 선택 상태 | 모든 장식 요소의 기본색 |
-| Route Strong | `#177DDC` | hover/pressed, 강한 경로 강조, 링크 | 본문 텍스트 전체 |
-| Route Navy | `#102A43` | 제목, 핵심 수치, 지도 위 강한 라벨 | 넓은 면적의 배경 |
-| Route Cyan | `#5AC8FA` | 경로 보조선, 지도 데이터, 선택된 탐색 범위 | 작은 본문 텍스트 |
-| Route Sky | `#E8F4FB` | 탐색 범위 패널, 약한 선택 배경, 정보 영역 | 성공/경고 상태 대체 |
-| Route Amber | `#F2B544` | 우회, 주의, 탐색 확장 | 일반적인 강조 장식 |
+| Brand Amber | `#FFB000` | 브랜드 포인트, Primary CTA, 핵심 다음 행동 | 일반 선택·경로 상태, 경고·오류 상태의 단독 표현 |
+| Brand Orange | `#FF8F00` | Amber hover/pressed, 강한 액션 강조 | 본문 텍스트 전체 |
+| Cool Slate Blue | `#2563EB` | 현재 위치, 기본 경로, 지도 데이터, 선택 경로 |
+| Cool Slate Strong | `#1E40AF` | 경로 hover/pressed, 링크, 강한 경로 강조 |
+| Deep Navy | `#0F172A` | 제목, 핵심 수치, 지도 위 강한 라벨 | 넓은 면적의 배경 |
+| Muted Slate | `#64748B` | 본문, 설명, 보조 정보 | 넓은 면적의 배경 |
+| Route Surface | `#EFF6FF` | 탐색 범위 패널, 약한 선택 배경, 정보 영역 | 성공/경고 상태 대체 |
+| Warning | `#B45309` | 우회, 추정치 주의, 확인 필요 | 브랜드 액션 대체 |
 
 #### Neutral and semantic colors
 
 | Role | Value | Use |
 |---|---|---|
-| Canvas | `#F8FBFD` | 앱 전체의 아주 옅은 배경 |
+| Canvas | `#F4F5F7` | 앱 전체의 옅은 중립 배경 |
 | Surface | `#FFFFFF` | 입력, 카드, 바텀시트, 상세 정보 면 |
-| Surface Quiet | `#F2F4F6` | 비활성·보조 영역, 지도 주변부 |
-| Border | `#DCE6EF` | 카드/입력/구분선의 기본 테두리 |
-| Text Strong | `#102A43` | 제목, 핵심 결과, 금액 |
-| Text Body | `#4E5968` | 본문과 설명 |
-| Text Muted | `#829AB1` | 보조 설명, 기준일, placeholder |
-| On Strong | `#FFFFFF` | Route Blue/Strong/Navy 위의 텍스트 |
+| Surface Quiet | `#F1F5F9` | 비활성·보조 영역, 지도 주변부 |
+| Border | `#E2E8F0` | 카드/입력/구분선의 기본 테두리 |
+| Text Strong | `#0F172A` | 제목, 핵심 결과, 금액 |
+| Text Body | `#64748B` | 본문과 설명 |
+| Text Muted | `#64748B` | 보조 설명, 기준일, placeholder |
+| On Strong | `#FFFFFF` | Deep Navy/Cool Slate Strong 위의 텍스트 |
 | Success | `#0A8A3F` | 경로상, 절감, 완료 |
-| Warning | `#B26A00` | 우회, 추정치 주의, 확인 필요 |
-| Danger | `#D92D20` | 오류, 삭제, 위험 상태 |
+| Warning | `#B45309` | 우회, 추정치 주의, 확인 필요 |
+| Danger | `#DC2626` | 오류, 삭제, 위험 상태 |
 
 #### Color rules
 
 - 색상만으로 경로상/우회를 구분하지 않는다. `경로상`/`우회` 텍스트, 선 스타일, 보조 설명을 함께 보여준다.
-- 밝은 청색과 cyan은 넓은 배경보다 경로와 데이터 표시를 우선한다.
-- `Route Amber`는 우회 고지와 주의 상태에만 사용한다. 가격을 돋보이게 하는 장식색으로 쓰지 않는다.
+- `Brand Amber`는 주유소 핀과 화면의 다음 행동을 알려주는 브랜드 액션으로 사용한다. `Warning`은 우회·추정치 주의에만 사용해 두 의미를 섞지 않는다.
+- 경로·지도·데이터는 Cool Slate Blue 계열을 기본으로 하고, 선 종류와 텍스트를 함께 사용해 의미를 구분한다.
 - 작은 본문과 버튼 텍스트는 WCAG AA 대비를 목표로 한다. 밝은 색은 큰 텍스트나 면에만 사용한다.
-- 오류/빈 상태에서도 브랜드 파랑을 성공처럼 사용하지 않는다.
+- 오류/빈 상태에서도 경로 블루를 성공처럼 사용하지 않는다.
 
 ### Depth and elevation
 
@@ -155,8 +157,8 @@ OilPick 전용 기본 컴포넌트다.
 
 | Type | Height | Radius | Visual treatment |
 |---|---:|---:|---|
-| Primary CTA | 56px mobile / 52px desktop | 14px | Route Blue fill, white label |
-| Secondary action | 44px | 12px | white or Route Sky fill, Border |
+| Primary CTA | 56px mobile / 52px desktop | 14px | Brand Amber fill, dark navy label |
+| Secondary action | 44px | 12px | white or Route Surface fill, Border |
 | Tertiary action | 44px minimum touch area | 10px | text/link treatment, no decorative pill |
 
 - Primary CTA는 한 화면에서 현재 다음 단계 하나만 대표한다.
@@ -191,7 +193,7 @@ OilPick 전용 기본 컴포넌트다.
 ### Expansion range panel
 
 - 최종 후보에 T3 우회가 포함될 때 결과 목록 상단에 둔다.
-- `Route Amber`와 `Route Sky`를 사용하되, 경고처럼 불안감을 만들지 않는 설명형 패널로 만든다.
+- `Warning`과 `Route Surface`를 사용하되, 브랜드 CTA용 `Brand Amber`와 섞지 않고 경고처럼 불안감을 만들지 않는 설명형 패널로 만든다.
 - “얼마나 멀리까지 살폈는가”를 설명하는 패널이며, 개별 후보의 확정 우회비용을 대신하지 않는다.
 - 우회 허용 시간은 결과를 클라이언트에서 잘라내는 필터가 아니라 재검색 입력임을 UI에서도 분명히 한다.
 
@@ -324,6 +326,6 @@ OilPick은 운전자에게 결정을 대신 강요하지 않고, 선택에 필�
 ### Change record
 
 - **v2**: Toss 기반 레퍼런스를 제거하고 Route Atlas를 OilPick의 고유 방향으로 채택했다.
-- **v2**: 기존 primary blue, 간격의 4px 기반, 상태 계약의 명시성은 유지했다.
+- **v2**: 기존 primary blue를 쿨 슬레이트 블루로 정제하고, Brand Amber를 주유소 핀과 기본 행동 색으로 채택했다.
 - **v2**: 금융/마케팅 전용 컴포넌트, Toss 전용 폰트·서사·CTA는 삭제했다.
 - **v2**: 경로 spine, 실선/점선 의미, 탐색 범위 패널, 결과 카드, 신뢰 정보 배치를 OilPick 전용 규칙으로 정의했다.

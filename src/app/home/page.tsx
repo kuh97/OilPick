@@ -106,7 +106,7 @@ export default function HomePage() {
   }
 
   return (
-    <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-2 px-4 py-7 md:max-w-6xl md:gap-8 md:px-8 md:py-10">
+    <main className="oilpick-page mx-auto flex w-full max-w-md flex-1 flex-col gap-2 px-4 pb-14 pt-7 md:max-w-6xl md:gap-8 md:px-8 md:py-10">
       <div className="flex items-center justify-between gap-4">
         <h1 className="flex items-center gap-2">
           <Image src="/icon.svg" width={32} height={32} alt="" aria-hidden />
@@ -140,10 +140,10 @@ export default function HomePage() {
                     aria-hidden
                     className="pointer-events-none absolute left-5 top-[47%] z-10 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-1"
                   >
-                    <span className="h-1 w-0.5 rounded-full bg-primary" />
-                    <span className="h-1 w-0.5 rounded-full bg-primary" />
-                    <span className="h-1 w-0.5 rounded-full bg-primary" />
-                    <span className="h-1 w-0.5 rounded-full bg-primary" />
+                    <span className="h-1 w-0.5 rounded-full bg-route-blue" />
+                    <span className="h-1 w-0.5 rounded-full bg-route-blue" />
+                    <span className="h-1 w-0.5 rounded-full bg-route-blue" />
+                    <span className="h-1 w-0.5 rounded-full bg-route-blue" />
                   </span>
                   <PlaceAutocompleteInput
                     key={`origin-${resetToken}`}
@@ -254,7 +254,7 @@ export default function HomePage() {
           >
             <span className="flex min-w-0 items-start gap-2.5">
               <MapPinned
-                className="mt-0.5 size-4 shrink-0 text-primary"
+                className="mt-0.5 size-4 shrink-0 text-route-blue"
                 aria-hidden
               />
               <span className="flex min-w-0 flex-col gap-0.5">

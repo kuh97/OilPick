@@ -207,7 +207,7 @@ export default function NearbyPage() {
   }, [setNearbyOrigin]);
 
   return (
-    <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-3 px-4 py-6 md:max-w-6xl md:gap-6 md:px-8 md:py-8">
+    <main className="oilpick-page mx-auto flex w-full max-w-md flex-1 flex-col gap-3 px-4 pb-12 pt-6 md:max-w-6xl md:gap-6 md:px-8 md:py-8">
       <header className="flex flex-col gap-3">
         <div className="flex items-center justify-between gap-3">
           <Link

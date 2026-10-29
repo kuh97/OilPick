@@ -131,7 +131,7 @@ export function FeedbackDialog({
             <DialogFooter className="border-border bg-surface-quiet/70">
               <DialogClose
                 render={
-                  <Button className="bg-route-blue text-white hover:bg-route-strong" />
+                  <Button />
                 }
               >
                 닫기
@@ -179,7 +179,7 @@ export function FeedbackDialog({
                   required
                   maxLength={254}
                   autoComplete="email"
-                  className="rounded-control-sm border border-border bg-surface px-3 py-2.5 text-text-strong outline-none placeholder:text-text-muted focus:border-route-strong focus:ring-2 focus:ring-route-blue/30"
+                  className="rounded-control-sm border border-border bg-surface px-3 py-2.5 text-text-strong outline-none placeholder:text-text-muted focus:border-brand-amber-strong focus:ring-2 focus:ring-brand-amber/30"
                   value={form.email}
                   onChange={(event) => updateField("email", event.target.value)}
                 />
@@ -189,7 +189,7 @@ export function FeedbackDialog({
                 <input
                   required
                   maxLength={120}
-                  className="rounded-control-sm border border-border bg-surface px-3 py-2.5 text-text-strong outline-none placeholder:text-text-muted focus:border-route-strong focus:ring-2 focus:ring-route-blue/30"
+                  className="rounded-control-sm border border-border bg-surface px-3 py-2.5 text-text-strong outline-none placeholder:text-text-muted focus:border-brand-amber-strong focus:ring-2 focus:ring-brand-amber/30"
                   value={form.subject}
                   onChange={(event) => updateField("subject", event.target.value)}
                 />
@@ -200,7 +200,7 @@ export function FeedbackDialog({
                   required
                   maxLength={4_000}
                   rows={5}
-                  className="resize-y rounded-control-sm border border-border bg-surface px-3 py-2.5 text-text-strong outline-none placeholder:text-text-muted focus:border-route-strong focus:ring-2 focus:ring-route-blue/30"
+                  className="resize-y rounded-control-sm border border-border bg-surface px-3 py-2.5 text-text-strong outline-none placeholder:text-text-muted focus:border-brand-amber-strong focus:ring-2 focus:ring-brand-amber/30"
                   value={form.content}
                   onChange={(event) => updateField("content", event.target.value)}
                 />
@@ -222,7 +222,7 @@ export function FeedbackDialog({
               <Button
                 type="submit"
                 disabled={isSubmitting}
-                className="bg-route-blue text-white hover:bg-route-strong"
+                className="bg-brand-amber text-brand-amber-foreground hover:bg-brand-amber-strong"
               >
                 {isSubmitting ? "보내는 중..." : "문의 보내기"}
               </Button>

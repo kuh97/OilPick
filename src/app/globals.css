@@ -26,6 +26,9 @@ html[data-mobile-ua] [data-desktop-only] {
   --color-route-cyan: var(--oilpick-route-cyan);
   --color-route-sky: var(--oilpick-route-sky);
   --color-route-amber: var(--oilpick-route-amber);
+  --color-brand-amber: var(--oilpick-brand-amber);
+  --color-brand-amber-strong: var(--oilpick-brand-amber-strong);
+  --color-brand-amber-foreground: var(--oilpick-brand-amber-foreground);
   --color-canvas: var(--oilpick-canvas);
   --color-surface: var(--oilpick-surface);
   --color-surface-quiet: var(--oilpick-surface-quiet);
@@ -101,27 +104,30 @@ html[data-mobile-ua] [data-desktop-only] {
     "Apple SD Gothic Neo", sans-serif;
   --oilpick-font-route: "Space Grotesk", var(--oilpick-font-primary);
 
-  /* Route Atlas brand and route colors */
-  --oilpick-route-blue: #3182f6;
-  --oilpick-route-strong: #177ddc;
-  --oilpick-route-navy: #102a43;
-  --oilpick-route-cyan: #5ac8fa;
-  --oilpick-route-sky: #e8f4fb;
-  --oilpick-route-amber: #f2b544;
+  /* Amber brand + cool slate route information */
+  --oilpick-route-blue: #2563eb;
+  --oilpick-route-strong: #1e40af;
+  --oilpick-route-navy: #0f172a;
+  --oilpick-route-cyan: #2563eb;
+  --oilpick-route-sky: #eff6ff;
+  --oilpick-brand-amber: #ffb000;
+  --oilpick-brand-amber-strong: #ff8f00;
+  --oilpick-brand-amber-foreground: #0f172a;
+  --oilpick-route-amber: var(--oilpick-warning);
 
   /* Neutral and semantic colors */
-  --oilpick-canvas: #f8fbfd;
+  --oilpick-canvas: #f4f5f7;
   --oilpick-surface: #ffffff;
-  --oilpick-surface-quiet: #f2f4f6;
-  --oilpick-border: #dce6ef;
-  --oilpick-text-strong: #102a43;
-  --oilpick-text-body: #4e5968;
-  --oilpick-text-muted: #829ab1;
+  --oilpick-surface-quiet: #f1f5f9;
+  --oilpick-border: #e2e8f0;
+  --oilpick-text-strong: #0f172a;
+  --oilpick-text-body: #64748b;
+  --oilpick-text-muted: #64748b;
   --oilpick-success: #0a8a3f;
   --oilpick-success-soft: #e8f7ee;
-  --oilpick-warning: #b26a00;
-  --oilpick-warning-soft: #fff4dc;
-  --oilpick-danger: #d92d20;
+  --oilpick-warning: #b45309;
+  --oilpick-warning-soft: #fff7ed;
+  --oilpick-danger: #dc2626;
 
   /* Spacing scale — 4px base, with product-critical 12px/20px steps */
   --oilpick-space-unit: 0.25rem;
@@ -144,8 +150,8 @@ html[data-mobile-ua] [data-desktop-only] {
   --oilpick-radius-pill: 9999px;
 
   /* Flat-first elevation */
-  --oilpick-shadow-route-sm: 0 1px 2px rgb(16 42 67 / 0.06);
-  --oilpick-shadow-route-md: 0 4px 16px rgb(16 42 67 / 0.08);
+  --oilpick-shadow-route-sm: 0 1px 2px rgb(15 23 42 / 0.06);
+  --oilpick-shadow-route-md: 0 4px 16px rgb(15 23 42 / 0.08);
   --shadow-sm: var(--oilpick-shadow-route-sm);
   --shadow-md: var(--oilpick-shadow-route-md);
 
@@ -156,8 +162,8 @@ html[data-mobile-ua] [data-desktop-only] {
   --card-foreground: var(--oilpick-text-strong);
   --popover: var(--oilpick-surface);
   --popover-foreground: var(--oilpick-text-strong);
-  --primary: var(--oilpick-route-blue);
-  --primary-foreground: var(--oilpick-surface);
+  --primary: var(--oilpick-brand-amber);
+  --primary-foreground: var(--oilpick-brand-amber-foreground);
   --secondary: var(--oilpick-surface-quiet);
   --secondary-foreground: var(--oilpick-text-strong);
   --muted: var(--oilpick-surface-quiet);
@@ -168,8 +174,8 @@ html[data-mobile-ua] [data-desktop-only] {
   --destructive-foreground: var(--oilpick-surface);
   --border: var(--oilpick-border);
   --input: var(--oilpick-border);
-  --ring: var(--oilpick-route-blue);
-  --chart-1: var(--oilpick-route-blue);
+  --ring: var(--oilpick-brand-amber);
+  --chart-1: var(--oilpick-brand-amber);
   --chart-2: var(--oilpick-success);
   --chart-3: var(--oilpick-warning);
   --chart-4: var(--oilpick-text-body);
@@ -177,12 +183,12 @@ html[data-mobile-ua] [data-desktop-only] {
   --radius: var(--oilpick-radius-card);
   --sidebar: var(--oilpick-surface);
   --sidebar-foreground: var(--oilpick-text-strong);
-  --sidebar-primary: var(--oilpick-route-blue);
-  --sidebar-primary-foreground: var(--oilpick-surface);
+  --sidebar-primary: var(--oilpick-brand-amber);
+  --sidebar-primary-foreground: var(--oilpick-brand-amber-foreground);
   --sidebar-accent: var(--oilpick-surface-quiet);
   --sidebar-accent-foreground: var(--oilpick-text-strong);
   --sidebar-border: var(--oilpick-border);
-  --sidebar-ring: var(--oilpick-route-blue);
+  --sidebar-ring: var(--oilpick-brand-amber);
 
   /* Soft semantic fills are used through opacity in components. */
   --info: var(--oilpick-route-sky);
@@ -193,25 +199,53 @@ html[data-mobile-ua] [data-desktop-only] {
   --warning-foreground: var(--oilpick-warning);
 }
 
+/* Product pages share one quiet top-to-canvas transition; the onboarding hero stays separate. */
+body {
+  background: linear-gradient(
+    180deg,
+    var(--oilpick-surface) 0,
+    var(--oilpick-canvas) 26rem,
+    var(--oilpick-canvas) 100%
+  );
+}
+
+.oilpick-page {
+  background:
+    radial-gradient(
+      ellipse 78% 24rem at 50% 0%,
+      color-mix(in srgb, var(--oilpick-brand-amber) 9%, transparent),
+      transparent 72%
+    ),
+    linear-gradient(
+      180deg,
+      var(--oilpick-surface) 0,
+      var(--oilpick-canvas) 26rem,
+      var(--oilpick-canvas) 100%
+    );
+}
+
 .dark {
-  --oilpick-route-blue: #5b9bf8;
-  --oilpick-route-strong: #8db9ff;
-  --oilpick-route-navy: #e6f0f7;
-  --oilpick-route-cyan: #73d3ff;
-  --oilpick-route-sky: #16324a;
-  --oilpick-route-amber: #f6c85f;
-  --oilpick-canvas: #0b1220;
-  --oilpick-surface: #111b2b;
-  --oilpick-surface-quiet: #1b2a3d;
-  --oilpick-border: #30465e;
-  --oilpick-text-strong: #f5f9fc;
-  --oilpick-text-body: #c6d3df;
-  --oilpick-text-muted: #9fb3c8;
+  --oilpick-route-blue: #60a5fa;
+  --oilpick-route-strong: #bfdbfe;
+  --oilpick-route-navy: #f8fafc;
+  --oilpick-route-cyan: #93c5fd;
+  --oilpick-route-sky: #1e3a8a;
+  --oilpick-brand-amber: #ffb000;
+  --oilpick-brand-amber-strong: #ff8f00;
+  --oilpick-brand-amber-foreground: #0f172a;
+  --oilpick-route-amber: var(--oilpick-warning);
+  --oilpick-canvas: #0f172a;
+  --oilpick-surface: #1e293b;
+  --oilpick-surface-quiet: #334155;
+  --oilpick-border: #475569;
+  --oilpick-text-strong: #f8fafc;
+  --oilpick-text-body: #cbd5e1;
+  --oilpick-text-muted: #94a3b8;
   --oilpick-success: #57c785;
   --oilpick-success-soft: #123c2a;
-  --oilpick-warning: #f6c85f;
-  --oilpick-warning-soft: #493916;
-  --oilpick-danger: #ff8378;
+  --oilpick-warning: #ffb000;
+  --oilpick-warning-soft: #4b2e05;
+  --oilpick-danger: #f87171;
   --oilpick-shadow-route-sm: 0 1px 2px rgb(0 0 0 / 0.3);
   --oilpick-shadow-route-md: 0 4px 16px rgb(0 0 0 / 0.4);
 }

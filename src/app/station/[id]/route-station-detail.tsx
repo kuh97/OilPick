@@ -169,7 +169,7 @@ export function RouteStationDetail({
   }
 
   return (
-    <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-2 px-4 py-6 md:max-w-6xl md:gap-6 md:px-8 md:py-8">
+    <main className="oilpick-page mx-auto flex w-full max-w-md flex-1 flex-col gap-2 px-4 pb-12 pt-6 md:max-w-6xl md:gap-6 md:px-8 md:py-8">
       <StationDetailHeader
         backHref="/result"
         backLabel="검색 결과"

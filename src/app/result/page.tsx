@@ -79,7 +79,7 @@ function SearchRouteSummary({
       <div className="grid grid-cols-[2rem_minmax(0,1fr)_auto] grid-rows-2 items-center gap-y-1.5 px-4 py-3">
         <div className="relative row-span-2 grid grid-rows-subgrid items-center justify-items-center self-stretch">
           <CircleSmall
-            className="size-4 fill-surface text-route-strong"
+            className="size-4 fill-surface text-route-blue"
             strokeWidth={2}
             aria-hidden
           />
@@ -87,11 +87,11 @@ function SearchRouteSummary({
             className="absolute top-6.5 left-1/2 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-1"
             aria-hidden
           >
-            <span className="h-1 w-0.5 rounded-full bg-primary" />
-            <span className="h-1 w-0.5 rounded-full bg-primary" />
+            <span className="h-1 w-0.5 rounded-full bg-route-blue" />
+            <span className="h-1 w-0.5 rounded-full bg-route-blue" />
           </span>
           <MapPin
-            className="size-4 fill-surface text-route-strong"
+            className="size-4 fill-surface text-route-blue"
             strokeWidth={2}
             aria-hidden
           />
@@ -155,7 +155,7 @@ function DesktopSearchContext({
       <div className="mt-3 grid grid-cols-[1.5rem_minmax(0,1fr)] gap-x-3">
         <div className="relative row-span-2 flex flex-col items-center justify-between self-stretch">
           <CircleSmall
-            className="relative size-4 fill-surface text-route-strong"
+            className="relative size-4 fill-surface text-route-blue"
             strokeWidth={2}
             aria-hidden
           />
@@ -163,12 +163,12 @@ function DesktopSearchContext({
             className="absolute top-[24.5px] left-1/2 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-1"
             aria-hidden
           >
-            <span className="h-1 w-0.5 rounded-full bg-route-strong" />
-            <span className="h-1 w-0.5 rounded-full bg-route-strong" />
-            <span className="h-1 w-0.5 rounded-full bg-route-strong" />
+            <span className="h-1 w-0.5 rounded-full bg-route-blue" />
+            <span className="h-1 w-0.5 rounded-full bg-route-blue" />
+            <span className="h-1 w-0.5 rounded-full bg-route-blue" />
           </span>
           <MapPin
-            className="relative size-4 fill-surface text-route-strong"
+            className="relative size-4 fill-surface text-route-blue"
             strokeWidth={2}
             aria-hidden
           />
@@ -383,7 +383,7 @@ export default function ResultPage() {
 
   if (!origin || !destination) {
     return (
-      <main className="mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-center gap-4 px-4 py-16 text-center">
+      <main className="oilpick-page mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-center gap-4 px-4 py-16 text-center">
         <p className="text-sm text-text-body">
           검색 컨텍스트가 없습니다. 홈에서 먼저 검색해주세요.
         </p>
@@ -396,7 +396,7 @@ export default function ResultPage() {
 
   if (error) {
     return (
-      <main className="mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-center gap-4 px-4 py-16 text-center">
+      <main className="oilpick-page mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-center gap-4 px-4 py-16 text-center">
         <p className="text-sm text-text-body">{error.message}</p>
         <div className="flex gap-2">
           <Button
@@ -455,7 +455,7 @@ export default function ResultPage() {
   }
 
   return (
-    <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-2 px-4 py-6 md:max-w-6xl md:gap-6 md:px-8 md:py-8">
+    <main className="oilpick-page mx-auto flex w-full max-w-md flex-1 flex-col gap-2 px-4 pb-12 pt-6 md:max-w-6xl md:gap-6 md:px-8 md:py-8">
       <header className="flex flex-col gap-2">
         <div className="flex items-center justify-between gap-2">
           <Link

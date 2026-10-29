@@ -263,7 +263,7 @@ export function CalcAssumptions({
               type="number"
               step="0.1"
               min="1"
-              className="rounded-control-sm border border-border bg-surface px-3 py-2.5 text-text-strong outline-none placeholder:text-text-muted focus:border-route-strong focus:ring-2 focus:ring-route-blue/30"
+              className="rounded-control-sm border border-border bg-surface px-3 py-2.5 text-text-strong outline-none placeholder:text-text-muted focus:border-brand-amber-strong focus:ring-2 focus:ring-brand-amber/30"
               value={draft.efficiency}
               onChange={(e) =>
                 setDraft({ ...draft, efficiency: e.target.value })
@@ -276,7 +276,7 @@ export function CalcAssumptions({
               type="number"
               step="1"
               min="1"
-              className="rounded-control-sm border border-border bg-surface px-3 py-2.5 text-text-strong outline-none placeholder:text-text-muted focus:border-route-strong focus:ring-2 focus:ring-route-blue/30"
+              className="rounded-control-sm border border-border bg-surface px-3 py-2.5 text-text-strong outline-none placeholder:text-text-muted focus:border-brand-amber-strong focus:ring-2 focus:ring-brand-amber/30"
               value={draft.refuelAmount}
               onChange={(e) =>
                 setDraft({ ...draft, refuelAmount: e.target.value })
@@ -289,7 +289,7 @@ export function CalcAssumptions({
           <DialogClose
             render={
               <Button
-                className="bg-route-blue text-white hover:bg-route-strong"
+                className="bg-brand-amber text-brand-amber-foreground hover:bg-brand-amber-strong"
                 disabled={!canApply}
                 onClick={() => {
                   if (!canApply) return;

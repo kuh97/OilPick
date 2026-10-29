@@ -60,7 +60,7 @@ export function PlaceAutocompleteInput({
       {!bare && <label className="mb-1 block text-sm font-medium text-foreground">{label}</label>}
       {leadingIcon && (
         <span
-          className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-primary"
+          className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-route-blue"
           aria-hidden
         >
           {leadingIcon}
@@ -114,7 +114,7 @@ export function PlaceAutocompleteInput({
           {error && (
             <li className="flex items-center justify-between px-3 py-2 text-sm text-muted-foreground">
               <span>{error}</span>
-              <button type="button" className="text-primary underline" onMouseDown={(e) => e.preventDefault()} onClick={retry}>
+              <button type="button" className="text-route-blue underline" onMouseDown={(e) => e.preventDefault()} onClick={retry}>
                 재시도
               </button>
             </li>

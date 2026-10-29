@@ -46,7 +46,7 @@ export function MaxDetourBar({
                 "flex-1 py-2 text-center text-sm tabular-nums transition-colors",
                 i > 0 && "border-l border-border",
                 active
-                  ? "bg-primary font-semibold text-primary-foreground"
+                  ? "bg-route-blue font-semibold text-white"
                   : "bg-card text-muted-foreground hover:bg-muted",
               )}
             >

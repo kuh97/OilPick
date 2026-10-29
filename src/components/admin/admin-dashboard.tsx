@@ -112,7 +112,7 @@ function BreakdownList<T extends string>({
             <dd className="font-semibold text-foreground">{formatNumber(value)}</dd>
           </div>
           <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted" aria-hidden="true">
-            <div className="h-full rounded-full bg-primary" style={{ width: `${(value / max) * 100}%` }} />
+            <div className="h-full rounded-full bg-route-blue" style={{ width: `${(value / max) * 100}%` }} />
           </div>
         </div>
       ))}
@@ -181,7 +181,7 @@ function DashboardContent({
             <p className="text-right text-sm font-semibold text-foreground">전체 {formatNumber(priceData.detailBackfill.total)}건</p>
           </div>
           <div className="mt-5 h-3 overflow-hidden rounded-full bg-muted" role="progressbar" aria-label="시설 정보 백필 진행률" aria-valuemin={0} aria-valuemax={100} aria-valuenow={backfillPercent ?? 0}>
-            <div className="h-full rounded-full bg-primary" style={{ width: `${backfillPercent ?? 0}%` }} />
+            <div className="h-full rounded-full bg-route-blue" style={{ width: `${backfillPercent ?? 0}%` }} />
           </div>
           <p className="mt-4 text-xs text-muted-foreground">시설 정보는 백필 크론이 채우며, 이 화면에서는 데이터를 직접 수정하지 않습니다.</p>
         </section>

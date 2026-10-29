@@ -77,7 +77,7 @@ export function StationDetailView({ id }: { id: string }) {
   if (!origin || !destination || !result || !candidate) {
     if (standaloneDetail.isLoading) {
       return (
-        <main className="mx-auto flex w-full max-w-md flex-1 items-center justify-center px-4 py-16 text-sm text-muted-foreground">
+        <main className="oilpick-page mx-auto flex w-full max-w-md flex-1 items-center justify-center px-4 py-16 text-sm text-muted-foreground">
           주유소 정보를 불러오는 중이에요.
         </main>
       );
@@ -97,7 +97,7 @@ export function StationDetailView({ id }: { id: string }) {
     }
     if (standaloneDetail.error) {
       return (
-        <main className="mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-center gap-4 px-4 py-16 text-center">
+        <main className="oilpick-page mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-center gap-4 px-4 py-16 text-center">
           <p className="text-sm text-muted-foreground">
             {standaloneDetail.error.message}
           </p>
@@ -108,7 +108,7 @@ export function StationDetailView({ id }: { id: string }) {
       );
     }
     return (
-      <main className="mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-center gap-4 px-4 py-16 text-center">
+      <main className="oilpick-page mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-center gap-4 px-4 py-16 text-center">
         <p className="text-sm text-muted-foreground">
           검색 컨텍스트가 없습니다. 홈에서 먼저 검색해주세요.
         </p>

@@ -65,7 +65,7 @@ export function NearbyStationDetail({
   }
 
   return (
-    <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-2 px-4 py-6 md:max-w-6xl md:gap-6 md:px-8 md:py-8">
+    <main className="oilpick-page mx-auto flex w-full max-w-md flex-1 flex-col gap-2 px-4 pb-12 pt-6 md:max-w-6xl md:gap-6 md:px-8 md:py-8">
       <StationDetailHeader
         backHref="/nearby"
         backLabel="내 주변 주유소"
@@ -118,17 +118,17 @@ export function NearbyStationDetail({
                     className="absolute top-[24.5px] left-1/2 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-1"
                     aria-hidden
                   >
-                    <span className="h-1 w-0.5 rounded-full bg-primary" />
-                    <span className="h-1 w-0.5 rounded-full bg-primary" />
-                    <span className="h-1 w-0.5 rounded-full bg-primary" />
+                    <span className="h-1 w-0.5 rounded-full bg-route-blue" />
+                    <span className="h-1 w-0.5 rounded-full bg-route-blue" />
+                    <span className="h-1 w-0.5 rounded-full bg-route-blue" />
                   </span>
                   <CircleSmall
-                    className="relative size-4 fill-surface text-route-strong"
+                    className="relative size-4 fill-surface text-route-blue"
                     strokeWidth={2}
                     aria-hidden
                   />
                   <MapPin
-                    className="relative size-4 fill-surface text-route-strong"
+                    className="relative size-4 fill-surface text-route-blue"
                     strokeWidth={2}
                     aria-hidden
                   />

@@ -71,10 +71,10 @@ function StationPriceMarker({
           event.stopPropagation();
           onSelect();
         }}
-        className={`relative flex items-center rounded-full border-2 border-white px-2 py-1 text-xs font-bold text-primary-foreground shadow-route-md transition-transform ${
+        className={`relative flex items-center rounded-full border-2 border-white px-2 py-1 text-xs font-bold text-brand-amber-foreground shadow-route-md transition-transform ${
           selected
-            ? "scale-110 bg-route-strong ring-2 ring-primary ring-offset-1"
-            : "bg-primary"
+            ? "scale-110 bg-brand-amber-strong ring-2 ring-route-blue ring-offset-1"
+            : "bg-brand-amber"
         }`}
       >
         {station.price.toLocaleString()}
