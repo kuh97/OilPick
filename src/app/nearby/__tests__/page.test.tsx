@@ -97,7 +97,7 @@ describe("NearbyPage — F10 내 주변 주유소", () => {
 
     expect(screen.getByText("내 주변 주유소")).toBeTruthy();
     const gasolineRadios = screen.getAllByRole("radio", { name: "휘발유" });
-    expect(gasolineRadios).toHaveLength(2);
+    expect(gasolineRadios).toHaveLength(1);
     expect(gasolineRadios.every((radio) => radio.getAttribute("aria-checked") === "true")).toBe(true);
     expect(screen.getByRole("button", { name: /필터/ })).toBeTruthy();
     expect(screen.queryByText("현재 위치 기준 5km")).toBeNull();

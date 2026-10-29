@@ -16,7 +16,7 @@ const FUELS: Fuel[] = ["GASOLINE", "DIESEL", "LPG"];
 export function FuelSelect({ value, onChange }: { value: Fuel; onChange: (fuel: Fuel) => void }) {
   return (
     <div
-      className="flex gap-1 rounded-xl bg-muted/60 p-1"
+      className="flex min-w-0 gap-1 rounded-control bg-surface-quiet p-1"
       role="radiogroup"
       aria-label="연료 종류"
     >
@@ -28,10 +28,10 @@ export function FuelSelect({ value, onChange }: { value: Fuel; onChange: (fuel: 
           aria-checked={value === fuel}
           onClick={() => onChange(fuel)}
           className={cn(
-            "flex-1 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors",
+            "min-h-10 flex-1 rounded-control-sm px-3 text-center text-sm font-medium whitespace-nowrap transition-colors",
             value === fuel
-              ? "bg-background text-foreground shadow-route-sm"
-              : "text-muted-foreground hover:text-foreground",
+              ? "bg-surface text-text-strong shadow-route-sm"
+              : "text-text-body hover:text-text-strong",
           )}
         >
           {FUEL_LABEL[fuel]}

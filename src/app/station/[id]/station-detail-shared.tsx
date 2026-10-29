@@ -283,7 +283,7 @@ function MobileNaviNotes({ isMobile }: { isMobile: boolean | null }) {
   if (!isMobile) return null;
 
   return (
-    <p className="flex items-start justify-center gap-1.5 break-keep text-center text-xs leading-5 text-text-body">
+    <p className="flex items-center justify-center gap-1.5 break-keep text-center text-xs leading-5 text-text-body">
       <SearchAlert className="size-3.5 shrink-0" aria-hidden />
       <span>TMAP 이용 시 경로는 주유소까지만 안내됩니다.</span>
     </p>
