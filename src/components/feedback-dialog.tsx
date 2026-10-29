@@ -119,7 +119,7 @@ export function FeedbackDialog({
           {buttonLabel}
         </DialogTrigger>
       )}
-      <DialogContent className="rounded-card border border-route-strong/15 bg-surface p-5 text-text-strong shadow-route-md">
+      <DialogContent className="rounded-card border border-route-strong/15 bg-surface p-4 text-text-strong shadow-route-md">
         {submitted ? (
           <>
             <DialogHeader>

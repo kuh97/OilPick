@@ -16,7 +16,7 @@ import {
   MapPin,
   MapPinned,
   RotateCcw,
-  Route as RouteIcon,
+  Road,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { HelpDrawer } from "@/components/help-drawer";
@@ -24,7 +24,7 @@ import { Switch } from "@/components/ui/switch";
 import { PlaceAutocompleteInput } from "@/components/place-autocomplete";
 import { FuelSelect } from "@/components/fuel-select";
 import { HomeMap, type HomeMapField } from "@/components/home-map";
-import { CalcAssumptionsFooter } from "@/components/result/calc-assumptions-footer";
+import { CalcAssumptions } from "@/components/result/calc-assumptions";
 import { useSearchStore } from "@/store/search-store";
 import { wgs84 } from "@/domain/types";
 import { wgs84ToProjected, distanceM } from "@/domain/geo";
@@ -206,7 +206,7 @@ export default function HomePage() {
               <FuelSelect value={fuel} onChange={setFuel} />
 
               <div className="flex flex-col gap-0.5">
-                <CalcAssumptionsFooter
+                <CalcAssumptions
                   compact
                   embedded
                   embeddedDivider={false}
@@ -220,7 +220,7 @@ export default function HomePage() {
                 <label className="flex items-center justify-between gap-3 px-0 text-xs text-muted-foreground">
                   <span className="flex min-w-0 items-center">
                     <span className="flex size-8 shrink-0 items-center justify-center">
-                      <RouteIcon
+                      <Road
                         className="size-3.5 text-muted-foreground"
                         aria-hidden
                       />

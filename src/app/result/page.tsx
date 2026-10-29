@@ -14,7 +14,7 @@ import { LoadingProgress } from "@/components/result/loading-progress";
 import { ExpansionBanner } from "@/components/result/expansion-banner";
 import { ModeTabs } from "@/components/result/mode-tabs";
 import { ResultCard } from "@/components/result/result-card";
-import { CalcAssumptionsFooter } from "@/components/result/calc-assumptions-footer";
+import { CalcAssumptions } from "@/components/result/calc-assumptions";
 import { FilterSheet } from "@/components/result/filter-sheet";
 import { useSearchStore, type ProgressStep } from "@/store/search-store";
 import {
@@ -112,7 +112,7 @@ function SearchRouteSummary({
           {durationLabel}
         </p>
       </div>
-      <CalcAssumptionsFooter
+      <CalcAssumptions
         compact
         embedded
         referencePrice={referencePrice}
@@ -189,7 +189,7 @@ function DesktopSearchContext({
 
       <div className="my-4 border-t border-route-strong/20" />
 
-      <CalcAssumptionsFooter
+      <CalcAssumptions
         className="border-0 px-0 py-0"
         title="계산 기준"
         referencePrice={referencePrice}

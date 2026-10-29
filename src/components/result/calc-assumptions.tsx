@@ -49,7 +49,7 @@ function toVehicleDraft(vehicle: WireVehicle): VehicleDraft {
   };
 }
 
-export function CalcAssumptionsFooter({
+export function CalcAssumptions({
   referencePrice,
   refPriceSource,
   vehicle,
@@ -111,27 +111,27 @@ export function CalcAssumptionsFooter({
                   embeddedDivider && "border-t border-route-strong/20",
                   embeddedInset ? "px-4" : "px-0 py-0",
                 )
-              : "flex items-center justify-between gap-3 rounded-xl border border-border bg-card px-3.5 py-3",
+              : "flex items-center justify-between gap-3 rounded-card border border-route-strong/15 bg-surface px-4 py-3 shadow-route-sm",
             className,
           )}
         >
           {embedded ? (
             <div className="flex min-w-0 items-center">
               <span className="flex size-8 shrink-0 items-center justify-center">
-                <Fuel className="size-3.5 text-muted-foreground" aria-hidden />
+                <Fuel className="size-3.5 text-text-body" aria-hidden />
               </span>
-              <p className="min-w-0 truncate text-xs text-muted-foreground tabular-nums">
+              <p className="min-w-0 truncate text-xs text-text-body tabular-nums">
                 {vehicle.efficiency}km/L · {vehicle.refuelAmount}L 주유
                 {referenceSummary ? ` · ${referenceSummary}` : ""}
               </p>
             </div>
           ) : (
             <div className="min-w-0">
-              <p className="mt-0.5 truncate text-sm text-muted-foreground tabular-nums">
+              <p className="mt-0.5 truncate text-sm text-text-body tabular-nums">
                 연비 {vehicle.efficiency}km/L · {vehicle.refuelAmount}L 주유
               </p>
               {referenceSummary && (
-                <p className="mt-1.5 truncate text-sm text-muted-foreground tabular-nums">
+                <p className="mt-1.5 truncate text-sm text-text-body tabular-nums">
                   {referenceSummary}
                 </p>
               )}
@@ -140,12 +140,13 @@ export function CalcAssumptionsFooter({
           <DialogTrigger
             render={
               <Button
-                variant={embedded ? "ghost" : "outline"}
+                variant="outline"
                 size="sm"
                 className={cn(
-                  "shrink-0",
-                  embedded && "h-auto px-1.5 text-xs text-primary",
+                  "shrink-0 border border-border bg-surface text-text-body hover:border-route-cyan hover:bg-route-sky hover:text-route-strong",
+                  embedded && "px-2 text-xs",
                 )}
+                style={{ height: embedded ? "25px" : undefined }}
                 aria-label="기준 수정"
               />
             }
@@ -154,20 +155,18 @@ export function CalcAssumptionsFooter({
           </DialogTrigger>
         </div>
       ) : title ? (
-        <div
-          className={cn(
-            "flex flex-col text-sm text-muted-foreground",
-            className,
-          )}
-        >
+        <div className={cn("flex flex-col text-sm text-text-body", className)}>
           <div className="flex items-center justify-between gap-3">
-            <h2 className="text-base font-semibold text-foreground">{title}</h2>
+            <h2 className="text-base font-semibold text-text-strong">
+              {title}
+            </h2>
             <DialogTrigger
               render={
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-auto px-1.5 text-xs text-primary"
+                  className="border border-border bg-surface px-2 text-xs text-text-body hover:border-route-cyan hover:bg-route-sky hover:text-route-strong"
+                  style={{ height: "25px" }}
                   aria-label="계산 기준 수정"
                   title="계산 기준 수정"
                 />
@@ -182,7 +181,7 @@ export function CalcAssumptionsFooter({
               {fuel != null && avoidHighway != null && (
                 <div className="flex items-start justify-between gap-3">
                   <dt>연료 · 도로</dt>
-                  <dd className="text-right text-foreground">
+                  <dd className="text-right text-text-strong">
                     {FUEL_LABEL[fuel]} ·{" "}
                     {avoidHighway ? "고속도로 회피" : "고속도로 포함"}
                   </dd>
@@ -191,7 +190,7 @@ export function CalcAssumptionsFooter({
               {fuel != null && avoidHighway != null ? (
                 <div className="flex items-start justify-between gap-3">
                   <dt>연비 · 주유량</dt>
-                  <dd className="text-right text-foreground tabular-nums">
+                  <dd className="text-right text-text-strong tabular-nums">
                     {vehicle.efficiency}km/L · {vehicle.refuelAmount}L
                   </dd>
                 </div>
@@ -199,13 +198,13 @@ export function CalcAssumptionsFooter({
                 <>
                   <div className="flex items-start justify-between gap-3">
                     <dt>연비</dt>
-                    <dd className="text-right text-foreground tabular-nums">
+                    <dd className="text-right text-text-strong tabular-nums">
                       {vehicle.efficiency}km/L
                     </dd>
                   </div>
                   <div className="flex items-start justify-between gap-3">
                     <dt>주유량</dt>
-                    <dd className="text-right text-foreground tabular-nums">
+                    <dd className="text-right text-text-strong tabular-nums">
                       {vehicle.refuelAmount}L
                     </dd>
                   </div>
@@ -218,7 +217,7 @@ export function CalcAssumptionsFooter({
                       ? SOURCE_LABEL[refPriceSource]
                       : "가격 기준"}
                   </dt>
-                  <dd className="text-right text-foreground tabular-nums">
+                  <dd className="text-right text-text-strong tabular-nums">
                     {referencePrice!.toLocaleString()}원/L
                   </dd>
                 </div>
@@ -229,7 +228,7 @@ export function CalcAssumptionsFooter({
       ) : (
         <div
           className={cn(
-            "flex items-center justify-between border-t border-border px-3 py-2 text-sm text-muted-foreground",
+            "flex items-center justify-between border-t border-route-strong/20 px-3 py-2 text-sm text-text-body",
             className,
           )}
         >
@@ -242,6 +241,7 @@ export function CalcAssumptionsFooter({
               <Button
                 variant="ghost"
                 size="icon-xs"
+                className="border border-border bg-surface text-text-body hover:border-route-cyan hover:bg-route-sky hover:text-route-strong"
                 aria-label="계산 기준 수정"
                 title="계산 기준 수정"
               />
@@ -252,31 +252,31 @@ export function CalcAssumptionsFooter({
         </div>
       )}
 
-      <DialogContent>
+      <DialogContent className="rounded-card border border-route-strong/15 bg-surface p-4 text-text-strong shadow-route-md">
         <DialogHeader>
-          <DialogTitle>기준 수정</DialogTitle>
+          <DialogTitle className="text-text-strong">기준 수정</DialogTitle>
         </DialogHeader>
         <div className="flex flex-col gap-3">
-          <label className="flex flex-col gap-1 text-sm">
+          <label className="flex flex-col gap-1.5 text-sm font-medium text-text-strong">
             연비 (km/L)
             <input
               type="number"
               step="0.1"
               min="1"
-              className="rounded-lg border border-border px-3 py-2"
+              className="rounded-control-sm border border-border bg-surface px-3 py-2.5 text-text-strong outline-none placeholder:text-text-muted focus:border-route-strong focus:ring-2 focus:ring-route-blue/30"
               value={draft.efficiency}
               onChange={(e) =>
                 setDraft({ ...draft, efficiency: e.target.value })
               }
             />
           </label>
-          <label className="flex flex-col gap-1 text-sm">
+          <label className="flex flex-col gap-1.5 text-sm font-medium text-text-strong">
             주유량 (L)
             <input
               type="number"
               step="1"
               min="1"
-              className="rounded-lg border border-border px-3 py-2"
+              className="rounded-control-sm border border-border bg-surface px-3 py-2.5 text-text-strong outline-none placeholder:text-text-muted focus:border-route-strong focus:ring-2 focus:ring-route-blue/30"
               value={draft.refuelAmount}
               onChange={(e) =>
                 setDraft({ ...draft, refuelAmount: e.target.value })
@@ -285,10 +285,11 @@ export function CalcAssumptionsFooter({
           </label>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="border-border bg-surface-quiet/70">
           <DialogClose
             render={
               <Button
+                className="bg-route-blue text-white hover:bg-route-strong"
                 disabled={!canApply}
                 onClick={() => {
                   if (!canApply) return;
