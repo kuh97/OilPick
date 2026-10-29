@@ -21,6 +21,10 @@ const POSITION_PROGRESS: Record<ProgressStep, number> = {
 };
 const ROUTE_PATH = "M24 134C80 134 92 44 154 66S240 120 296 44";
 
+function easeOutCubic(progress: number): number {
+  return 1 - Math.pow(1 - progress, 3);
+}
+
 function labelFor(step: ProgressStep, expandRadiusM?: number | null): string {
   if (step === "EXPAND" && expandRadiusM) {
     return `반경 ${Math.round(expandRadiusM / 1000)}km까지 넓혀서 찾아보고 있어요`;
@@ -67,7 +71,7 @@ function RouteIllustration({ step }: { step: ProgressStep }) {
     const animate = (now: number) => {
       startedAt ??= now;
       const elapsed = Math.min((now - startedAt) / SEARCH_ROUTE_MOVE_MS, 1);
-      draw(from + (target - from) * elapsed);
+      draw(from + (target - from) * easeOutCubic(elapsed));
       if (elapsed < 1) frameId = requestAnimationFrame(animate);
     };
 
@@ -99,11 +103,11 @@ function RouteIllustration({ step }: { step: ProgressStep }) {
           pathLength="1" strokeDasharray="1 1" strokeDashoffset="1" />
         <path
           className={`${styles.stationLink} ${showStations ? styles.stationLinkVisible : ""}`}
-          d="M154 66 Q166 56 168 44"
+          d="M168 60 Q168 52 168 46"
         />
         <path
           className={`${styles.stationLink} ${showStations ? styles.stationLinkVisible : ""}`}
-          d="M215 103 Q224 113 224 124"
+          d="M224 104 Q224 110 224 116"
         />
         <circle cx="24" cy="134" r="5" className={styles.startpoint} />
         <circle
