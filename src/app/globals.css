@@ -201,15 +201,6 @@ html[data-mobile-ua] [data-desktop-only] {
 
 /* Product pages share one quiet top-to-canvas transition; the onboarding hero stays separate. */
 body {
-  background: linear-gradient(
-    180deg,
-    var(--oilpick-surface) 0,
-    var(--oilpick-canvas) 26rem,
-    var(--oilpick-canvas) 100%
-  );
-}
-
-.oilpick-page {
   background:
     radial-gradient(
       ellipse 78% 24rem at 50% 0%,
@@ -222,6 +213,14 @@ body {
       var(--oilpick-canvas) 26rem,
       var(--oilpick-canvas) 100%
     );
+  background-color: var(--oilpick-canvas);
+  background-repeat: no-repeat;
+}
+
+.oilpick-page {
+  /* The page is max-width on desktop; keep the background on body so its
+     transition cannot split at the container edges. */
+  background: transparent;
 }
 
 .dark {
