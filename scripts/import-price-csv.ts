@@ -17,7 +17,7 @@ import { createSemaphore } from "@/infra/opinet/client";
 import { getDb } from "@/infra/db/client";
 import { refuelPoint } from "@/infra/db/schema";
 import { bulkUpsertFromCsv, type CsvUpsertRow } from "@/infra/db/repositories";
-import { decodeEucKr, parseOilCsv, parseLpgCsv, mergeCsvRows } from "@/infra/csv/parse";
+import { decodeEucKr, parsePriceCsvPair, mergeCsvRows } from "@/infra/csv/parse";
 import { runGates, type GateContext } from "@/infra/csv/gates";
 import { getSigunMap } from "@/infra/opinet/sigun-map";
 import { geocodeStation, type GeocodeResult } from "@/infra/geocode/geocode-station";
@@ -60,18 +60,18 @@ async function main() {
   info(`주유소: ${oilPath}`);
   info(`충전소: ${lpgPath}`);
 
-  const oilParsed = parseOilCsv(decodeEucKr(fs.readFileSync(oilPath)));
-  const lpgParsed = parseLpgCsv(decodeEucKr(fs.readFileSync(lpgPath)));
-  if (oilParsed.pricedOn !== lpgParsed.pricedOn) {
-    warn(`두 CSV의 기준일자가 다릅니다: 주유소=${oilParsed.pricedOn}, 충전소=${lpgParsed.pricedOn}`);
-  }
-  ok(`주유소 ${oilParsed.rows.length}행, 충전소 ${lpgParsed.rows.length}행, 기준일자 ${oilParsed.pricedOn}`);
+  const parsed = parsePriceCsvPair(
+    decodeEucKr(fs.readFileSync(oilPath)),
+    decodeEucKr(fs.readFileSync(lpgPath)),
+  );
+  const { oil: oilParsed, lpg: lpgParsed, pricedOn } = parsed;
+  ok(`주유소 ${oilParsed.rows.length}행, 충전소 ${lpgParsed.rows.length}행, 기준일자 ${pricedOn}`);
 
   header("시군구 코드 매핑 (오피넷 areaCode.do + avgSigunPrice.do, 예상 호출 17회)");
   const sigunMap = await getSigunMap({ forceRefresh: true });
   ok(`시군구 매핑 ${sigunMap.size}개 확보`);
 
-  const merged = mergeCsvRows(oilParsed.rows, lpgParsed.rows, sigunMap, oilParsed.pricedOn);
+  const merged = mergeCsvRows(oilParsed.rows, lpgParsed.rows, sigunMap, pricedOn);
   const unmappedSigun = merged.filter((m) => m.sigunCd === null).length;
   if (unmappedSigun > 0) warn(`SIGUNCD 매핑 실패 ${unmappedSigun}건 (P_ref 시군구 집계에서 제외됨)`);
 
@@ -82,7 +82,7 @@ async function main() {
     merged,
     oilIds: oilParsed.rows.map((r) => r.uniId),
     lpgIds: lpgParsed.rows.map((r) => r.uniId),
-    pricedOn: oilParsed.pricedOn,
+    pricedOn,
     prev: null,
     existingIds: new Set(),
   };
@@ -181,7 +181,7 @@ async function main() {
   }
 
   header("완료");
-  ok(`refuel_point upsert ${upserted}건 (기준일자 ${oilParsed.pricedOn})`);
+  ok(`refuel_point upsert ${upserted}건 (기준일자 ${pricedOn})`);
   if (failed.length > 0) ok(`좌표 미확보 ${failed.length}건은 다음 실행에서 재시도 가능 (제외됨)`);
 }
 

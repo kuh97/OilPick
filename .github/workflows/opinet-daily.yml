@@ -6,7 +6,7 @@ name: 오피넷 유가 CSV 일일 수급
 
 on:
   schedule:
-    - cron: "0 22 * * *" # 07:00 KST (UTC+9)
+    - cron: "0 20 * * *" # 05:00 KST (UTC+9) — 05:40 Vercel import 안전망보다 먼저 완료
   workflow_dispatch:
     inputs:
       date:

@@ -145,6 +145,38 @@ describe("importPrices — 실패 경로 (refuel_point 무변경)", () => {
     );
   });
 
+  it("주유소와 LPG 기준일자가 다르면 G2로 로그하고 DB를 조회하거나 스왑하지 않는다", async () => {
+    const result = await importPrices(
+      { oilCsv: oilCsv(100, "20260905"), lpgCsv: lpgCsv(5, "20260904") },
+      deps(),
+    );
+
+    expect(result).toMatchObject({ status: "GATE_FAILED", gate: "G2", pricedOn: null });
+    expect(getLastImport).not.toHaveBeenCalled();
+    expect(getCoords).not.toHaveBeenCalled();
+    expect(load).not.toHaveBeenCalled();
+    expect(swap).not.toHaveBeenCalled();
+    expect(writeLog).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "GATE_FAILED", failedGate: "G2", pricedOn: null }),
+      expect.anything(),
+    );
+  });
+
+  it("일일 메타의 시작일과 종료일이 다르면 G2로 분류한다", async () => {
+    const badMeta = oilCsv().toString("utf-8").replace(
+      "기준 : 일간(20260905~20260905)",
+      "기준 : 일간(20260904~20260905)",
+    );
+    const result = await importPrices(
+      { oilCsv: Buffer.from(badMeta, "utf-8"), lpgCsv: lpgCsv() },
+      deps(),
+    );
+
+    expect(result).toMatchObject({ status: "GATE_FAILED", gate: "G2" });
+    expect(getLastImport).not.toHaveBeenCalled();
+    expect(swap).not.toHaveBeenCalled();
+  });
+
   it("G4(행 수 급감) 실패 시 스왑하지 않고 GATE_FAILED 로그", async () => {
     getLastImport.mockResolvedValue({ pricedOn: "2026-09-04", oilRows: 100, lpgRows: 5 });
     const result = await importPrices({ oilCsv: oilCsv(50), lpgCsv: lpgCsv() }, deps());

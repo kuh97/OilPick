@@ -51,6 +51,12 @@ describe("price CSV Blob", () => {
     await putPriceCsvs(oil, lpg, "20261020");
 
     expect(putMock).toHaveBeenCalledTimes(4);
+    expect(putMock.mock.calls.map(([pathname]) => pathname)).toEqual([
+      "opinet/latest/oil.csv",
+      "opinet/latest/lpg.csv",
+      "opinet/archive/oil-20261020.csv",
+      "opinet/archive/lpg-20261020.csv",
+    ]);
     for (const [, , options] of putMock.mock.calls) {
       expect(options).toEqual(expect.objectContaining({
         cacheControlMaxAge: 60,

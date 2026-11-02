@@ -6,6 +6,18 @@
 import { parse } from "csv-parse/sync";
 import type { RawOilRow, RawLpgRow, MergedCsvRow } from "./types";
 
+export type CsvParseGate = "G1" | "G2";
+
+export class CsvParseError extends Error {
+  constructor(
+    public readonly gate: CsvParseGate,
+    message: string,
+  ) {
+    super(message);
+    this.name = "CsvParseError";
+  }
+}
+
 // ─── 브랜드 코드 매핑 (docs/MIGRATION-DB.md §3.3 실측 대조표) ───────────────────
 // POLL_DIV_CD를 정본으로 삼습니다. CSV '상표' 텍스트는 이 표로만 역변환합니다.
 
@@ -39,12 +51,32 @@ export function decodeEucKr(buf: Buffer | ArrayBuffer): string {
  * docs/MIGRATION-DB.md 검증 게이트 G2.
  */
 export function parseMetaDate(metaLine: string): string {
-  const match = metaLine.match(/(\d{8})/);
+  const match = metaLine.match(/일간\s*\(\s*(\d{8})\s*~\s*(\d{8})\s*\)/);
   if (!match) {
-    throw new Error(`메타행에서 기준일자를 찾을 수 없습니다: "${metaLine}"`);
+    throw new CsvParseError("G2", `메타행에서 기준일자를 찾을 수 없습니다: "${metaLine}"`);
   }
-  const raw = match[1];
-  return `${raw.slice(0, 4)}-${raw.slice(4, 6)}-${raw.slice(6, 8)}`;
+  const [, start, end] = match;
+  if (start !== end) {
+    throw new CsvParseError("G2", `일일 CSV의 시작일과 종료일이 다릅니다: "${metaLine}"`);
+  }
+
+  const iso = `${start.slice(0, 4)}-${start.slice(4, 6)}-${start.slice(6, 8)}`;
+  const parsed = new Date(`${iso}T00:00:00Z`);
+  if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== iso) {
+    throw new CsvParseError("G2", `메타행의 기준일자가 유효하지 않습니다: "${metaLine}"`);
+  }
+  return iso;
+}
+
+function assertRowDates(dataRows: string[][], pricedOn: string, label: string): void {
+  const expected = pricedOn.replace(/-/g, "");
+  const mismatch = dataRows.find((row) => row[4] !== expected);
+  if (mismatch) {
+    throw new CsvParseError(
+      "G2",
+      `${label} CSV 행의 기간 ${mismatch[4] ?? "(없음)"}이 메타 기준일자 ${expected}와 다릅니다(G2)`,
+    );
+  }
 }
 
 /** "0"은 미취급(무료 아님) — null로 정규화. A3 규칙과 동일(오피넷 반경검색 price<=0 제외). */
@@ -61,10 +93,14 @@ const OIL_HEADER = [
 
 const LPG_HEADER = ["번호", "지역", "상호", "주소", "기간", "상표", "셀프여부", "LPG"] as const;
 
-function assertHeader(actual: string[], expected: readonly string[], label: string): void {
+function assertHeader(actual: string[] | undefined, expected: readonly string[], label: string): void {
+  if (!actual) {
+    throw new CsvParseError("G1", `${label} CSV 헤더가 없습니다(G1)`);
+  }
   const ok = actual.length === expected.length && expected.every((h, i) => actual[i] === h);
   if (!ok) {
-    throw new Error(
+    throw new CsvParseError(
+      "G1",
       `${label} CSV 헤더가 예상과 다릅니다(G1). 예상: [${expected.join(",")}] 실제: [${actual.join(",")}]`,
     );
   }
@@ -82,7 +118,9 @@ export function parseOilCsv(text: string): ParsedOilCsv {
   const records: string[][] = parse(text, { skip_empty_lines: true, relax_column_count: true });
   const [header, metaRow, ...dataRows] = records;
   assertHeader(header, OIL_HEADER, "주유소");
+  if (!metaRow?.[0]) throw new CsvParseError("G2", "주유소 CSV 메타행이 없습니다(G2)");
   const pricedOn = parseMetaDate(metaRow[0]);
+  assertRowDates(dataRows, pricedOn, "주유소");
 
   const rows: RawOilRow[] = dataRows.map((r) => ({
     uniId: r[0],
@@ -111,7 +149,9 @@ export function parseLpgCsv(text: string): ParsedLpgCsv {
   const records: string[][] = parse(text, { skip_empty_lines: true, relax_column_count: true });
   const [header, metaRow, ...dataRows] = records;
   assertHeader(header, LPG_HEADER, "충전소");
+  if (!metaRow?.[0]) throw new CsvParseError("G2", "충전소 CSV 메타행이 없습니다(G2)");
   const pricedOn = parseMetaDate(metaRow[0]);
+  assertRowDates(dataRows, pricedOn, "충전소");
 
   const rows: RawLpgRow[] = dataRows.map((r) => ({
     uniId: r[0],
@@ -124,6 +164,25 @@ export function parseLpgCsv(text: string): ParsedLpgCsv {
   }));
 
   return { pricedOn, rows };
+}
+
+export interface ParsedPriceCsvPair {
+  oil: ParsedOilCsv;
+  lpg: ParsedLpgCsv;
+  pricedOn: string;
+}
+
+/** 주유소·LPG CSV를 함께 파싱하고 두 파일이 같은 일자 스냅샷인지 검증합니다. */
+export function parsePriceCsvPair(oilText: string, lpgText: string): ParsedPriceCsvPair {
+  const oil = parseOilCsv(oilText);
+  const lpg = parseLpgCsv(lpgText);
+  if (oil.pricedOn !== lpg.pricedOn) {
+    throw new CsvParseError(
+      "G2",
+      `주유소/LPG CSV 기준일자가 다릅니다(G2): 주유소=${oil.pricedOn}, LPG=${lpg.pricedOn}`,
+    );
+  }
+  return { oil, lpg, pricedOn: oil.pricedOn };
 }
 
 // ─── 병합 ─────────────────────────────────────────────────────────────────────

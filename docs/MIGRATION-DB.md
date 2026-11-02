@@ -369,9 +369,9 @@ export async function bulkUpsertFromCsv(rows: CsvRow[], db: Db = getDb()) {
 ```
 GitHub Actions (05:00 KST)                Vercel Cron (05:40 KST, 안전망)
   → 오피넷 다운로드 (헤드리스 브라우저)      → Blob latest 읽기
-  → Vercel Blob 업로드 (latest + archive)   → 검증 게이트 G1~G8 (§8)
-  → 임포트 엔드포인트 호출 ──────────────▶   → 신규/좌표결손 행만 지오코딩
-                                            → 스테이징 적재 → 원자적 스왑
+  → 요청일·두 CSV 기준일 검증                 → 검증 게이트 G1~G8 (§8)
+  → Vercel Blob 업로드 (latest + archive)   → 신규/좌표결손 행만 지오코딩
+  → 임포트 엔드포인트 호출 ──────────────▶   → 스테이징 적재 → 원자적 스왑
                                             → csv_import_log 기록
 ```
 
@@ -392,6 +392,8 @@ NetFunnel) 뒤에 있고 서버 생성에 시간이 걸립니다. 순수 HTTP로
 
 여전히 무인 자동화입니다 — 스크래핑 스케줄러만 Vercel Cron → GitHub Actions로 옮겼고,
 **Blob은 수동 비상구**이기도 합니다(스크래핑이 깨지면 파일만 직접 올리면 임포트는 계속 돔).
+임포트 API는 운영 정책상 게이트 실패도 HTTP 200을 반환하지만, GitHub Actions 호출부는
+응답 본문의 `status`를 검사해 `OK`와 같은 기준일의 멱등 `G3`만 성공으로 처리합니다.
 
 **원자적 스왑.** 8개 게이트를 전부 통과한 뒤에만 `refuel_point_staging`을 채우고,
 반영은 `INSERT ... SELECT ... ON CONFLICT` **한 문장**으로 합니다(Neon HTTP 드라이버는
@@ -461,7 +463,7 @@ NetFunnel) 뒤에 있고 서버 생성에 시간이 걸립니다. 순수 HTTP로
 | # | 규칙 | 임계값 | 잡아내는 사고 |
 | --- | --- | --- | --- |
 | G1 | 헤더 컬럼명 일치 | 11개 정확히 | 오피넷 포맷 변경 |
-| G2 | 기준일자 파싱 | 2행에서 추출 성공 | 다른 파일을 받아옴 |
+| G2 | 기준일자 일관성 | 2행 파싱 성공 + 행별 기간 일치 + 주유소·LPG 일치 | 다른 날짜·종류 또는 섞인 파일을 받아옴 |
 | G3 | 기준일자 신규성 | `> last_imported_on` | 같은 파일 재수입 |
 | G4 | 행 수 변동 | 직전 대비 ±10% | 잘린 파일 · 빈 파일 |
 | G5 | `UNI_ID` 형식 | `A\d{7}` 100%, 중복 0 | ID 체계 변경 |

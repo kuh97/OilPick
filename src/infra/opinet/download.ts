@@ -38,7 +38,7 @@ export interface DownloadedCsv {
  * @param date "YYYYMMDD". 생략 시 KST 어제.
  */
 export async function downloadPriceCsv(date?: string): Promise<DownloadedCsv> {
-  const yyyymmdd = date ?? kstYesterday();
+  const yyyymmdd = resolveDownloadDate(date);
   const browser = await chromium.launch({
     headless: true,
     args: ["--no-sandbox", "--disable-dev-shm-usage"],
@@ -179,4 +179,19 @@ export function kstYesterday(now: number = Date.now()): string {
   const kst = new Date(now + 9 * 60 * 60 * 1000);
   kst.setUTCDate(kst.getUTCDate() - 1);
   return kst.toISOString().slice(0, 10).replace(/-/g, "");
+}
+
+/** CLI 입력일을 검증하고, 생략하면 KST 어제로 확정합니다. */
+export function resolveDownloadDate(date?: string, now: number = Date.now()): string {
+  const resolved = date?.trim() || kstYesterday(now);
+  if (!/^\d{8}$/.test(resolved)) {
+    throw new Error(`날짜 형식이 올바르지 않습니다: ${resolved} (YYYYMMDD 필요)`);
+  }
+
+  const iso = `${resolved.slice(0, 4)}-${resolved.slice(4, 6)}-${resolved.slice(6, 8)}`;
+  const parsed = new Date(`${iso}T00:00:00Z`);
+  if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== iso) {
+    throw new Error(`유효하지 않은 날짜입니다: ${resolved}`);
+  }
+  return resolved;
 }

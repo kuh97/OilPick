@@ -3,6 +3,7 @@ import {
   parseMetaDate,
   parseOilCsv,
   parseLpgCsv,
+  parsePriceCsvPair,
   mergeCsvRows,
   mapBrandLabel,
   decodeEucKr,
@@ -15,6 +16,14 @@ describe("parseMetaDate", () => {
 
   it("날짜가 없으면 에러를 던진다(G2)", () => {
     expect(() => parseMetaDate("이상한 메타행")).toThrow();
+  });
+
+  it("일일 범위의 시작일과 종료일이 다르면 거부한다(G2)", () => {
+    expect(() => parseMetaDate("기준 : 일간(20260904~20260905)")).toThrow(/시작일과 종료일/);
+  });
+
+  it("실재하지 않는 날짜를 거부한다(G2)", () => {
+    expect(() => parseMetaDate("기준 : 일간(20260230~20260230)")).toThrow(/유효하지/);
   });
 });
 
@@ -84,6 +93,14 @@ describe("parseOilCsv", () => {
     const bad = OIL_CSV.replace("고급휘발유", "프리미엄휘발유");
     expect(() => parseOilCsv(bad)).toThrow(/G1/);
   });
+
+  it("행의 기간이 메타 기준일자와 다르면 거부한다(G2)", () => {
+    const bad = OIL_CSV.replace(
+      '"A0011352","강원 강릉시","(주)대성길","강원 강릉시 구정면 칠성로 187","20260904"',
+      '"A0011352","강원 강릉시","(주)대성길","강원 강릉시 구정면 칠성로 187","20260903"',
+    );
+    expect(() => parseOilCsv(bad)).toThrow(/행의 기간.*메타 기준일자/);
+  });
 });
 
 describe("parseLpgCsv", () => {
@@ -100,6 +117,18 @@ describe("parseLpgCsv", () => {
       isSelf: false,
       priceLpg: 1124,
     });
+  });
+});
+
+describe("parsePriceCsvPair", () => {
+  it("두 CSV의 기준일자가 같으면 공통 기준일을 반환한다", () => {
+    const result = parsePriceCsvPair(OIL_CSV, LPG_CSV);
+    expect(result.pricedOn).toBe("2026-09-04");
+  });
+
+  it("주유소와 LPG의 기준일자가 다르면 거부한다(G2)", () => {
+    const staleLpg = LPG_CSV.replaceAll("20260904", "20260903");
+    expect(() => parsePriceCsvPair(OIL_CSV, staleLpg)).toThrow(/주유소\/LPG CSV 기준일자/);
   });
 });
 

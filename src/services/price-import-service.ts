@@ -12,7 +12,7 @@
  * 로직을 복제하지 마십시오(ARCHITECTURE.md §9.3).
  */
 
-import { decodeEucKr, parseOilCsv, parseLpgCsv, mergeCsvRows } from "@/infra/csv/parse";
+import { CsvParseError, decodeEucKr, parsePriceCsvPair, mergeCsvRows } from "@/infra/csv/parse";
 import { runGates, type GateContext } from "@/infra/csv/gates";
 import { getSigunMap } from "@/infra/opinet/sigun-map";
 import { createSemaphore } from "@/infra/opinet/client";
@@ -65,10 +65,10 @@ export type PriceImportResult =
     }
   | { status: "GATE_FAILED"; gate: string; detail: string; pricedOn: string | null };
 
-/** parse.ts가 던진 예외 메시지를 게이트 코드로 분류 (G1 헤더 / G2 기준일자). */
-function classifyParseError(message: string): { gate: string; detail: string } {
-  if (message.includes("기준일자")) return { gate: "G2", detail: message };
-  return { gate: "G1", detail: message };
+/** parse.ts의 구조화된 오류를 게이트 결과로 변환. csv-parse 자체 오류는 G1로 분류합니다. */
+function classifyParseError(error: unknown): { gate: string; detail: string } {
+  const detail = error instanceof Error ? error.message : String(error);
+  return { gate: error instanceof CsvParseError ? error.gate : "G1", detail };
 }
 
 export async function importPrices(
@@ -85,19 +85,17 @@ export async function importPrices(
 
   // ── STEP 1: 디코딩 + 파싱 (G1·G2는 여기서 throw) ──────────────────────────
   mark("parse-start");
-  let oilParsed: ReturnType<typeof parseOilCsv>;
-  let lpgParsed: ReturnType<typeof parseLpgCsv>;
+  let parsed: ReturnType<typeof parsePriceCsvPair>;
   try {
-    oilParsed = parseOilCsv(decodeEucKr(input.oilCsv));
-    lpgParsed = parseLpgCsv(decodeEucKr(input.lpgCsv));
+    parsed = parsePriceCsvPair(decodeEucKr(input.oilCsv), decodeEucKr(input.lpgCsv));
   } catch (err) {
-    const { gate, detail } = classifyParseError(err instanceof Error ? err.message : String(err));
+    const { gate, detail } = classifyParseError(err);
     mark(`parse-failed gate=${gate}`);
     await writeCsvImportLog({ pricedOn: null, status: "GATE_FAILED", failedGate: gate, detail }, db);
     return { status: "GATE_FAILED", gate, detail, pricedOn: null };
   }
 
-  const pricedOn = oilParsed.pricedOn;
+  const { oil: oilParsed, lpg: lpgParsed, pricedOn } = parsed;
   mark(`parse-end oil=${oilParsed.rows.length} lpg=${lpgParsed.rows.length} pricedOn=${pricedOn}`);
 
   // ── STEP 2: DB 컨텍스트 조회 + 지역→SIGUNCD 매핑 ────────────────────────
