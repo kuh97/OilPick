@@ -45,3 +45,127 @@ describe("PlaceAutocompleteInput — 외부에서 value가 바뀌는 경우", ()
     expect(input.value).toBe("성남시청 다시 입력중");
   });
 });
+
+describe("PlaceAutocompleteInput — 우측 액션", () => {
+  it("빈 출발지에는 현재 위치 아이콘을 표시하고 클릭을 전달한다", () => {
+    vi.stubGlobal("fetch", vi.fn());
+    const onUseCurrentLocation = vi.fn();
+
+    render(
+      <PlaceAutocompleteInput
+        label="출발지"
+        placeholder="출발지 입력"
+        value={null}
+        onChange={() => {}}
+        onUseCurrentLocation={onUseCurrentLocation}
+      />,
+    );
+
+    const input = screen.getByPlaceholderText("출발지 입력");
+    fireEvent.focus(input);
+    fireEvent.click(
+      screen.getByRole("button", { name: "현재 위치를 출발지로 설정" }),
+    );
+    expect(onUseCurrentLocation).toHaveBeenCalledOnce();
+    expect(document.activeElement).not.toBe(input);
+    expect(screen.queryByRole("button", { name: "출발지 지우기" })).toBeNull();
+  });
+
+  it("자동완성 결과를 선택하면 다음 필드로 이동하지 않고 포커스만 해제한다", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          places: [
+            {
+              name: "서울역",
+              address: "서울특별시 용산구 한강대로 405",
+              lat: 37.5547,
+              lng: 126.9706,
+            },
+          ],
+        }),
+      }),
+    );
+    const onChange = vi.fn();
+
+    render(
+      <PlaceAutocompleteInput
+        label="출발지"
+        placeholder="출발지 입력"
+        value={null}
+        onChange={onChange}
+      />,
+    );
+
+    const input = screen.getByPlaceholderText("출발지 입력");
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: "서울역" } });
+
+    const option = await screen.findByRole("button", { name: /서울역/ });
+    fireEvent.mouseDown(option);
+    fireEvent.click(option);
+
+    expect(onChange).toHaveBeenLastCalledWith({
+      lat: 37.5547,
+      lng: 126.9706,
+      name: "서울역",
+    });
+    expect(document.activeElement).not.toBe(input);
+  });
+
+  it("입력값이 생기면 현재 위치 대신 지우기 버튼을 표시한다", () => {
+    vi.stubGlobal("fetch", vi.fn());
+    const onChange = vi.fn();
+    const onUseCurrentLocation = vi.fn();
+
+    render(
+      <PlaceAutocompleteInput
+        label="출발지"
+        placeholder="출발지 입력"
+        value={null}
+        onChange={onChange}
+        onUseCurrentLocation={onUseCurrentLocation}
+      />,
+    );
+
+    const input = screen.getByPlaceholderText("출발지 입력") as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "서울역" } });
+
+    expect(
+      screen.queryByRole("button", {
+        name: "현재 위치를 출발지로 설정",
+      }),
+    ).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "출발지 지우기" }));
+    expect(input.value).toBe("");
+    expect(onChange).toHaveBeenLastCalledWith(null);
+    expect(document.activeElement).toBe(input);
+  });
+
+  it("빈 목적지에는 우측 액션을 표시하지 않고 값이 있을 때만 지우기를 표시한다", () => {
+    vi.stubGlobal("fetch", vi.fn());
+    const point: WirePoint = { lat: 37.75, lng: 128.9, name: "강릉역" };
+    const { rerender } = render(
+      <PlaceAutocompleteInput
+        label="목적지"
+        placeholder="목적지 입력"
+        value={null}
+        onChange={() => {}}
+      />,
+    );
+
+    expect(screen.queryByRole("button")).toBeNull();
+
+    rerender(
+      <PlaceAutocompleteInput
+        label="목적지"
+        placeholder="목적지 입력"
+        value={point}
+        onChange={() => {}}
+      />,
+    );
+    expect(screen.getByRole("button", { name: "목적지 지우기" })).toBeTruthy();
+  });
+});

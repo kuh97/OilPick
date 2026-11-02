@@ -5,7 +5,8 @@
  * "장소명 + 주소" 2줄로 최대 5건 표시. 실패 시 안내 + 재시도(검색 자체는 계속 가능).
  */
 
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
+import { LoaderCircle, LocateFixed, X } from "lucide-react";
 import { usePlacesSearch } from "@/lib/api/usePlacesSearch";
 import { cn } from "@/lib/utils";
 import type { WirePoint } from "@/app/api/_lib/types";
@@ -22,6 +23,9 @@ export interface PlaceAutocompleteInputProps {
   bare?: boolean;
   /** bare 입력을 감싸는 결합 필드의 위·아래 모서리 위치. */
   barePosition?: "top" | "bottom";
+  onUseCurrentLocation?: () => void;
+  isLocating?: boolean;
+  isCurrentLocationDisabled?: boolean;
 }
 
 export function PlaceAutocompleteInput({
@@ -33,10 +37,15 @@ export function PlaceAutocompleteInput({
   leadingIcon,
   bare = false,
   barePosition,
+  onUseCurrentLocation,
+  isLocating = false,
+  isCurrentLocationDisabled = false,
 }: PlaceAutocompleteInputProps) {
+  const inputRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState(value?.name ?? "");
   const [isOpen, setIsOpen] = useState(false);
   const { places, error, retry } = usePlacesSearch(isOpen ? query : "");
+  const hasQuery = query.length > 0;
 
   // 현재 위치 버튼·최근 검색 클릭·초기화 버튼처럼 부모가 value를 바깥에서 바꾸는 걸
   // 반영해야 한다. useEffect 대신 "렌더링 중 상태 조정" 패턴(React 공식 권장)을 쓴다.
@@ -77,14 +86,19 @@ export function PlaceAutocompleteInput({
         </span>
       )}
       <input
+        ref={inputRef}
         aria-label={bare ? label : undefined}
         className={
           bare
             ? cn(
-                "w-full bg-transparent px-3.5 py-3 text-sm outline-none placeholder:text-muted-foreground",
+                "w-full truncate bg-transparent px-3.5 py-3 text-sm outline-none placeholder:text-muted-foreground",
                 leadingIcon && "pl-10",
+                (hasQuery || onUseCurrentLocation) && "pr-12",
               )
-            : "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+            : cn(
+                "w-full truncate rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50",
+                (hasQuery || onUseCurrentLocation) && "pr-12",
+              )
         }
         placeholder={placeholder}
         value={query}
@@ -102,6 +116,43 @@ export function PlaceAutocompleteInput({
         }}
         onBlur={() => setTimeout(() => setIsOpen(false), 150)} // 클릭 이벤트가 먼저 처리되도록 지연
       />
+      {hasQuery ? (
+        <button
+          type="button"
+          aria-label={`${label} 지우기`}
+          title="지우기"
+          className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={() => {
+            setQuery("");
+            setIsOpen(false);
+            setSkipNextClear(false);
+            onChange(null);
+            inputRef.current?.focus();
+          }}
+        >
+          <X className="size-4" aria-hidden />
+        </button>
+      ) : onUseCurrentLocation ? (
+        <button
+          type="button"
+          aria-label="현재 위치를 출발지로 설정"
+          title="현재 위치"
+          disabled={isLocating || isCurrentLocationDisabled}
+          className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-route-blue transition-colors hover:text-route-strong disabled:cursor-not-allowed disabled:text-muted-foreground disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={() => {
+            onUseCurrentLocation();
+            inputRef.current?.blur();
+          }}
+        >
+          {isLocating ? (
+            <LoaderCircle className="size-4 animate-spin" aria-hidden />
+          ) : (
+            <LocateFixed className="size-4" aria-hidden />
+          )}
+        </button>
+      ) : null}
       {isOpen && (places.length > 0 || error) && (
         <ul className="absolute z-10 mt-1 w-full rounded-lg border border-border bg-popover shadow-md">
           {places.map((p) => (
@@ -114,6 +165,7 @@ export function PlaceAutocompleteInput({
                   onChange({ lat: p.lat, lng: p.lng, name: p.name });
                   setQuery(p.name);
                   setIsOpen(false);
+                  inputRef.current?.blur();
                 }}
               >
                 <div className="text-sm font-medium">{p.name}</div>

@@ -15,7 +15,6 @@ import {
   History as HistoryIcon,
   MapPin,
   MapPinned,
-  RotateCcw,
   Road,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -25,6 +24,7 @@ import { PlaceAutocompleteInput } from "@/components/place-autocomplete";
 import { FuelSelect } from "@/components/fuel-select";
 import { HomeMap, type HomeMapField } from "@/components/home-map";
 import { CalcAssumptions } from "@/components/result/calc-assumptions";
+import { reverseGeocode } from "@/lib/api/reverseGeocode";
 import { useSearchStore } from "@/store/search-store";
 import { wgs84 } from "@/domain/types";
 import { wgs84ToProjected, distanceM } from "@/domain/geo";
@@ -61,10 +61,9 @@ export default function HomePage() {
   }, [clearRoute]);
 
   const [activeField, setActiveField] = useState<HomeMapField>("origin");
-  // "다시 입력"을 누르면 입력창에 남아있는 편집 중 텍스트(아직 좌표로 확정 안 된 상태 —
-  // 즉 value는 이미 null이라 diff로는 안 잡힘)까지 확실히 지워야 하므로, key를 바꿔
-  // PlaceAutocompleteInput을 통째로 리마운트시킨다.
-  const [resetToken, setResetToken] = useState(0);
+  const [isLocatingOrigin, setIsLocatingOrigin] = useState(false);
+  const [isCurrentLocationDisabled, setIsCurrentLocationDisabled] =
+    useState(false);
 
   const tooClose = useMemo(
     () =>
@@ -80,11 +79,45 @@ export default function HomePage() {
     setDestination(origin);
   }
 
-  function resetRoute() {
-    setOrigin(null);
-    setDestination(null);
-    setActiveField("origin");
-    setResetToken((n) => n + 1);
+  function useCurrentLocationAsOrigin() {
+    if (typeof navigator === "undefined" || !("geolocation" in navigator)) {
+      setIsCurrentLocationDisabled(true);
+      return;
+    }
+
+    setIsLocatingOrigin(true);
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => {
+        const point = {
+          lat: coords.latitude,
+          lng: coords.longitude,
+          name: "현재 위치",
+        };
+        setOrigin(point);
+        setActiveField("destination");
+        setIsLocatingOrigin(false);
+
+        void reverseGeocode(wgs84(point.lat, point.lng)).then((address) => {
+          if (!address) return;
+          // 주소 응답이 늦게 도착해 사용자가 새 출발지를 고른 뒤 덮어쓰지 않도록
+          // 같은 좌표를 아직 출발지로 보고 있을 때만 이름을 교체한다.
+          const currentOrigin = useSearchStore.getState().origin;
+          if (
+            currentOrigin?.lat !== point.lat ||
+            currentOrigin?.lng !== point.lng
+          ) {
+            return;
+          }
+          setOrigin({ ...point, name: address });
+        });
+      },
+      () => {
+        // 권한 거부·타임아웃은 모달 없이 텍스트 입력으로 유도한다 (PRODUCT.md §5.1).
+        setIsLocatingOrigin(false);
+        setIsCurrentLocationDisabled(true);
+      },
+      { timeout: 5_000 },
+    );
   }
 
   function handleMapPick(field: HomeMapField, point: WirePoint) {
@@ -134,7 +167,7 @@ export default function HomePage() {
         <div className="order-last flex flex-col gap-3 md:order-none">
           <section className="flex flex-col gap-4 rounded-card border border-border bg-surface p-4 shadow-route-sm md:p-5">
             <div className="flex flex-col gap-3">
-              <div className="grid grid-cols-[minmax(0,1fr)_2.75rem] gap-2">
+              <div className="grid grid-cols-[minmax(0,1fr)_2.5rem] gap-1">
                 <div className="relative flex h-min flex-col overflow-visible rounded-card border border-input bg-surface">
                   <span
                     aria-hidden
@@ -146,12 +179,14 @@ export default function HomePage() {
                     <span className="h-1 w-0.5 rounded-full bg-route-blue" />
                   </span>
                   <PlaceAutocompleteInput
-                    key={`origin-${resetToken}`}
                     label="출발지"
                     placeholder="출발지 입력"
                     value={origin}
                     onChange={setOrigin}
                     onFocus={() => setActiveField("origin")}
+                    onUseCurrentLocation={useCurrentLocationAsOrigin}
+                    isLocating={isLocatingOrigin}
+                    isCurrentLocationDisabled={isCurrentLocationDisabled}
                     leadingIcon={
                       <CircleSmall
                         className="size-4"
@@ -164,7 +199,6 @@ export default function HomePage() {
                   />
                   <div className="border-t border-border" />
                   <PlaceAutocompleteInput
-                    key={`destination-${resetToken}`}
                     label="목적지"
                     placeholder="목적지 입력"
                     value={destination}
@@ -178,23 +212,14 @@ export default function HomePage() {
                   />
                 </div>
 
-                <div className="grid grid-rows-2 items-center gap-1">
+                <div className="flex items-center justify-center">
                   <button
                     type="button"
                     aria-label="출발지와 목적지 바꾸기"
                     onClick={swapOriginDestination}
-                    className="flex size-11 items-center justify-center rounded-control text-muted-foreground transition-colors hover:bg-route-sky hover:text-route-strong active:scale-95"
+                    className="flex size-10 items-center justify-center rounded-control text-muted-foreground transition-colors hover:bg-route-sky hover:text-route-strong active:scale-95"
                   >
                     <ArrowUpDown className="size-4" />
-                  </button>
-                  <button
-                    type="button"
-                    aria-label="출발지와 목적지 다시 입력"
-                    title="다시 입력"
-                    onClick={resetRoute}
-                    className="flex size-11 items-center justify-center rounded-control text-muted-foreground transition-colors hover:bg-route-sky hover:text-route-strong active:scale-95"
-                  >
-                    <RotateCcw className="size-3.5" aria-hidden />
                   </button>
                 </div>
               </div>
