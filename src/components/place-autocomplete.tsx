@@ -20,6 +20,8 @@ export interface PlaceAutocompleteInputProps {
   /** 테두리·라벨 없이 — 출발지/도착지를 한 박스로 합칠 때(홈 화면) 쓴다.
    * 라벨은 화면엔 안 보이지만 aria-label로 그대로 남는다. */
   bare?: boolean;
+  /** bare 입력을 감싸는 결합 필드의 위·아래 모서리 위치. */
+  barePosition?: "top" | "bottom";
 }
 
 export function PlaceAutocompleteInput({
@@ -30,6 +32,7 @@ export function PlaceAutocompleteInput({
   onFocus,
   leadingIcon,
   bare = false,
+  barePosition,
 }: PlaceAutocompleteInputProps) {
   const [query, setQuery] = useState(value?.name ?? "");
   const [isOpen, setIsOpen] = useState(false);
@@ -56,7 +59,14 @@ export function PlaceAutocompleteInput({
   }
 
   return (
-    <div className="relative">
+    <div
+      className={cn(
+        "relative",
+        bare && "transition-colors hover:bg-muted/40 focus-within:bg-muted/40",
+        barePosition === "top" && "rounded-t-[calc(var(--radius-card)-1px)]",
+        barePosition === "bottom" && "rounded-b-[calc(var(--radius-card)-1px)]",
+      )}
+    >
       {!bare && <label className="mb-1 block text-sm font-medium text-foreground">{label}</label>}
       {leadingIcon && (
         <span
@@ -71,7 +81,7 @@ export function PlaceAutocompleteInput({
         className={
           bare
             ? cn(
-                "w-full bg-transparent px-3.5 py-3 text-sm outline-none placeholder:text-muted-foreground transition-colors hover:bg-muted/40 focus:bg-muted/40",
+                "w-full bg-transparent px-3.5 py-3 text-sm outline-none placeholder:text-muted-foreground",
                 leadingIcon && "pl-10",
               )
             : "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"

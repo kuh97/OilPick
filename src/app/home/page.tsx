@@ -135,7 +135,7 @@ export default function HomePage() {
           <section className="flex flex-col gap-4 rounded-card border border-border bg-surface p-4 shadow-route-sm md:p-5">
             <div className="flex flex-col gap-3">
               <div className="grid grid-cols-[minmax(0,1fr)_2.75rem] gap-2">
-                <div className="relative overflow-visible rounded-card border border-input bg-surface">
+                <div className="relative flex h-min flex-col overflow-visible rounded-card border border-input bg-surface">
                   <span
                     aria-hidden
                     className="pointer-events-none absolute left-5 top-[47%] z-10 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-1"
@@ -160,6 +160,7 @@ export default function HomePage() {
                       />
                     }
                     bare
+                    barePosition="top"
                   />
                   <div className="border-t border-border" />
                   <PlaceAutocompleteInput
@@ -173,6 +174,7 @@ export default function HomePage() {
                       <MapPin className="size-4" strokeWidth={2} aria-hidden />
                     }
                     bare
+                    barePosition="bottom"
                   />
                 </div>
 
