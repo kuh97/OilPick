@@ -11,7 +11,7 @@ import { collectStations } from "../station-service";
 import { computeReferencePrice } from "../price-service";
 import { logSearch } from "../event-service";
 import { wgs84 } from "@/domain/types";
-import { ON_ROUTE_CORRIDOR_MAX_M, T2_MAX } from "@/domain/params";
+import { ON_ROUTE_CORRIDOR_MAX_M, T2_MAX, T3_MAX } from "@/domain/params";
 import type { BaseRoute, Fuel, RefuelPoint, SearchInput } from "@/domain/types";
 import type { RedisLike } from "../route-service";
 import type { Db } from "@/infra/db/client";
@@ -260,6 +260,61 @@ describe("search — 경로상 우선", () => {
     expect(result.candidates.map((candidate) => candidate.station.id)).toEqual(["CHEAP"]);
     expect(result.candidates[0].detour.precise).toBe(false);
     expect(result.expansion.finalRadiusM).toBeGreaterThan(T2_MAX);
+  });
+
+  it("경로상 0건이면 3km 이내 우회 후보도 범위 확장 결과로 표시한다", async () => {
+    setRoadProbes(["NEAR_DETOUR"]);
+    collectStationsMock.mockResolvedValue({
+      stations: [
+        collected({
+          id: "NEAR_DETOUR",
+          location: wgs84(37.018, 127.15),
+          price: 1500,
+        }),
+      ],
+    });
+    const events: ProgressEvent[] = [];
+
+    const result = await search(baseInput(), (event) => events.push(event), FAKE_DEPS);
+
+    expect(result.stage).toBe("DETOUR");
+    expect(result.candidates).toHaveLength(1);
+    expect(result.candidates[0].tier).toBe("DETOUR");
+    expect(result.candidates[0].dPerp).toBeGreaterThan(ON_ROUTE_CORRIDOR_MAX_M);
+    expect(result.candidates[0].dPerp).toBeLessThan(T2_MAX);
+    expect(result.expansion).toEqual({
+      triggered: true,
+      finalRadiusM: result.candidates[0].dPerp,
+    });
+    expect(events).toContainEqual({
+      type: "progress",
+      step: "EXPAND",
+      radiusM: T3_MAX,
+    });
+  });
+
+  it("STAGE 2에서 우회 후보가 모두 탈락해도 실제 범위 확장 단계만 알린다", async () => {
+    collectStationsMock.mockResolvedValue({
+      stations: [
+        collected({
+          id: "TOO_EXPENSIVE",
+          location: wgs84(37.018, 127.15),
+          price: 2500,
+        }),
+      ],
+    });
+    const events: ProgressEvent[] = [];
+
+    const result = await search(baseInput(), (event) => events.push(event), FAKE_DEPS);
+
+    expect(result.stage).toBe("DETOUR");
+    expect(result.candidates).toHaveLength(0);
+    expect(result.expansion).toEqual({ triggered: false, finalRadiusM: 0 });
+    expect(events).toContainEqual({
+      type: "progress",
+      step: "EXPAND",
+      radiusM: T3_MAX,
+    });
   });
 
   it("후보가 서로 다른 기본 경로에 중복돼도 주유소는 한 번만 표시한다", async () => {

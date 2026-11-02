@@ -80,10 +80,10 @@ interface SearchState {
   /** 첫 SSE 이벤트가 오지 않아 JSON 폴백 중이면 실제 단계 여부를 단정하지 않는다. */
   isJsonFallback: boolean;
   progressStep: ProgressStep | null;
-  /** 실제로 거쳐간 단계만 누적 — EXPAND는 발동 안 하면 건너뛰므로, 순서상 지나간 것으로
-   * 잘못 표시하지 않으려면 인덱스 비교가 아니라 이 집합으로 판정해야 한다. */
+  /** 실제로 거쳐간 단계만 누적 — STAGE 2에 진입하지 않으면 EXPAND를 건너뛰므로, 순서상
+   * 지나간 것으로 잘못 표시하지 않으려면 인덱스 비교가 아니라 이 집합으로 판정해야 한다. */
   progressStepsSeen: ProgressStep[];
-  /** EXPAND 단계에서 서버가 실제로 넓힌 반경(m) — 로딩 문구에 실제 값을 보여주는 용도 */
+  /** EXPAND 단계에서 서버가 보고한 탐색 상한(m) — 진행 이벤트 진단·후속 시각화용 */
   expandRadiusM: number | null;
   /** STEP 1 직후 도착 — result 전에 헤더·지도를 먼저 그리는 용도 (§6.2) */
   baseRoute: WireBaseRoute | null;

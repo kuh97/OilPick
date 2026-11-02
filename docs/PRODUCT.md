@@ -1065,8 +1065,8 @@ STAGE 2에서는 `T3_GATE_DETOUR_FACTOR` 기반 추정 우회거리·시간으�
 2. 경로상 후보는 폴리라인 300m 회랑 + 링크 방향 조건, 우회 후보는 추정 게이트 결과로 배지 결정
 3. 상위 MAX_RESULTS(15)개로 자름 (경로상 후보는 전부 보존)
 4. 추천 이유 템플릿 적용 (§5.4)
-5. expansion.finalRadiusM = max(T2_MAX, 최종 목록 후보 중 최대 d_perp) — 기하 도달 거리
-   expansion.triggered = finalRadiusM > T2_MAX
+5. expansion.finalRadiusM = 최종 목록의 🟡우회 후보 중 최대 d_perp — 기하 도달 거리 (없으면 0)
+   expansion.triggered = STAGE 2 최종 목록에 🟡우회 후보가 1곳 이상 존재
 ```
 
 > `partial`과 `result`의 후보는 모두 검색 단계 추정값입니다. 상세 화면에서 `/api/detour`가
@@ -1254,14 +1254,14 @@ Score_balanced(s) = TotalCost(s) + (ΔT(s)/60) × V_TIME     [원]
 ```
 가장 빠른 길을 찾고 있어요       ●○○○     progress: ROUTE
 근처 주유소를 살펴보고 있어요     ●●○○     progress: COLLECT
-조금 더 넓게 찾아보고 있어요      ●●●○     progress: EXPAND   ← 최종 후보에 T3가 있을 때만
+경로 주변을 더 넓게 찾아보고 있어요 ●●●○     progress: EXPAND   ← 경로상 0건으로 STAGE 2에 진입할 때
 곧 결과를 보여드릴게요           ●●●●     progress: PRECISE
 ```
 
-> **`EXPAND` 단계는 T3 후보가 최종 목록에 남았을 때만 방출됩니다** (STEP 8 직후). 실제 반경이
-> 있으면 `반경 {N}km까지 넓혀서 찾아보고 있어요`로 구체화합니다. 이 숫자("어디까지 살폈나",
-> `T3_MAX`)와 결과 배너 숫자("어디서 찾았나", 채택된 T3의 최대 `d_perp`)는 서로 다릅니다 —
-> [`ARCHITECTURE.md`](ARCHITECTURE.md) §6.2.
+> **`EXPAND` 단계는 경로상 후보가 0곳이라 STAGE 2에 진입할 때 방출됩니다.** 최종 우회 후보가
+> 게이트에서 모두 탈락하더라도 T3 회랑까지 실제로 살폈으므로 범위 확장 단계는 유효합니다.
+> 로딩에서는 탐색 상한 `T3_MAX`를 거리처럼 노출하지 않고 범위 확장 사실만 알립니다. 실제 거리는
+> 결과 배너에서 채택된 우회 후보의 최대 `d_perp`로만 보여줍니다 ([`ARCHITECTURE.md`](ARCHITECTURE.md) §6.2).
 
 > 이 문구들은 **가짜 애니메이션이 아닙니다.** 서버가 실제 단계를 스트리밍으로 알려줍니다.
 

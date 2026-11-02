@@ -223,7 +223,6 @@ export default function ResultPage() {
   const isJsonFallback = useSearchStore((s) => s.isJsonFallback);
   const progressStep = useSearchStore((s) => s.progressStep);
   const progressStepsSeen = useSearchStore((s) => s.progressStepsSeen);
-  const expandRadiusM = useSearchStore((s) => s.expandRadiusM);
   const baseRoute = useSearchStore((s) => s.baseRoute);
   const partial = useSearchStore((s) => s.partial);
   const result = useSearchStore((s) => s.result);
@@ -232,8 +231,8 @@ export default function ResultPage() {
 
   const { search } = useSearchStream();
 
-  // progressStep/expandRadiusM은 결과 도착 시 store가 null로 비운다(setResult) — 그런데
-  // 완료 직후 잠깐(아래 settling) 마지막 단계가 채워진 모습을 보여줘야 하므로, 비워지기
+  // progressStep은 결과 도착 시 store가 null로 비운다(setResult) — 그런데 완료 직후 잠깐
+  // (아래 settling) 마지막 단계가 채워진 모습을 보여줘야 하므로, 비워지기
   // 직전의 값을 렌더링 중 상태 조정 패턴(React 공식 권장 — place-autocomplete.tsx와 동일)
   // 으로 붙잡아둔다. useRef로 만들면 렌더 중 ref.current를 읽게 돼 린트 규칙에 걸린다.
   const [lastStep, setLastStep] = useState<ProgressStep>("ROUTE");
@@ -241,9 +240,6 @@ export default function ResultPage() {
   const [lastJsonFallback, setLastJsonFallback] = useState(false);
   if (isLoading && isJsonFallback !== lastJsonFallback)
     setLastJsonFallback(isJsonFallback);
-  const [lastRadiusM, setLastRadiusM] = useState<number | undefined>(undefined);
-  if (expandRadiusM != null && expandRadiusM !== lastRadiusM)
-    setLastRadiusM(expandRadiusM);
 
   // 검색이 끝나는 순간(마지막 단계 → 결과) 로딩 화면이 너무 순식간에 사라지면 사용자가
   // 진행 과정을 못 본다 — 결과가 도착해도 잠깐(500ms) 마지막 단계가 다 채워진 모습을
@@ -258,7 +254,6 @@ export default function ResultPage() {
     setWasLoading(isLoading);
     if (wasLoading && !isLoading && result) setSettling(true);
     if (!wasLoading && isLoading) {
-      setLastRadiusM(undefined);
       setSettling(false);
     }
   }
@@ -493,7 +488,6 @@ export default function ResultPage() {
         <LoadingProgress
           currentStep={progressStep ?? lastStep}
           stepsSeen={progressStepsSeen}
-          expandRadiusM={expandRadiusM ?? lastRadiusM}
           isJsonFallback={isLoading ? isJsonFallback : lastJsonFallback}
           completed={settling}
         />

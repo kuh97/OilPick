@@ -9,7 +9,7 @@ import styles from "./loading-progress.module.css";
 const STEP_LABEL: Record<ProgressStep, string> = {
   ROUTE: "가장 빠른 길을 찾고 있어요",
   COLLECT: "근처 주유소를 살펴보고 있어요",
-  EXPAND: "조금 더 넓게 찾아보고 있어요",
+  EXPAND: "경로 주변을 더 넓게 찾아보고 있어요",
   PRECISE: "곧 결과를 보여드릴게요",
 };
 const STEP_SHORT_LABEL: Record<ProgressStep, string> = {
@@ -23,13 +23,6 @@ const ROUTE_PATH = "M24 134C80 134 92 44 154 66S240 120 296 44";
 
 function easeOutCubic(progress: number): number {
   return 1 - Math.pow(1 - progress, 3);
-}
-
-function labelFor(step: ProgressStep, expandRadiusM?: number | null): string {
-  if (step === "EXPAND" && expandRadiusM) {
-    return `반경 ${Math.round(expandRadiusM / 1000)}km까지 넓혀서 찾아보고 있어요`;
-  }
-  return STEP_LABEL[step];
 }
 
 /** 장식용 추상 경로. 위치·진행선·방향은 같은 SVG 경로와 진행률에서 구한다. */
@@ -150,11 +143,10 @@ function RouteIllustration({ step }: { step: ProgressStep }) {
 
 /** PRODUCT.md §10.3. 실제 단계를 표시하고 결과 도착 후에는 완료 체크를 보여준다. */
 export function LoadingProgress({
-  currentStep, stepsSeen, expandRadiusM, isJsonFallback, completed = false,
+  currentStep, stepsSeen, isJsonFallback, completed = false,
 }: {
   currentStep: ProgressStep | null;
   stepsSeen: ProgressStep[];
-  expandRadiusM?: number | null;
   isJsonFallback: boolean;
   completed?: boolean;
 }) {
@@ -164,7 +156,7 @@ export function LoadingProgress({
   return (
     <section className={styles.container} role="status" aria-live="polite" aria-atomic="true">
       <RouteIllustration step={active} />
-      <p key={active} className={styles.statusTitle}>{labelFor(active, expandRadiusM)}</p>
+      <p key={active} className={styles.statusTitle}>{STEP_LABEL[active]}</p>
       <ol className={styles.steps} aria-hidden="true">
         {STEP_ORDER.map((step, index) => {
           const isCurrent = active === step && !completed;

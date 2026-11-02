@@ -151,8 +151,8 @@ export interface Warning {
 }
 
 export interface ExpansionInfo {
-  triggered: boolean; // 최종 목록에 T3(d_perp > T2_MAX)가 남았는가
-  finalRadiusM: number; // 최종 목록에 남은 T3의 최대 d_perp (없으면 T2_MAX)
+  triggered: boolean; // STAGE 2 최종 목록에 우회 후보가 남았는가
+  finalRadiusM: number; // 최종 목록에 남은 우회 후보의 최대 d_perp (없으면 0)
 }
 
 /** `ON_ROUTE` = STAGE 1에서 종료(배너 OFF), `DETOUR` = STAGE 2까지 감 (§6.6). */

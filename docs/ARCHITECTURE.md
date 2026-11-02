@@ -514,8 +514,8 @@ interface SearchResult {
     route: { distanceM: number; durationS: number; tollWon?: number; polyline: Point[] };
   }>;
   expansion: {
-    triggered: boolean; // 최종 목록에 T3(d_perp > T2_MAX)가 남았는가
-    finalRadiusM: number; // 최종 목록에 남은 T3의 최대 d_perp (없으면 T2_MAX)
+    triggered: boolean; // STAGE 2 최종 목록에 우회 후보가 남았는가
+    finalRadiusM: number; // 최종 목록에 남은 우회 후보의 최대 d_perp (없으면 0)
   };
   referencePrice: number | null; // P_ref. A14면 null
   refPriceSource: RefPriceSource | null;
@@ -531,9 +531,9 @@ interface Warning {
 }
 ```
 
-> `expansion`은 "우회해서 넓혀 찾았다"는 결과 배너용 신호입니다. 회랑 bbox 쿼리가 T3까지
-> 한 번에 덮으므로 별도 확장 단계는 없고, `triggered`는 최종 후보에 T3(`d_perp > T2_MAX`)가
-> 남았는지로만 결정됩니다.
+> `expansion`은 "경로상에서 찾지 못해 우회 범위로 넓혀 찾았다"는 결과 배너용 신호입니다.
+> `triggered`는 STAGE 2 최종 목록에 🟡우회 후보가 남았는지로 결정합니다. `T2_MAX`는 기준가
+> 표본 경계이며, 범위 확장 여부를 가르는 경계가 아닙니다.
 
 ### 6.2 `POST /api/search` — SSE
 
@@ -595,7 +595,8 @@ data: {"searchId":"...","baseRoute":{...},"baseRoutes":[...],"candidates":[...],
 | `progress(EXPAND).radiusM` | `T3_MAX` = 15,000                  | **지금 어디까지 뒤지는 중인가.** 후보 평가 전이라 실제 결과를 모름                                                                     |
 | `expansion.finalRadiusM`   | 채택된 🟡우회 후보의 최대 `d_perp` | **어디서 찾았는가.** 결과 배너에 쓰는 값. 배지(`ΔT`)로 우회인 후보 중 가장 먼 기하 거리 — STAGE 1만으로 끝나면 배너 자체가 없다 (§6.4) |
 
-두 값이 달라 보이는 것은 정상입니다. [`PRODUCT.md`](PRODUCT.md) §5.3 ②·§10.3.
+두 값이 다른 것은 정상입니다. 로딩 UI는 상한인 `radiusM`을 숫자로 노출하지 않고 범위를 넓히는
+중이라는 사실만 알리며, 결과 배너만 실제 `finalRadiusM`을 표시합니다. [`PRODUCT.md`](PRODUCT.md) §5.3 ②·§10.3.
 
 > `partial`의 `expansion.finalRadiusM`은 STEP 8 시점 값이라 `result`와 다를 수 있습니다(STEP 10에서 `DETOUR_CAP_RATIO`·`MAX_RESULTS`로 후보가 빠지므로). **배너는 `result`를 받은 뒤 확정 렌더링하십시오.**
 
@@ -940,7 +941,7 @@ CREATE TABLE search_event (
   t1_count            SMALLINT NOT NULL,
   t2_count            SMALLINT NOT NULL,
   t3_count            SMALLINT NOT NULL,
-  expansion_triggered BOOLEAN NOT NULL,   -- 최종 목록에 T3(d_perp > T2_MAX)가 남았는가
+  expansion_triggered BOOLEAN NOT NULL,   -- STAGE 2 최종 목록에 우회 후보가 남았는가
   final_radius_m      INTEGER NOT NULL,
   reference_price     INTEGER,
   ref_price_source    TEXT,
@@ -1045,12 +1046,12 @@ recommendation-service
   │  └──────────────────────────────────────────────────────────────┘
   │
   │  ┌─ STAGE 2 ─ 우회 탐색 (모든 고유 기본 경로에서 경로상 0곳) ────┐
+  │   ═══▶ SSE: progress(EXPAND, radiusM=T3_MAX)
   ├─▶ domain/pricing (우회 게이트 + maxDetourMinutes 예산)  ── STEP 7
   │      detourPool = 모든 고유 기본 경로의 후보
   │      추정 ΔT̂ > maxDetourMinutes → 제거. NetSaving ≤ 0 → 제거
   │
   ├─▶ 추정 후보 정렬·상한 적용 (모드별 점수 → MAX_RESULTS)       ── STEP 9
-  │      ※ 최종 후보에 d_perp > T2_MAX가 남으면 progress(EXPAND) 방출
   │
   ├─▶ domain/pricing 1차 스코어링                         ── STEP 8
   │   ═══▶ SSE: partial  (추정치 결과 — precise:false)

@@ -333,11 +333,8 @@ async function classifyAccessDirections(
   });
 }
 
-function finalRadiusM(items: InternalCandidate[]): number {
-  return Math.max(
-    T2_MAX,
-    items.length ? Math.max(...items.map((item) => item.dPerp)) : 0,
-  );
+function finalRadiusM(items: ReadonlyArray<{ dPerp: number }>): number {
+  return items.length ? Math.max(...items.map((item) => item.dPerp)) : 0;
 }
 
 /** 오케스트레이터 본체. */
@@ -470,6 +467,10 @@ export async function search(
     return result;
   }
 
+  // 경로상 후보가 없어서 STAGE 2에 진입하면 탐색 범위를 T3 회랑까지 넓힌다.
+  // T2_MAX는 기준가 표본 경계일 뿐, 범위 확장 여부를 가르는 조건이 아니다.
+  onProgress?.({ type: "progress", step: "EXPAND", radiusM: T3_MAX });
+
   const maxDetourMinutes = input.maxDetourMinutes ?? DEFAULT_MAX_DETOUR_MINUTES;
   let detourPool = internal;
   if (referencePrice == null)
@@ -507,41 +508,30 @@ export async function search(
         baseDurationS: item.route.route.durationS,
       }),
   );
-  const radiusForProgress = finalRadiusM(finalDetours);
-  if (radiusForProgress > T2_MAX)
-    onProgress?.({
-      type: "progress",
-      step: "EXPAND",
-      radiusM: radiusForProgress,
-    });
-  onProgress?.({
-    type: "partial",
-    data: {
-      candidates: finalizeCandidates(
-        finalDetours,
-        referencePrice,
-        input.vehicle,
-        input.mode,
-        filters.facilities.length > 0,
-      ),
-      referencePrice,
-      refPriceSource,
-      expansion: {
-        triggered: radiusForProgress > T2_MAX,
-        finalRadiusM: radiusForProgress,
-      },
-      baseRoutes,
-    },
-  });
-  onProgress?.({ type: "progress", step: "PRECISE" });
-  const radius = finalRadiusM(finalDetours);
-  const candidates = finalizeCandidates(
+  const partialCandidates = finalizeCandidates(
     finalDetours,
     referencePrice,
     input.vehicle,
     input.mode,
     filters.facilities.length > 0,
-  ).slice(0, MAX_RESULTS);
+  );
+  const partialRadiusM = finalRadiusM(partialCandidates);
+  onProgress?.({
+    type: "partial",
+    data: {
+      candidates: partialCandidates,
+      referencePrice,
+      refPriceSource,
+      expansion: {
+        triggered: partialCandidates.length > 0,
+        finalRadiusM: partialRadiusM,
+      },
+      baseRoutes,
+    },
+  });
+  onProgress?.({ type: "progress", step: "PRECISE" });
+  const candidates = partialCandidates.slice(0, MAX_RESULTS);
+  const radius = finalRadiusM(candidates);
   const basis = budgetDropped;
   const result: SearchResult = {
     searchId: crypto.randomUUID(),
@@ -550,7 +540,7 @@ export async function search(
     candidates,
     referencePrice,
     refPriceSource,
-    expansion: { triggered: radius > T2_MAX, finalRadiusM: radius },
+    expansion: { triggered: candidates.length > 0, finalRadiusM: radius },
     warnings,
     stage: "DETOUR",
     minutesNeededForOneResult:
