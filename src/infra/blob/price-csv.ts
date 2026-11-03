@@ -71,6 +71,43 @@ export async function putPriceCsvs(oil: Buffer, lpg: Buffer, dateYyyymmdd: strin
   ]);
 }
 
+/**
+ * 지정된 불변 archive CSV 2개를 바이트로 가져온다.
+ * 없으면 throw (임포트는 DOWNLOAD_FAILED로 기록).
+ */
+export async function getArchivedPriceCsvs(
+  dateYyyymmdd: string,
+  cacheBust: string = randomUUID(),
+): Promise<{ oil: Buffer; lpg: Buffer }> {
+  if (!/^\d{8}$/.test(dateYyyymmdd)) {
+    throw new Error(`Blob archive 기준일자 형식이 올바르지 않습니다: ${dateYyyymmdd} (YYYYMMDD 필요)`);
+  }
+
+  const oilPath = `opinet/archive/oil-${dateYyyymmdd}.csv`;
+  const lpgPath = `opinet/archive/lpg-${dateYyyymmdd}.csv`;
+  const [oilListing, lpgListing] = await Promise.all([
+    withTimeout(
+      list({ prefix: oilPath, token: env.BLOB_READ_WRITE_TOKEN }),
+      BLOB_TIMEOUT_MS,
+    ),
+    withTimeout(
+      list({ prefix: lpgPath, token: env.BLOB_READ_WRITE_TOKEN }),
+      BLOB_TIMEOUT_MS,
+    ),
+  ]);
+  const oilBlob = oilListing.blobs.find((b) => b.pathname === oilPath);
+  const lpgBlob = lpgListing.blobs.find((b) => b.pathname === lpgPath);
+  if (!oilBlob || !lpgBlob) {
+    throw new Error(`Blob archive 기준일 ${dateYyyymmdd}에 oil/lpg CSV가 모두 없습니다`);
+  }
+
+  const [oil, lpg] = await Promise.all([
+    fetchBlobBytes(oilBlob.url, cacheBust),
+    fetchBlobBytes(lpgBlob.url, cacheBust),
+  ]);
+  return { oil, lpg };
+}
+
 /** `latest` CSV 2개를 바이트로 가져온다. 없으면 throw (임포트는 DOWNLOAD_FAILED로 기록). */
 export async function getLatestPriceCsvs(
   cacheBust: string = randomUUID(),

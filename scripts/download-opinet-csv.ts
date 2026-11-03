@@ -38,7 +38,9 @@ async function main() {
   const secret = process.env.CRON_SECRET;
   if (base && secret) {
     header("임포트 엔드포인트 호출");
-    const res = await fetch(`${base}/api/cron/import-prices`, {
+    const importUrl = new URL(`${base}/api/cron/import-prices`);
+    importUrl.searchParams.set("date", validated.archiveDate);
+    const res = await fetch(importUrl, {
       headers: { Authorization: `Bearer ${secret}` },
     });
     const bodyText = await res.text();

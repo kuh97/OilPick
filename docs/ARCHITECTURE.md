@@ -671,7 +671,7 @@ Accept: application/json   → search(input)            // 콜백 없음 = 완�
 | `GET /api/admin/feedback/counts`                                                           | 관리자 문의 건수       | 관리자 세션 필요. `{ counts: { ALL, NEW, IN_PROGRESS, RESOLVED } }`                                                                                         |
 | `DELETE /api/admin/feedback/:id`                                                           | 관리자 문의 삭제       | 관리자 세션 필요. 성공 시 `{ ok: true }`                                                                                                                    |
 | `GET /api/admin/dashboard?range=24h\|7d\|30d`                                              | 관리자 운영·검색 지표  | 관리자 세션 필요. `range` 생략 시 `24h`. 가격·백필·검색·내비 집계 DTO                                                                                       |
-| `GET /api/cron/import-prices`                                                              | 유가 CSV 임포트 (§9.3) | `200 { status, pricedOn, ... }` — 실패도 200                                                                                                                |
+| `GET /api/cron/import-prices[?date=YYYYMMDD]`                                              | 유가 CSV 임포트 (§9.3) | `date`가 있으면 해당 불변 archive, 없으면 `latest` 안전망을 읽어 `200 { status, pricedOn, ... }` — 실패도 200 |
 | `GET /api/cron/backfill-details`                                                           | 시설 정보 백필 (§9.3)  | `200 { limit, picked, updated, notFound, failed, remaining }`                                                                                               |
 
 ```json
@@ -1076,8 +1076,8 @@ Client → domain/deeplink.build(app, origin, station, destination)
 
 | 주기           | 실행 경로                                                   | 하는 일                                                                     |
 | -------------- | ----------------------------------------------------------- | --------------------------------------------------------------------------- |
-| 매일 05:00 KST | GitHub Actions → Playwright 스크래핑 → Vercel Blob          | 오피넷 유가 CSV 2개 다운로드 (NetFunnel 게이트, MIGRATION-DB.md §7 Phase D) |
-| 매일 05:40 KST | Vercel Cron → `GET /api/cron/import-prices`                 | Blob CSV → 게이트 G1~G8 → 지오코딩 → 스테이징 → `refuel_point` 원자적 스왑  |
+| 매일 05:00 KST | GitHub Actions → Playwright 스크래핑 → Vercel Blob          | 오피넷 유가 CSV 2개 다운로드 (NetFunnel 게이트, MIGRATION-DB.md §7 Phase D) 후 `GET /api/cron/import-prices?date=YYYYMMDD`로 해당 불변 archive 임포트 |
+| 매일 05:40 KST | Vercel Cron → `GET /api/cron/import-prices`                 | `latest` 안전망 Blob CSV → 게이트 G1~G8 → 지오코딩 → 스테이징 → `refuel_point` 원자적 스왑 |
 | 매일 06:00 KST | Vercel Cron → `GET /api/cron/backfill-details`              | `detail_synced_at IS NULL`인 주유소 ≤280곳 상세 API로 시설 정보 백필        |
 | 수동           | `pnpm data:import-csv` / `data:backfill-details [--status]` | 마스터 1회성 재구축 / 백필 수동 실행·현황 확인                              |
 

@@ -162,3 +162,12 @@ export const ReverseGeocodeQuerySchema = z.object({
   lat: z.coerce.number(),
   lng: z.coerce.number(),
 });
+
+/** 일일 유가 archive 임포트 대상 기준일 — YYYYMMDD. 생략하면 latest 안전망을 사용합니다. */
+export const ImportPricesQuerySchema = z.object({
+  date: z
+    .string()
+    .regex(/^\d{8}$/, "date는 YYYYMMDD 형식이어야 합니다")
+    .optional(),
+});
+export type ImportPricesQuery = z.infer<typeof ImportPricesQuerySchema>;

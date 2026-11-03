@@ -371,8 +371,8 @@ GitHub Actions (05:00 KST)                Vercel Cron (05:40 KST, 안전망)
   → 오피넷 다운로드 (헤드리스 브라우저)      → Blob latest 읽기
   → 요청일·두 CSV 기준일 검증                 → 검증 게이트 G1~G8 (§8)
   → Vercel Blob 업로드 (latest + archive)   → 신규/좌표결손 행만 지오코딩
-  → 임포트 엔드포인트 호출 ──────────────▶   → 스테이징 적재 → 원자적 스왑
-                                            → csv_import_log 기록
+  → `?date=YYYYMMDD` 임포트 호출 ────────▶   → 스테이징 적재 → 원자적 스왑
+    (불변 archive 지정)                      → csv_import_log 기록
 ```
 
 **다운로드와 임포트를 분리했습니다 (결정 로그 ① 편차).** 실측해보니 오피넷 다운로드가
@@ -385,7 +385,7 @@ NetFunnel) 뒤에 있고 서버 생성에 시간이 걸립니다. 순수 HTTP로
 | 부분 | 위치 | 파일 |
 | --- | --- | --- |
 | 스크래핑 (Playwright로 폼 조작 + 다운로드) | GitHub Actions | `src/infra/opinet/download.ts`, `scripts/download-opinet-csv.ts`, `.github/workflows/opinet-daily.yml` |
-| CSV 보관 (`latest` 덮어쓰기 + `archive/{종류}-YYYYMMDD`) | Vercel Blob | `src/infra/blob/price-csv.ts` |
+| CSV 보관 (`latest` 덮어쓰기 + `archive/{종류}-YYYYMMDD`) | Vercel Blob | `src/infra/blob/price-csv.ts` — Actions 트리거는 지정 archive, Cron은 `latest` |
 | 파이프라인 본체 (게이트→지오코딩→스테이징→스왑→로그) | Vercel Cron | `src/services/price-import-service.ts`, `src/app/api/cron/import-prices/route.ts` |
 | 게이트 G1~G8 | 순수 함수 | `src/infra/csv/gates.ts` (G1·G2는 `parse.ts`가 throw로 강제) |
 | 지역→SIGUNCD 매핑 | Redis 30일 캐시 | `src/infra/opinet/sigun-map.ts` (미스 시에만 오피넷 17회) |

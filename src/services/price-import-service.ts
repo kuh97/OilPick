@@ -17,6 +17,7 @@ import { runGates, type GateContext } from "@/infra/csv/gates";
 import { getSigunMap } from "@/infra/opinet/sigun-map";
 import { createSemaphore } from "@/infra/opinet/client";
 import { geocodeStation, type GeocodeResult, type GeocodeInput } from "@/infra/geocode/geocode-station";
+import { getArchivedPriceCsvs, getLatestPriceCsvs } from "@/infra/blob/price-csv";
 import { getDb, type Db } from "@/infra/db/client";
 import { env } from "@/infra/env";
 import {
@@ -41,6 +42,17 @@ export interface PriceImportInput {
   oilCsv: Buffer | ArrayBuffer;
   /** 충전소 CSV 원본 바이트 (EUC-KR) */
   lpgCsv: Buffer | ArrayBuffer;
+}
+
+/**
+ * GitHub Actions의 즉시 트리거는 불변 archive를 지정하고, Vercel Cron 안전망은 latest를 읽는다.
+ * Blob 선택은 서비스 레이어에 두어 app/api가 infra를 직접 참조하지 않게 한다.
+ */
+export async function loadPriceCsvs(dateYyyymmdd?: string): Promise<PriceImportInput> {
+  const csvs = dateYyyymmdd
+    ? await getArchivedPriceCsvs(dateYyyymmdd)
+    : await getLatestPriceCsvs();
+  return { oilCsv: csvs.oil, lpgCsv: csvs.lpg };
 }
 
 export interface PriceImportDeps {

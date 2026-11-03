@@ -11,9 +11,10 @@
 
 import { NextResponse } from "next/server";
 import { env } from "@/infra/env";
-import { getLatestPriceCsvs } from "@/infra/blob/price-csv";
-import { importPrices } from "@/services/price-import-service";
+import { importPrices, loadPriceCsvs, type PriceImportInput } from "@/services/price-import-service";
 import { writeCsvImportLog } from "@/infra/db/repositories";
+import { ImportPricesQuerySchema } from "@/app/api/_lib/schema";
+import { parseSearchParams } from "@/app/api/_lib/validate";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -25,16 +26,20 @@ export async function GET(request: Request): Promise<Response> {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
+  const parsedQuery = parseSearchParams(new URL(request.url), ImportPricesQuerySchema);
+  if (!parsedQuery.ok) return parsedQuery.response;
+  const { date } = parsedQuery.data;
+
   const startedAt = Date.now();
   const mark = (step: string) => {
     console.info(`[price-import] ${step} +${Date.now() - startedAt}ms`);
   };
 
   mark("start");
-  let csvs: { oil: Buffer; lpg: Buffer };
+  let csvs: PriceImportInput;
   try {
-    csvs = await getLatestPriceCsvs();
-    mark(`blob-read oil=${csvs.oil.byteLength} lpg=${csvs.lpg.byteLength}`);
+    csvs = await loadPriceCsvs(date);
+    mark(`blob-read source=${date ? `archive:${date}` : "latest"} oil=${csvs.oilCsv.byteLength} lpg=${csvs.lpgCsv.byteLength}`);
   } catch (err) {
     const detail = err instanceof Error ? err.message : String(err);
     mark(`blob-read-failed ${detail}`);
@@ -43,7 +48,7 @@ export async function GET(request: Request): Promise<Response> {
   }
 
   mark("import-start");
-  const result = await importPrices({ oilCsv: csvs.oil, lpgCsv: csvs.lpg });
+  const result = await importPrices(csvs);
   mark(`import-end status=${result.status}`);
   return NextResponse.json(result, { status: 200 });
 }
