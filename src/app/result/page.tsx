@@ -522,17 +522,12 @@ export default function ResultPage() {
               ))}
 
               <div className="flex flex-col gap-3">
-                <div className="flex items-end justify-between gap-3">
-                  <div>
-                    <p className="text-xs font-semibold text-text-body">
-                      검색 결과
-                    </p>
-                    <h1 className="mt-1 text-xl font-bold tracking-tight text-text-strong">
-                      경로에 맞는 주유소
-                    </h1>
-                  </div>
-                  <span className="font-route text-sm tabular-nums text-text-body">
-                    {displayCandidates.length}곳
+                <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                  <h1 className="text-xl font-bold tracking-tight text-text-strong">
+                    경로 주변 주유소
+                  </h1>
+                  <span className="text-base text-text-body">
+                    검색 결과 {displayCandidates.length}곳
                   </span>
                 </div>
                 <div className="flex items-center justify-between gap-2">
