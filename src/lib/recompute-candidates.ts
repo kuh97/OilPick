@@ -59,8 +59,8 @@ export function recomputeAndSort(
   );
   return [...recomputed].sort((a, b) => {
     // 실측으로 확인된 경로상 후보가 함께 들어온 경우에만 비용과 무관하게 먼저 보여준다.
-    const aOnRoute = a.tier === "ON_ROUTE" && a.detour.precise;
-    const bOnRoute = b.tier === "ON_ROUTE" && b.detour.precise;
+    const aOnRoute = a.tier === "ON_ROUTE";
+    const bOnRoute = b.tier === "ON_ROUTE";
     if (aOnRoute !== bOnRoute) return Number(bOnRoute) - Number(aOnRoute);
     const byPrecise = Number(b.detour.precise) - Number(a.detour.precise);
     if (byPrecise !== 0) return byPrecise;

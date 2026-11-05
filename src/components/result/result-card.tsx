@@ -40,7 +40,7 @@ export function ResultCard({
 }) {
   const priceTimeText = formatPriceTime(candidate.priceUpdatedAt);
   const activeFacilities = FACILITY_ICON.filter((f) => candidate.facilities[f.key]);
-  // 우회 거리·시간은 검색 목록에 표시하지 않고, 이미 계산된 순절감액은 예상치로만
+  // 우회 거리·시간은 검색 목록에 표시하지 않고, Kakao 최종 확인 전 순절감액만
   // 보여준다. 후보 정렬·T3 게이트 등 계산 로직은 서버 결과와 기존 클라이언트 재정렬을 따른다.
   const perLiterDiff = referencePrice != null ? referencePrice - candidate.price : null;
   const priceSavingWon =

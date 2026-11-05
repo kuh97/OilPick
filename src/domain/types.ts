@@ -143,7 +143,12 @@ export interface RouteVariant {
 }
 
 /** ARCHITECTURE.md §6.1 Warning */
-export type WarningCode = "TIMEOUT" | "SHORT_ROUTE" | "NO_REFERENCE_PRICE";
+export type WarningCode =
+  | "TIMEOUT"
+  | "SHORT_ROUTE"
+  | "NO_REFERENCE_PRICE"
+  | "VALHALLA_PARTIAL"
+  | "VALHALLA_UNAVAILABLE";
 
 export interface Warning {
   code: WarningCode;

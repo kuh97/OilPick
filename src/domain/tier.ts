@@ -10,8 +10,8 @@ import {
 import type { Tier } from "./types";
 
 /**
- * 상세에서 확정한 실측값으로 배지를 판정한다.
- * 검색 목록은 이 함수를 호출하지 않고 도로 링크 방향과 T2 범위로 먼저 정리한다.
+ * 실제 경로의 실측값으로 배지를 판정한다.
+ * 검색은 Valhalla 실측값을, 상세는 Kakao 실측값을 이 함수에 전달한다.
  */
 export function classifyByDetour(
   detourDurationS: number,

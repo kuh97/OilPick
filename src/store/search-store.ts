@@ -87,7 +87,7 @@ interface SearchState {
   expandRadiusM: number | null;
   /** STEP 1 직후 도착 — result 전에 헤더·지도를 먼저 그리는 용도 (§6.2) */
   baseRoute: WireBaseRoute | null;
-  /** STEP 9 직후 추정치 — result 도착 전 카드 프리뷰용. 전부 detour.precise===false (§6.2) */
+  /** result 도착 전 카드 프리뷰용. Kakao 최종 확인 전이라 detour.precise===false (§6.2) */
   partial: WirePartial | null;
   result: WireSearchResult | null;
   streamWarnings: WireWarning[]; // 스트림 도중 받은 warning 누적 (result 전 표시용)

@@ -1,8 +1,7 @@
 /**
  * 오케스트레이터 — 카카오의 내비추천·최소시간·거리우선 기본 경로를 비교한다.
- * 검색에서는 DB 공간 후보와 표준 도로 링크 방향으로 후보를 정리하고, 후보별 경유
- * 경로는 주유소 상세 화면의 /api/detour에서만 계산한다. 진행 콜백 유무와 무관하게
- * 같은 결과를 만든다.
+ * 검색에서는 DB 공간 후보를 모은 뒤 Valhalla로 기본 경로를 map-match하고 후보별
+ * 경유 경로를 계산한다. 최종 상세 경로는 기존처럼 Kakao가 담당한다.
  */
 
 import { getRoute } from "./route-service";
@@ -17,7 +16,9 @@ import {
   isOutOfRange,
   routeAvgSpeedKmh,
   estimateDetourDurationSAtSpeed,
+  classifyByDetour,
 } from "@/domain/tier";
+import { computeDetourFromRoutes } from "@/domain/detour";
 import {
   estimateDetourDistanceM,
   estimateDetourDurationS,
@@ -27,23 +28,24 @@ import {
   passesDetourGate,
   gateDetourDistanceM,
   withinDetourBudget,
+  withinActualDetourBudget,
   exceedsDetourCap,
   scoreByMode,
 } from "@/domain/pricing";
 import { buildReason } from "@/domain/reason";
 import {
-  classifyRoadLinkDirections,
-  routeHeadingAtPoint,
-  type RoadAccessDirection,
-} from "@/domain/road-direction";
-import {
-  ON_ROUTE_CORRIDOR_MAX_M,
   T2_MAX,
   T3_MAX,
   MAX_RESULTS,
   MIN_ROUTE_DISTANCE,
   DEFAULT_MAX_DETOUR_MINUTES,
+  VALHALLA_ROUTE_CONCURRENCY,
+  VALHALLA_TIMEOUT_MS,
 } from "@/domain/params";
+import {
+  fetchValhallaRoute,
+  mapMatchValhallaRoute,
+} from "@/infra/valhalla/client";
 import type {
   SearchInput,
   SearchResult,
@@ -60,7 +62,6 @@ import type {
 } from "@/domain/types";
 import type { RedisLike } from "./route-service";
 import type { Db } from "@/infra/db/client";
-import { findNearestRoadLinkProbes } from "@/infra/db/repositories";
 
 export type ProgressStep = "ROUTE" | "COLLECT" | "EXPAND" | "PRECISE";
 export type ProgressEvent =
@@ -86,7 +87,9 @@ export interface SearchDeps {
   now?: Date;
   jsonFallback?: boolean;
   signal?: AbortSignal;
-  findNearestRoadLinkProbes?: typeof findNearestRoadLinkProbes;
+  valhallaBaseUrl?: string;
+  valhallaTimeoutMs?: number;
+  valhallaConcurrency?: number;
 }
 
 interface InternalCandidate {
@@ -100,7 +103,8 @@ interface InternalCandidate {
   detourDurationS: number;
   tollWon?: number;
   precise: boolean;
-  accessDirection: RoadAccessDirection;
+  viaDistanceM?: number;
+  viaDurationS?: number;
 }
 
 const BASE_PRIORITIES: readonly RoutePriority[] = [
@@ -162,7 +166,6 @@ function toInternalCandidates(
       detourDistanceM,
       detourDurationS,
       precise: false,
-      accessDirection: "UNKNOWN",
     });
   }
   return result;
@@ -186,12 +189,14 @@ function dedupeForReference(pool: InternalCandidate[]): InternalCandidate[] {
   return [...byStation.values()];
 }
 
-/** 동일 주유소는 추정 우회 시간·거리, 기본 경로 우선순위 순으로 하나만 남긴다. */
+/** 동일 주유소는 실제 총 경로 시간·거리, 실제 우회량, 기본 경로 우선순위 순으로 하나만 남긴다. */
 function isBetterVariant(
   next: InternalCandidate,
   current: InternalCandidate,
 ): boolean {
   const comparisons: Array<[number, number]> = [
+    [next.viaDurationS ?? next.detourDurationS, current.viaDurationS ?? current.detourDurationS],
+    [next.viaDistanceM ?? next.detourDistanceM, current.viaDistanceM ?? current.detourDistanceM],
     [next.detourDurationS, current.detourDurationS],
     [next.detourDistanceM, current.detourDistanceM],
     [priorityRank(next.route.priority), priorityRank(current.route.priority)],
@@ -252,8 +257,8 @@ function finalizeCandidates(
       .map((item, index) => [item.ic.station.id, index + 1]),
   );
   const sorted = [...withScores].sort((a, b) => {
-    const aOnRoute = a.ic.precise && a.ic.tier === "ON_ROUTE";
-    const bOnRoute = b.ic.precise && b.ic.tier === "ON_ROUTE";
+    const aOnRoute = a.ic.tier === "ON_ROUTE";
+    const bOnRoute = b.ic.tier === "ON_ROUTE";
     if (aOnRoute !== bOnRoute) return Number(bOnRoute) - Number(aOnRoute);
     const byPrecise = Number(b.ic.precise) - Number(a.ic.precise);
     if (byPrecise !== 0) return byPrecise;
@@ -293,43 +298,105 @@ function finalizeCandidates(
   }));
 }
 
-async function classifyAccessDirections(
-  internal: InternalCandidate[],
-  db: Db,
-  findProbes: typeof findNearestRoadLinkProbes,
-): Promise<InternalCandidate[]> {
-  const stationPoints = [
-    ...new Map(
-      internal.map((item) => [
-        item.station.id,
-        {
-          stationId: item.station.id,
-          point: wgs84ToProjected(item.station.location),
-        },
-      ]),
-    ).values(),
-  ];
-  const probes = await findProbes(stationPoints, db);
-  const probeByStation = new Map(probes.map((probe) => [probe.stationId, probe]));
+async function mapWithConcurrency<T, R>(
+  items: readonly T[],
+  concurrency: number,
+  worker: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let nextIndex = 0;
+  const workerCount = Math.min(Math.max(1, concurrency), items.length);
 
-  return internal.map((item) => {
-    const point = wgs84ToProjected(item.station.location);
-    const routePolyline = item.route.route.polyline.map(wgs84ToProjected);
-    const routeHeading = routeHeadingAtPoint(point, routePolyline);
-    const probe = probeByStation.get(item.station.id);
-    const accessDirection = classifyRoadLinkDirections(
-      routeHeading,
-      probe ? [probe.headingRad] : [],
-    );
-    return {
-      ...item,
-      accessDirection,
-      tier:
-        accessDirection === "SAME_DIRECTION" &&
-        item.dPerp <= ON_ROUTE_CORRIDOR_MAX_M
-          ? "ON_ROUTE"
-          : "DETOUR",
-    };
+  await Promise.all(
+    Array.from({ length: workerCount }, async () => {
+      while (true) {
+        const index = nextIndex++;
+        if (index >= items.length) return;
+        results[index] = await worker(items[index]);
+      }
+    }),
+  );
+
+  return results;
+}
+
+interface BaselineResult {
+  key: string;
+  route: BaseRoute | null;
+}
+
+async function mapMatchBaseRoutes(
+  routes: readonly RouteVariant[],
+  options: {
+    baseUrl?: string;
+    timeoutMs: number;
+    concurrency: number;
+    signal?: AbortSignal;
+  },
+): Promise<BaselineResult[]> {
+  return mapWithConcurrency(routes, options.concurrency, async (variant) => {
+    try {
+      return {
+        key: routeFingerprint(variant.route),
+        route: await mapMatchValhallaRoute({
+          polyline: variant.route.polyline,
+          baseUrl: options.baseUrl,
+          timeoutMs: options.timeoutMs,
+          signal: options.signal,
+        }),
+      };
+    } catch {
+      options.signal?.throwIfAborted();
+      return { key: routeFingerprint(variant.route), route: null };
+    }
+  });
+}
+
+interface MeasureResult {
+  candidate: InternalCandidate | null;
+}
+
+async function measureCandidates(
+  candidates: readonly InternalCandidate[],
+  baselines: ReadonlyMap<string, BaseRoute>,
+  options: {
+    origin: SearchInput["origin"];
+    destination: SearchInput["destination"];
+    baseUrl?: string;
+    timeoutMs: number;
+    concurrency: number;
+    signal?: AbortSignal;
+  },
+): Promise<MeasureResult[]> {
+  return mapWithConcurrency(candidates, options.concurrency, async (item) => {
+    const baseline = baselines.get(routeFingerprint(item.route.route));
+    if (!baseline) return { candidate: null };
+
+    try {
+      const viaRoute = await fetchValhallaRoute({
+        origin: options.origin,
+        destination: options.destination,
+        waypoint: item.station.location,
+        baseUrl: options.baseUrl,
+        timeoutMs: options.timeoutMs,
+        signal: options.signal,
+      });
+      const detour = computeDetourFromRoutes(baseline, viaRoute);
+      return {
+        candidate: {
+          ...item,
+          tier: classifyByDetour(detour.durationS, detour.distanceM),
+          detourDistanceM: detour.distanceM,
+          detourDurationS: detour.durationS,
+          precise: false,
+          viaDistanceM: viaRoute.distanceM,
+          viaDurationS: viaRoute.durationS,
+        },
+      };
+    } catch {
+      options.signal?.throwIfAborted();
+      return { candidate: null };
+    }
   });
 }
 
@@ -402,16 +469,8 @@ export async function search(
     })),
   );
   deps.signal?.throwIfAborted();
-  let internal = collected.flatMap(({ route, collected: found }) =>
+  const internal = collected.flatMap(({ route, collected: found }) =>
     toInternalCandidates(found.stations, route),
-  );
-  const findProbes =
-    deps.findNearestRoadLinkProbes ?? findNearestRoadLinkProbes;
-  internal = await classifyAccessDirections(internal, db, findProbes);
-  // 반대 방향 링크는 경로상으로 승격하지 않지만, 실제 우회 경로가
-  // 가능할 수 있으므로 STAGE 2 후보로 보존한다.
-  const onRoute = dedupeByStation(
-    internal.filter((item) => item.tier === "ON_ROUTE"),
   );
   const referencePool = dedupeForReference(internal);
   const priceResult = await computeReferencePrice({
@@ -434,9 +493,52 @@ export async function search(
     onProgress?.({ type: "warning", data: warning });
   }
 
-  // 어느 기본 경로에서든 경로상 후보가 있으면 우회 탐색은 하지 않는다.
+  onProgress?.({ type: "progress", step: "PRECISE" });
+  const valhallaTimeoutMs = deps.valhallaTimeoutMs ?? VALHALLA_TIMEOUT_MS;
+  const valhallaConcurrency =
+    deps.valhallaConcurrency ?? VALHALLA_ROUTE_CONCURRENCY;
+  const baselineResults = await mapMatchBaseRoutes(baseRoutes, {
+    baseUrl: deps.valhallaBaseUrl,
+    timeoutMs: valhallaTimeoutMs,
+    concurrency: valhallaConcurrency,
+    signal: deps.signal,
+  });
+  const baselines = new Map(
+    baselineResults.flatMap((result) =>
+      result.route ? [[result.key, result.route] as const] : [],
+    ),
+  );
+  const measuredResults = await measureCandidates(internal, baselines, {
+    origin: input.origin,
+    destination: input.destination,
+    baseUrl: deps.valhallaBaseUrl,
+    timeoutMs: valhallaTimeoutMs,
+    concurrency: valhallaConcurrency,
+    signal: deps.signal,
+  });
+  const measured = measuredResults.flatMap((result) =>
+    result.candidate ? [result.candidate] : [],
+  );
+  const valhallaFailureCount =
+    baselineResults.filter((result) => result.route == null).length +
+    measuredResults.filter((result) => result.candidate == null).length;
+  if (valhallaFailureCount > 0) {
+    const warning: Warning = {
+      code: measured.length > 0 ? "VALHALLA_PARTIAL" : "VALHALLA_UNAVAILABLE",
+      message:
+        measured.length > 0
+          ? "일부 후보의 실제 경로를 확인하지 못해 결과에서 제외했습니다."
+          : "실제 경로를 확인하지 못해 후보를 표시할 수 없습니다.",
+    };
+    warnings.push(warning);
+    onProgress?.({ type: "warning", data: warning });
+  }
+
+  // 어느 기본 경로에서든 실제 ΔT·ΔD가 모두 기준 안인 후보가 있으면 우회 탐색은 하지 않는다.
+  const onRoute = dedupeByStation(
+    measured.filter((item) => item.tier === "ON_ROUTE"),
+  );
   if (onRoute.length > 0) {
-    onProgress?.({ type: "progress", step: "PRECISE" });
     const result: SearchResult = {
       searchId: crypto.randomUUID(),
       baseRoute,
@@ -472,7 +574,7 @@ export async function search(
   onProgress?.({ type: "progress", step: "EXPAND", radiusM: T3_MAX });
 
   const maxDetourMinutes = input.maxDetourMinutes ?? DEFAULT_MAX_DETOUR_MINUTES;
-  let detourPool = internal;
+  let detourPool = measured;
   if (referencePrice == null)
     detourPool = detourPool.filter((item) => item.dPerp <= T2_MAX);
   const budgetDropped: InternalCandidate[] = [];
@@ -501,11 +603,22 @@ export async function search(
   });
   const finalDetours = dedupeByStation(detourPool).filter(
     (item) =>
+      withinActualDetourBudget({
+        detourDurationS: item.detourDurationS,
+        maxDetourMinutes,
+      }) &&
       !exceedsDetourCap({
         detourDistanceM: item.detourDistanceM,
         detourDurationS: item.detourDurationS,
         baseDistanceM: item.route.route.distanceM,
         baseDurationS: item.route.route.durationS,
+      }),
+  );
+  const actualBudgetDropped = dedupeByStation(detourPool).filter(
+    (item) =>
+      !withinActualDetourBudget({
+        detourDurationS: item.detourDurationS,
+        maxDetourMinutes,
       }),
   );
   const partialCandidates = finalizeCandidates(
@@ -529,10 +642,9 @@ export async function search(
       baseRoutes,
     },
   });
-  onProgress?.({ type: "progress", step: "PRECISE" });
   const candidates = partialCandidates.slice(0, MAX_RESULTS);
   const radius = finalRadiusM(candidates);
-  const basis = budgetDropped;
+  const basis = [...budgetDropped, ...actualBudgetDropped];
   const result: SearchResult = {
     searchId: crypto.randomUUID(),
     baseRoute,

@@ -160,6 +160,14 @@ export function withinDetourBudget(args: {
   return args.estimatedDetourDurationS <= args.maxDetourMinutes * 60;
 }
 
+/** 실제 경유 경로가 사용자가 허용한 우회 시간 안에 드는지 확인합니다. */
+export function withinActualDetourBudget(args: {
+  detourDurationS: number;
+  maxDetourMinutes: number;
+}): boolean {
+  return args.detourDurationS <= args.maxDetourMinutes * 60;
+}
+
 /**
  * "우회 허용 시간" 세그먼트 바의 상한(분, 5분 단위 내림) — 그 경로의 A6 cap에서 유도.
  * 30분 하드코딩 금지 — 짧은 경로에서 죽은 버튼이 생긴다 (§5.3 ⑥).

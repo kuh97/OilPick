@@ -49,7 +49,7 @@
 | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **BFF 필수**                   | 오피넷 `certkey`와 카카오 REST 키를 브라우저에 노출하면 즉시 탈취되어 일일 한도가 소진됩니다. 클라이언트는 외부 API를 절대 직접 호출하지 않습니다                                                                                                             |
 | **`domain`은 순수 함수**       | 금액·거리 계산이 이 제품 신뢰도의 전부입니다. 네트워크 없이 단위 테스트할 수 있어야 합니다                                                                                                                                                                    |
-| **마스터 DB 우선**             | 후보·가격·시설 정보를 전부 `refuel_point` 마스터에서 읽습니다. 검색 1건의 외부 데이터 API 호출은 카카오 경로뿐입니다. 마스터는 일 1회 유가 CSV 임포트로 가격을, 백그라운드 크론으로 시설 정보를 갱신합니다 (근거·상세는 [`MIGRATION-DB.md`](MIGRATION-DB.md)) |
+| **마스터 DB 우선**             | 후보·가격·시설 정보를 전부 `refuel_point` 마스터에서 읽습니다. 검색 1건의 외부 경로 호출은 카카오 기본 경로와 Valhalla 검색 경로입니다. 마스터는 일 1회 유가 CSV 임포트로 가격을, 백그라운드 크론으로 시설 정보를 갱신합니다 (근거·상세는 [`MIGRATION-DB.md`](MIGRATION-DB.md)) |
 | **SSE 스트리밍**               | 검색은 기본 경로·DB 후보 수집·추정 계산 단계로 진행됩니다. 단계별 진행을 실제로 알려주지 않으면 [`PRODUCT.md`](PRODUCT.md) §10.3의 로딩 UI가 가짜 애니메이션이 됩니다                                                                                                  |
 | **SSE + JSON 폴백**            | 카카오톡 등 인앱 브라우저에서 스트림이 버퍼링되면 사용자가 아무것도 못 받습니다. **같은 서비스 함수를 콜백 없이 호출하면 그게 곧 REST 응답**이라 서버 추가 비용이 거의 없습니다 (§6.2.1)                                                                      |
 | **서버리스 친화 드라이버**     | Neon HTTP 드라이버 + Upstash REST. 인스턴스가 매 요청 새로 뜨므로 TCP 커넥션 풀이 무의미하고, 오히려 커넥션 고갈을 부릅니다                                                                                                                                   |
@@ -104,6 +104,7 @@ oilpick/
 │   │   ├── geocode/geocode-station.ts  # 카카오 지오코딩 (좌표 조달)
 │   │   ├── blob/price-csv.ts           # Vercel Blob (CSV 보관)
 │   │   ├── kakao/{schema,mapper,http,mobility,local}.ts
+│   │   ├── valhalla/{schema,mapper,http,client}.ts  # 검색 단계 map-match·경유 경로
 │   │   ├── cache/{redis,keys}.ts       # Upstash REST 래퍼
 │   │   └── db/{schema,client,repositories}.ts   # Drizzle + PostGIS 도로 링크
 │   ├── store/
@@ -165,7 +166,7 @@ oilpick/
 | `params.ts`   | 튜닝 파라미터 상수. 값의 정본은 [`PRODUCT.md`](PRODUCT.md) §9                                                                             |
 | `types.ts`    | `WGS84Point` / `KatecPoint` / `ProjectedPoint` / `RefuelPoint` / `Candidate` / `SearchResult` 등. **좌표 타입은 서로 대입 불가하게 분리** |
 | `geo.ts`      | WGS84 ↔ 투영좌표 변환, `pointToPolylineDistance`(`d_perp`), bbox 계산, 격자 스냅                                                          |
-| `tier.ts`     | 상세 실측 `ΔT`·`ΔD` 보조 판정과 기본 경로 평균속도 추정. 검색 목록의 티어는 기본 경로 300m 회랑 + 도로 링크 방향으로 결정             |
+| `tier.ts`     | 실측 `ΔT`·`ΔD` 기반 티어 판정과 기본 경로 평균속도 추정                                                                                |
 | `road-direction.ts` | 표준 도로 링크와 기본 경로 선분의 진행 방향 비교. 링크가 없으면 `UNKNOWN`을 반환 |
 | `pricing.ts`  | `computeReferencePrice`, `netSaving`, `computeScores`, `removeOutliers`                                                                   |
 | `reason.ts`   | 추천 이유 템플릿 6분기. **LLM 금지**                                                                                                      |
@@ -178,7 +179,7 @@ oilpick/
 | `route-service`           | 기본 경로·경유 경로 조회, 폴리라인 정규화, 경로 캐시. 카카오 응답을 도메인 타입으로 변환             |
 | `station-service`         | 경로 폴리라인 bbox(회랑) 계산 → `refuel_point` 후보 조회 → 필터 적용. 외부 호출 없음                 |
 | `price-service`           | 이상치 제거, **`P_ref` 산출** — T1+T2 중앙값, 부족하면 `refuel_point` 시군구→시도→전국 가중평균      |
-| `recommendation-service`  | 기본 경로 3종 조회 → PostGIS 방향 필터 → 추정 후보 구성. 후보별 경유 경로는 검색에서 호출하지 않음 |
+| `recommendation-service`  | 기본 경로 3종 조회 → Valhalla map-match → DB 후보 수집 → 후보별 Valhalla 경유 경로 측정 → 실측 티어·추정 게이트·정렬 |
 | `price-import-service`    | 유가 CSV 임포트 오케스트레이션 (decode→parse→게이트→지오코딩→스테이징→원자 스왑). cron·스크립트 공유 |
 | `detail-backfill-service` | 시설 정보 백필 (큐 조회→상세 API 병렬 호출→시설 컬럼 UPDATE). cron·스크립트 공유                     |
 | `event-service`           | 익명 검색·딥링크 이벤트 기록 (Phase 11)                                                              |
@@ -197,6 +198,7 @@ oilpick/
 | `blob/*`           | Vercel Blob — 유가 CSV `latest` / `archive` 보관                                                                  |
 | `kakao/mobility`   | 길찾기(경유지 0~1개)                                                                                              |
 | `kakao/local`      | 키워드 장소 검색·주소 지오코딩                                                                                    |
+| `valhalla/*`       | 검색 단계의 전체 기본 폴리라인 map-match와 후보별 경유 경로. Valhalla 필드·encoded polyline은 이 경계 밖으로 나가지 않음             |
 | `cache/*`          | Redis 래퍼, 키 생성 규칙                                                                                          |
 | `db/*`             | 스키마·마이그레이션·리포지토리. `road_node`·`road_link`·`road_turn`은 표준 노드·링크 임포트 결과 |
 
@@ -307,7 +309,7 @@ JSON API로 한 번에 받을 수 없지만, "과거 판매가격" CSV가 전국
 
 **왜 카카오인가**
 
-1. **무료 쿼터가 압도적** — 기본 경로를 최대 3개 우선순위로 조회한 뒤 DB 회랑 후보를 방향·공간·추정값으로 정리합니다. 실제 경유 경로는 상세에서 1곳만 계산합니다
+1. **무료 쿼터가 압도적** — 기본 경로를 최대 3개 우선순위로 조회한 뒤 Valhalla 검색 경로로 후보의 실제 `ΔT`·`ΔD`를 확인합니다. 최종 확인용 Kakao 경유 경로는 상세에서 1곳만 계산합니다
 2. **TMAP은 요금 절벽이 위험** — 무료 일 1,000건, 초과 시 정액 Lite 월 220만원
 3. **네이버 Directions 15는 월 3,000건**(일 100)이라 경유지 계산에 쓸 수 없음
 
@@ -337,25 +339,41 @@ JSON API로 한 번에 받을 수 없지만, "과거 판매가격" CSV가 전국
 | `x` (문자열)        | `location.lng`         | `Number()` 변환            |
 | `y` (문자열)        | `location.lat`         | `Number()` 변환            |
 
+### 5.2.1 Valhalla — 검색 단계 경로 보정
+
+검색 단계에서 Kakao가 반환한 기본 경로 폴리라인 전체를 `trace_route`의
+`shape_match=map_snap`으로 map-match합니다. 후보별로는 `route`에 출발지·주유소·목적지를
+넣어 경유 경로를 구하고, map-match된 같은 기본 경로와 비교해 `ΔT`·`ΔD`를 계산합니다.
+
+- Kakao 기본 경로와 Valhalla 검색 경로는 모두 `BaseRoute`로 변환합니다
+- 폴리라인은 단순화하거나 일부 점만 보내지 않고 전체 점을 보냅니다. Valhalla의 breakage distance 오류를 피하기 위한 계약입니다
+- 검색 결과의 `detour.precise`는 `false`로 유지합니다. 검색 단계 수치는 Valhalla 실측을 사용하지만, 상세의 Kakao 경로 확인 전이라는 의미입니다
+- 기본 경로 map-match 실패는 Kakao 경로로 조용히 대체하지 않습니다. 해당 경로의 후보를 제외하고 `VALHALLA_PARTIAL` 또는 `VALHALLA_UNAVAILABLE` 경고를 냅니다
+- 후보별 실패는 성공한 후보를 보존하는 부분 실패로 처리합니다
+- 외부 호출은 `VALHALLA_ROUTE_CONCURRENCY`와 `VALHALLA_TIMEOUT_MS`로 제한합니다. 현재 기본 동시성은 1이며 실제 후보 수·응답 시간을 측정한 뒤 조정합니다
+
+로컬 개발은 `docker-compose.yml`의 Valhalla 컨테이너를 사용합니다. 운영 환경의 Valhalla
+호스팅 위치와 비용은 아직 결정하지 않았으므로, `VALHALLA_BASE_URL`을 별도 환경변수로
+두고 서버에서만 접근합니다.
+
 ### 5.3 호출 예산
 
-검색 1건이 쓰는 외부 API는 **카카오 경로뿐**입니다. 후보·가격·시설 정보는 `refuel_point`
-회랑 bbox 쿼리(수십 ms) 한 번으로 끝나고, 오피넷 호출은 0입니다.
+검색 1건은 카카오 기본 경로 최대 3회와 Valhalla 검색 경로를 사용합니다. 후보·가격·시설
+정보는 `refuel_point` 회랑 bbox 쿼리로 가져오고, 오피넷 호출은 0입니다.
 
 | 시나리오                 | 오피넷 | 카카오 경로                                                                                         | 목표 응답                     |
 | ------------------------ | ------ | --------------------------------------------------------------------------------------------------- | ----------------------------- |
-| 검색 1건                 | 0      | 기본 경로 최대 3회. 후보별 경유 경로는 호출하지 않음                                                   | 경로 수에 따라 달라짐        |
-| 상세 진입 (lazy 정밀 계산) | 0      | 선택한 후보일 때 1회(`/api/detour`)                                                                     | 1초                           |
+| 검색 1건                 | 0      | 기본 경로 최대 3회 + 고유 기본 경로별 Valhalla map-match + 후보별 Valhalla 경유 경로 | 후보 수에 따라 달라짐 |
+| 상세 진입 (최종 확인)    | 0      | 선택한 후보일 때 Kakao 1회(`/api/detour`)                                             | 1초                |
 
 카카오 경로 무료 쿼터는 일 10,000건입니다. 검색은 기본 경로 최대 3회로 상한이 고정되고,
-후보별 경유 경로는 상세 진입 때만 호출합니다(경유 경로는 1시간 캐시·10m 격자를 타므로
-인기 O/D가 반복되면 실사용 여유는 이보다 큽니다).
+후보별 Kakao 경유 경로는 상세 진입 때만 호출합니다. 검색 단계의 Valhalla 호출은 자체
+호스팅 서비스이며, 동시성 1·5초 타임아웃으로 시작합니다.
 
-> **검색 후보는 표준 도로 링크의 공간·진행 방향을 기준으로 1차 분류합니다.** 가장 가까운
-> 링크가 명백히 반대 방향이면 `ON_ROUTE`로 승격하지 않지만 STAGE 2 우회 후보로
-> 보존하고, 링크가 없거나 판정할 수 없으면 `UNKNOWN`으로 보존합니다. 같은 방향 후보가
-> 하나라도 있으면 그 후보만 `ON_ROUTE`로 반환합니다.
-> 실제 경유 거리·시간은 카드 상세 진입 시 `/api/detour`에서 계산합니다.
+> **검색 후보는 Valhalla가 계산한 실제 `ΔT`·`ΔD`로 1차 분류합니다.** 두 값이 모두
+> 기준 이내면 `ON_ROUTE`, 하나라도 넘으면 `DETOUR`입니다. 표준 도로 링크 방향 데이터는
+> 후보 누락 방지용 보조 데이터로 남아 있지만 검색의 최종 티어 판정에는 사용하지 않습니다.
+> 상세 진입 시에는 Kakao `/api/detour`로 최종 경로를 다시 확인합니다.
 >
 > **Upstash 쪽이 먼저 바인딩될 수 있습니다.** 경로 1건당 `GET` + (미스 시) `SET`이라 검색
 > 1건이 Redis 명령 약 32회를 씁니다. 무료 티어 일 10,000회 기준 약 300검색/일입니다 (§12 ⑬).
@@ -526,7 +544,12 @@ interface SearchResult {
 }
 
 interface Warning {
-  code: "TIMEOUT" | "SHORT_ROUTE" | "NO_REFERENCE_PRICE";
+  code:
+    | "TIMEOUT"
+    | "SHORT_ROUTE"
+    | "NO_REFERENCE_PRICE"
+    | "VALHALLA_PARTIAL"
+    | "VALHALLA_UNAVAILABLE";
   message: string;
 }
 ```
@@ -561,7 +584,7 @@ interface Warning {
 | ------------ | ------------- | ------------------------------------------------------------------------- |
 | `progress`   | 단계 전환마다 | `{ step, radiusM? }` — `step`: `ROUTE`\|`COLLECT`\|`EXPAND`\|`PRECISE`    |
 | `base_route` | STEP 1 직후   | `{ distanceM, durationS, polyline }` — 지도·헤더를 먼저 그림              |
-| `partial`    | STEP 9 직후   | `{ candidates, baseRoutes, referencePrice, refPriceSource, expansion }` — 추정치 결과 |
+| `partial`    | STEP 9 직후   | `{ candidates, baseRoutes, referencePrice, refPriceSource, expansion }` — Valhalla 측정값 기반 중간 결과. Kakao 최종 확인 전이라 `precise:false` |
 | `result`     | STEP 10 완료  | `SearchResult` 전체                                                       |
 | `warning`    | 발생 시       | `Warning`                                                                 |
 | `error`      | 치명적 실패   | `{ code, message }`                                                       |
@@ -572,6 +595,9 @@ data: {"step":"ROUTE"}
 
 event: base_route
 data: {"distanceM":92000,"durationS":5640,"polyline":[...]}
+
+event: progress
+data: {"step":"PRECISE"}
 
 event: progress
 data: {"step":"EXPAND","radiusM":15000}
@@ -602,7 +628,7 @@ data: {"searchId":"...","baseRoute":{...},"baseRoutes":[...],"candidates":[...],
 
 **클라이언트 규칙**
 
-- `partial`로 받은 후보는 전부 `detour.precise === false`입니다. 반드시 `약 N km ▸`로 표시하십시오
+- `partial`로 받은 후보는 전부 `detour.precise === false`입니다. Valhalla가 실제 경로를 계산했더라도 Kakao 최종 확인 전이므로 반드시 `약 N km ▸`로 표시하십시오
 - `partial.baseRoutes`는 후보가 계산된 실제 기본 경로 목록입니다. 스트림이 중단되어 결과를 합성할 때도 이 목록을 보존해 후보의 경로를 바꾸지 마십시오
 - `result` 수신 후 목록 전체를 교체합니다. 사라지는 후보가 있을 수 있으며 정상입니다
 - 스트림이 `error` 없이 끊기면 마지막 `partial`을 결과로 쓰고 "일부 계산이 완료되지 않았습니다"를 고지합니다
@@ -656,7 +682,7 @@ Accept: application/json   → search(input)            // 콜백 없음 = 완�
 
 **`priceStation` — Phase 8 구현 중 추가.** 이 엔드포인트는 오피넷을 다시 부르지 않으므로(카카오 호출만 예산에 잡혀 있음) 서버가 주유소의 현재 가격을 새로 알 방법이 없습니다. 클라이언트가 이미 화면에 들고 있는 `Candidate.price`를 그대로 넘겨받아 `netSaving`을 계산합니다.
 
-**`polyline` — 상세 지도용.** 상세 화면(F8)이 "기본 경로(회색) + 경유 경로(강조)"를 지도에 그리려면 경유 경로의 폴리라인이 필요합니다. 검색 단계에서는 후보별 경유 경로를 계산하지 않으므로 `/api/search`에는 기본 경로 폴리라인만 담습니다. 상세 진입 시 `/api/detour`가 경유 경로의 거리·시간·폴리라인을 한 번에 반환하며, 기본 경로 조회는 `getRoute`의 1시간 캐시를 재사용합니다.
+**`polyline` — 상세 지도용.** 상세 화면(F8)이 "기본 경로(회색) + 경유 경로(강조)"를 지도에 그리려면 경유 경로의 폴리라인이 필요합니다. 검색 단계에서는 Valhalla가 판정용 경로를 계산하지만 `/api/search`에는 기본 경로 폴리라인만 담습니다. 상세 진입 시 `/api/detour`가 Kakao 경유 경로의 거리·시간·폴리라인을 한 번에 반환하며, 기본 경로 조회는 `getRoute`의 1시간 캐시를 재사용합니다.
 
 ### 6.4 나머지 엔드포인트
 
@@ -1030,8 +1056,8 @@ recommendation-service
   │      │                  AND last_seen_on >= today - 7d   (외부 호출 없음)
   │      └─ 필터 적용 (시설·브랜드·품질인증·셀프여부)
   │
-  ├─▶ domain/tier + road-direction (d_perp · 링크 방향)  ── STEP 4
-  │      T3 밖 제거. 폴리라인 300m 회랑 + 방향 호환 후보를 검색 경로상으로 분류 (PRODUCT §6.4)
+  ├─▶ domain/geo (d_perp · T3 범위)                         ── STEP 4
+  │      T3 밖 제거. d_perp는 후보 수집·P_ref 표본·우회 범위에만 사용 (PRODUCT §6.4)
   │
   ├─▶ price-service.computeReferencePrice                 ── STEP 5
   │      └─ d_perp ≤ T2_MAX 표본 ≥ P_REF_MIN_BASE ? median
@@ -1039,25 +1065,26 @@ recommendation-service
   │
   │  ┌─ STAGE 1 ─ 경로상 목록 (항상 실행) ──────────────────────────┐
   │   ═══▶ SSE: progress(PRECISE)
-  ├─▶ 폴리라인 d_perp ≤ ON_ROUTE_CORRIDOR_MAX_M + 도로 링크 방향 필터 ── STEP 6
-  │      후보별 경유 경로 API는 호출하지 않고 검색 추정값만 구성
-  │      ├─ onRoute ≥1곳 → 같은 주유소를 더 좋은 경로 버전 하나로 합쳐 반환 (STAGE 2 미실행, 배너 OFF)
+  ├─▶ Valhalla trace_route + route                                      ── STEP 6
+  │      기본 폴리라인 전체를 map-match하고 후보별 경유 경로를 계산
+  │      `ΔT ≤ ON_ROUTE_MAX_S` AND `ΔD ≤ ON_ROUTE_MAX_D` → ON_ROUTE
+  │      ├─ onRoute ≥1곳 → 같은 주유소를 실제 총 시간·거리 기준으로 합쳐 반환 (STAGE 2 미실행, 배너 OFF)
   │      └─ 0곳           → STAGE 2 로
   │  └──────────────────────────────────────────────────────────────┘
   │
   │  ┌─ STAGE 2 ─ 우회 탐색 (모든 고유 기본 경로에서 경로상 0곳) ────┐
   │   ═══▶ SSE: progress(EXPAND, radiusM=T3_MAX)
-  ├─▶ domain/pricing (우회 게이트 + maxDetourMinutes 예산)  ── STEP 7
+  ├─▶ domain/pricing (추정 게이트 + 실제 예산 재확인)          ── STEP 7
   │      detourPool = 모든 고유 기본 경로의 후보
   │      추정 ΔT̂ > maxDetourMinutes → 제거. NetSaving ≤ 0 → 제거
   │
-  ├─▶ 추정 후보 정렬·상한 적용 (모드별 점수 → MAX_RESULTS)       ── STEP 9
+  ├─▶ 실제 후보 정렬·상한 적용 (모드별 점수 → MAX_RESULTS)       ── STEP 9
   │
   ├─▶ domain/pricing 1차 스코어링                         ── STEP 8
-  │   ═══▶ SSE: partial  (추정치 결과 — precise:false)
+  │   ═══▶ SSE: partial  (Valhalla 실측 중간 결과 — Kakao 확인 전 precise:false)
   │
-  │  └─ 검색 결과는 모두 precise:false. 실제 경유 경로는 상세 `/api/detour`에서 1곳만 계산
-  │      최종 목록 = STAGE 2 추정 결과. 같은 주유소는 더 나은 경로 버전 하나만 보존
+  │  └─ 검색 결과는 Valhalla 실측을 사용하지만 precise:false. 최종 Kakao 확인은 상세 `/api/detour`에서 1곳만 계산
+  │      최종 목록 = STAGE 2 실제 측정 결과. 같은 주유소는 더 나은 경로 버전 하나만 보존
   │      우회 후보만 MAX_RESULTS개까지 표시
   │   ═══▶ SSE: result
   │
@@ -1444,7 +1471,7 @@ Client → domain/deeplink.build(app, origin, station, destination)
 | ⑩   | 연료별 평균 연비 통계                                    | 공식 통계 확인                                                   | 기본값 보정 ([`PRODUCT.md`](PRODUCT.md) §9.2)                                                                                                            | 낮음                      |
 | ⑭   | **실측 `ΔT` 분포 — 다노선·다연료**                       | `verify:detour` (노선·연료를 바꿔가며)                           | `DETOUR_TIME_CAP_RATIO`(0.5)가 정당한 후보를 자르거나 39분짜리를 통과시킴                                                                                | Phase 10 이후             |
 | ⑮   | **`SHORT_ROUTE_DETOUR_TIME_CAP_S`(20분) 적정성**         | 다양한 짧은 경로 × 연료로 재측정                                 | 너무 짧으면 수진역 LPG류 정당한 근거리 우회를 막고, 너무 길면 사실상 별도 여정을 통과시킴                                                                | Phase 11 이후             |
-| ⑯   | **도로 링크 방향·`ON_ROUTE_CORRIDOR_MAX_M` 검색 기준 적정성** | 실사용 데이터(search_event) 쌓이면 실제 클릭·이탈률과 대조       | 방향·300m 회랑 판정이 너무 느슨하면 반대편 후보가 남고, 너무 엄격하면 진입 가능한 후보가 우회로 밀림                                                   | 실사용 데이터 확보 후     |
+| ⑯   | **Valhalla map-match·경로상 임계값 적정성**                  | 실사용 데이터(search_event) 쌓이면 Kakao 상세 경로와 대조     | Valhalla 검색 `ΔT`·`ΔD`와 Kakao 최종 `ΔT`·`ΔD`의 차이, `ON_ROUTE_MAX_*` 오탐·누락률 측정                    | 실사용 데이터 확보 후     |
 
 ### 해결된 항목
 

@@ -312,7 +312,7 @@ export function useSearchStream() {
               refPriceSource: lastPartial.refPriceSource,
               expansion: lastPartial.expansion,
               warnings: [{ code: "TIMEOUT", message: "일부 계산이 완료되지 않았습니다." }],
-              // partial은 STAGE 2의 추정 후보를 담는다. STAGE 1도 후보별 경유 호출 없이 result를 만든다.
+              // partial은 Valhalla 검색 실측 후보를 담지만 Kakao 최종 확인 전이라 precise:false다.
               stage: "DETOUR",
               minutesNeededForOneResult: null,
             };

@@ -2,7 +2,7 @@
 
 /**
  * POST /api/detour 소비 — 주유소 상세 진입 시 lazy 정밀 계산. ARCHITECTURE.md §6.3.
- * 검색 결과의 추정값을 상세 화면에서 실측값으로 교체한다(§5.4).
+ * 검색 결과의 Valhalla 판정값을 상세 화면의 Kakao 최종 확인값으로 교체한다(§5.4).
  */
 
 import { useCallback, useState } from "react";

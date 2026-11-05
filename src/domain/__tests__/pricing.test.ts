@@ -5,6 +5,7 @@ import {
   computeScores,
   passesDetourGate,
   withinDetourBudget,
+  withinActualDetourBudget,
   maxDetourCeilingMinutes,
   maxDetourCeilingMinutesForRoutes,
   exceedsDetourCap,
@@ -385,6 +386,16 @@ describe("withinDetourBudget", () => {
 
   it("예산을 넘으면 제외 — 실측 예산을 여기 쓰지 않기 위해 추정 단계에서 건다", () => {
     expect(withinDetourBudget({ estimatedDetourDurationS: 301, maxDetourMinutes: 5 })).toBe(false);
+  });
+});
+
+describe("withinActualDetourBudget", () => {
+  it("실제 우회 시간이 예산 이내면 통과한다", () => {
+    expect(withinActualDetourBudget({ detourDurationS: 300, maxDetourMinutes: 5 })).toBe(true);
+  });
+
+  it("실제 우회 시간이 예산을 넘으면 탈락한다", () => {
+    expect(withinActualDetourBudget({ detourDurationS: 301, maxDetourMinutes: 5 })).toBe(false);
   });
 });
 
