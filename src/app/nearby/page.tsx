@@ -258,7 +258,6 @@ export default function NearbyPage() {
               <FilterSheet
                 filters={filters}
                 onApply={setFilters}
-                includeDetour={false}
               />
             )}
           </div>

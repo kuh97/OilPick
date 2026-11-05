@@ -64,9 +64,9 @@ interface SearchState {
   maxDetourDistanceKm: number;
   mode: Mode;
   /**
-   * 고속도로·자동차전용도로 회피 — persist(홈 화면 설정, `fuel`과 같은 부류). `filters`와
-   * 마찬가지로 바뀌면 재검색해야 한다 — 후보를 거르는 게 아니라 경로 자체(baseRoute)를
-   * 바꾸는 검색 조건이기 때문이다 (PRODUCT.md §5.1).
+   * 고속도로·자동차전용도로 회피 — persist(홈 화면 설정, `fuel`과 같은 부류). 바뀌면
+   * 후보를 거르는 게 아니라 경로 자체(baseRoute)를 바꾸는 검색 조건이기 때문이다
+   * (PRODUCT.md §5.1). 시설·브랜드 등 표시 필터는 이 조건과 달리 결과 화면에서만 적용한다.
    */
   avoidHighway: boolean;
   /** 결과 화면에서 사용자가 우회 탐색을 요청했는지 — 상세→뒤로가기에서도 유지해야 하는 휘발성 상태 */
@@ -89,7 +89,7 @@ interface SearchState {
   result: WireSearchResult | null;
   streamWarnings: WireWarning[]; // 스트림 도중 받은 warning 누적 (result 전 표시용)
   error: { code: string; message: string } | null;
-  /** 마지막으로 검색을 시작한 origin/destination/fuel/filters 조합의 키 — result 화면이
+  /** 마지막으로 검색을 시작한 origin/destination/fuel/avoidHighway 조합의 키 — result 화면이
    * 상세보기→뒤로가기로 리마운트돼도(로컬 ref는 초기화됨) 같은 조건이면 재검색하지
    * 않도록, 컴포넌트 수명을 넘어 살아있는 스토어에 둔다. */
   lastSearchKey: string | null;

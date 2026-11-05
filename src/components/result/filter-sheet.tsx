@@ -1,8 +1,8 @@
 "use client";
 
 /**
- * 필터 시트(F2·F6) — §5.2. 시설·브랜드·품질·셀프·허용 우회 거리.
- * 내 주변 화면에서는 허용 우회 거리만 숨기고 나머지 필터 UI를 재사용한다.
+ * 필터 시트(F2·F6) — §5.2. 시설·브랜드·품질·셀프.
+ * 허용 우회 거리는 검색 입력이므로 결과 화면의 별도 컨트롤에서 바꾼다.
  */
 import { useState } from "react";
 import { SlidersHorizontal } from "lucide-react";
@@ -17,8 +17,6 @@ import {
 } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { DetourDistanceBar } from "@/components/result/max-detour-bar";
-import { DEFAULT_MAX_DETOUR_DISTANCE_KM } from "@/domain/params";
 import { cn } from "@/lib/utils";
 import type { Facility, WireFilters } from "@/app/api/_lib/types";
 
@@ -49,29 +47,13 @@ const BRAND_GROUPS: { label: string; codes: string[] }[] = [
   { label: "SK가스", codes: ["SKG"] },
 ];
 
-type BaseFilterSheetProps = {
+type FilterSheetProps = {
   filters: WireFilters;
   onApply: (filters: WireFilters) => void;
 };
 
-type FilterSheetProps =
-  | (BaseFilterSheetProps & {
-      /** 생략하면 결과 화면용으로 허용 우회 거리 필터를 표시한다. */
-      includeDetour?: true;
-      maxDetourDistanceKm: number;
-      /** draft가 실제로 바뀌었을 때만 호출 — page.tsx가 이걸 STAGE 2 재검색으로 해석한다. */
-      onApplyMaxDetourDistanceKm: (distanceKm: number) => void;
-    })
-  | (BaseFilterSheetProps & {
-      includeDetour: false;
-    });
-
-export function FilterSheet(props: FilterSheetProps) {
-  const { filters, onApply } = props;
-  const detourProps = props.includeDetour === false ? null : props;
+export function FilterSheet({ filters, onApply }: FilterSheetProps) {
   const [draft, setDraft] = useState(filters);
-  const maxDetourDraft = detourProps?.maxDetourDistanceKm ?? DEFAULT_MAX_DETOUR_DISTANCE_KM;
-  const [draftDistanceKm, setDraftDistanceKm] = useState(maxDetourDraft);
 
   return (
     <Drawer
@@ -79,7 +61,6 @@ export function FilterSheet(props: FilterSheetProps) {
         if (open) {
           // 열 때마다 현재 적용된 값으로 초기화
           setDraft(filters);
-          if (detourProps) setDraftDistanceKm(detourProps.maxDetourDistanceKm);
         }
       }}
     >
@@ -88,7 +69,7 @@ export function FilterSheet(props: FilterSheetProps) {
           <Button
             variant="outline"
             size="sm"
-            className="border-route-strong/20 bg-surface text-text-strong hover:border-route-strong hover:bg-route-sky hover:text-route-strong"
+            className="border-border bg-surface text-text-strong hover:border-route-blue/40 hover:bg-route-sky hover:text-route-blue"
           />
         }
       >
@@ -100,12 +81,9 @@ export function FilterSheet(props: FilterSheetProps) {
           <DrawerTitle className="text-text-strong">필터</DrawerTitle>
           <button
             type="button"
-            className="text-sm text-text-body underline underline-offset-2 hover:text-route-strong"
+            className="text-sm text-text-body underline underline-offset-2 hover:text-route-blue"
             onClick={() => {
               setDraft(EMPTY_FILTERS);
-              if (detourProps) {
-                setDraftDistanceKm(DEFAULT_MAX_DETOUR_DISTANCE_KM);
-              }
             }}
           >
             초기화
@@ -113,13 +91,6 @@ export function FilterSheet(props: FilterSheetProps) {
         </DrawerHeader>
 
         <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto overscroll-contain bg-surface px-4 pb-4 pt-4 touch-pan-y [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          {detourProps && (
-            <DetourDistanceBar
-              value={draftDistanceKm}
-              onChange={setDraftDistanceKm}
-            />
-          )}
-
           <section className="flex shrink-0 flex-col gap-2">
             <h3 className="text-sm font-semibold text-text-strong">시설</h3>
             <div className="flex flex-col divide-y divide-border overflow-hidden rounded-card border border-route-strong/15">
@@ -165,8 +136,8 @@ export function FilterSheet(props: FilterSheetProps) {
                     className={cn(
                       "rounded-control-sm border px-3 py-1.5 text-sm font-medium transition-colors",
                       isOn
-                        ? "border-route-strong bg-route-sky text-route-strong shadow-route-sm"
-                        : "border-route-strong/15 bg-surface-quiet/60 text-text-body hover:border-route-strong hover:bg-route-sky hover:text-route-strong",
+                        ? "border-route-blue/50 bg-route-sky text-route-blue shadow-route-sm"
+                        : "border-route-strong/15 bg-surface-quiet/60 text-text-body hover:border-route-blue/40 hover:bg-route-sky hover:text-route-blue",
                     )}
                   >
                     {g.label}
@@ -178,7 +149,9 @@ export function FilterSheet(props: FilterSheetProps) {
 
           <section className="flex shrink-0 flex-col divide-y divide-border overflow-hidden rounded-card border border-route-strong/15">
             <label className="flex items-center justify-between bg-surface px-4 py-3 text-sm text-text-body">
-              <span className="font-semibold text-text-strong">셀프 주유소만</span>
+              <span className="font-semibold text-text-strong">
+                셀프 주유소만
+              </span>
               <Switch
                 checked={draft.selfOnly}
                 onCheckedChange={(checked) =>
@@ -187,7 +160,9 @@ export function FilterSheet(props: FilterSheetProps) {
               />
             </label>
             <label className="flex items-center justify-between bg-surface px-4 py-3 text-sm text-text-body">
-              <span className="font-semibold text-text-strong">품질인증 주유소만</span>
+              <span className="font-semibold text-text-strong">
+                품질인증 주유소만
+              </span>
               <Switch
                 checked={draft.kpetroOnly}
                 onCheckedChange={(checked) =>
@@ -198,8 +173,6 @@ export function FilterSheet(props: FilterSheetProps) {
           </section>
 
           <p className="text-xs leading-5 text-text-body">
-            바꾼 뒤 &apos;적용&apos;을 누르면 조건에 맞는 주유소를 다시 찾아요.
-            <br />
             운영시간 필터는 공공데이터에서 제공되지 않아 지원하지 않습니다.
           </p>
         </div>
@@ -212,10 +185,6 @@ export function FilterSheet(props: FilterSheetProps) {
                 className="w-full"
                 onClick={() => {
                   onApply(draft);
-                  // 실제로 건드렸을 때만 — 안 건드린 필터 적용이 STAGE 2로 튕기지 않게.
-                  if (detourProps && draftDistanceKm !== maxDetourDraft) {
-                    detourProps.onApplyMaxDetourDistanceKm(draftDistanceKm);
-                  }
                 }}
               />
             }

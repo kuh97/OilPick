@@ -143,7 +143,7 @@ export function CalcAssumptions({
                 variant="outline"
                 size="sm"
                 className={cn(
-                  "shrink-0 border border-border bg-surface text-text-body hover:border-route-cyan hover:bg-route-sky hover:text-route-strong",
+                  "shrink-0 border border-border bg-surface text-text-body hover:border-route-blue/40 hover:bg-route-sky hover:text-route-blue",
                   embedded && "px-2 text-xs",
                 )}
                 style={{ height: embedded ? "25px" : undefined }}
@@ -165,7 +165,7 @@ export function CalcAssumptions({
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="border border-border bg-surface px-2 text-xs text-text-body hover:border-route-cyan hover:bg-route-sky hover:text-route-strong"
+                  className="border border-border bg-surface px-2 text-xs text-text-body hover:border-route-blue/40 hover:bg-route-sky hover:text-route-blue"
                   style={{ height: "25px" }}
                   aria-label="계산 기준 수정"
                   title="계산 기준 수정"
@@ -241,7 +241,7 @@ export function CalcAssumptions({
               <Button
                 variant="ghost"
                 size="icon-xs"
-                className="border border-border bg-surface text-text-body hover:border-route-cyan hover:bg-route-sky hover:text-route-strong"
+                className="border border-border bg-surface text-text-body hover:border-route-blue/40 hover:bg-route-sky hover:text-route-blue"
                 aria-label="계산 기준 수정"
                 title="계산 기준 수정"
               />

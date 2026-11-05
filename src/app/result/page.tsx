@@ -16,12 +16,16 @@ import { ModeTabs } from "@/components/result/mode-tabs";
 import { ResultCard } from "@/components/result/result-card";
 import { CalcAssumptions } from "@/components/result/calc-assumptions";
 import { FilterSheet } from "@/components/result/filter-sheet";
+import { DetourDistanceBar } from "@/components/result/max-detour-bar";
 import { useSearchStore, type ProgressStep } from "@/store/search-store";
 import {
   useSearchStream,
   type SearchStreamInput,
 } from "@/lib/api/useSearchStream";
-import { recomputeAndSort } from "@/lib/recompute-candidates";
+import {
+  filterCandidates,
+  recomputeAndSort,
+} from "@/lib/recompute-candidates";
 import { DETOUR_DISTANCE_OPTIONS_KM } from "@/domain/params";
 import {
   distanceMToKm,
@@ -36,6 +40,13 @@ import type {
   WireVehicle,
   WireWarning,
 } from "@/app/api/_lib/types";
+
+const EMPTY_FILTERS: WireFilters = {
+  facilities: [],
+  brands: [],
+  kpetroOnly: false,
+  selfOnly: false,
+};
 
 function WarningBanner({ warning }: { warning: WireWarning }) {
   return (
@@ -74,7 +85,7 @@ function SearchRouteSummary({
   return (
     <section
       aria-label="검색 경로"
-      className="overflow-hidden rounded-card border border-route-strong/20 bg-surface shadow-route-md"
+      className="overflow-hidden rounded-card border border-border bg-surface shadow-route-md"
     >
       <div className="grid grid-cols-[2rem_minmax(0,1fr)_auto] grid-rows-2 items-center gap-y-1.5 px-4 py-3">
         <div className="relative row-span-2 grid grid-rows-subgrid items-center justify-items-center self-stretch">
@@ -148,7 +159,7 @@ function DesktopSearchContext({
   return (
     <section
       aria-label="검색 경로 및 계산 기준"
-      className="overflow-hidden rounded-card border border-route-strong/20 bg-surface p-4 shadow-route-md"
+      className="overflow-hidden rounded-card border border-border bg-surface p-4 shadow-route-md"
     >
       <h2 className="text-base font-semibold text-text-strong">검색 경로</h2>
 
@@ -187,7 +198,7 @@ function DesktopSearchContext({
         )}
       </div>
 
-      <div className="my-4 border-t border-route-strong/20" />
+      <div className="my-4 border-t border-border" />
 
       <CalcAssumptions
         className="border-0 px-0 py-0"
@@ -274,7 +285,9 @@ export default function ResultPage() {
       origin,
       destination,
       fuel,
-      filters,
+      // 시설·브랜드·품질·셀프 필터는 이미 받은 결과를 화면에서만 좁힌다.
+      // 서버에는 빈 필터를 보내야 다음 km 검색에서도 전체 후보를 받을 수 있다.
+      filters: EMPTY_FILTERS,
       vehicle: useSearchStore.getState().vehicle,
       mode: useSearchStore.getState().mode,
       avoidHighway,
@@ -284,7 +297,8 @@ export default function ResultPage() {
     void search(body);
   }
 
-  // 재검색 트리거는 이 한 곳뿐 — 필터·허용 우회 거리를 같이 바꿔도 검색은 한 번만 나간다 (불변식 8).
+  // 재검색 트리거는 이 한 곳뿐 — 허용 우회 거리·경로 조건만 검색을 다시 실행한다.
+  // 나머지 필터는 이미 받은 결과를 화면에서만 걸러낸다.
   // vehicle·mode는 클라이언트 재계산만 하므로 제외. lastSearchKey는 스토어에 둬서
   // 상세→뒤로가기 리마운트 후에도 같은 조건이면 재검색을 건너뛴다.
   useEffect(() => {
@@ -301,7 +315,6 @@ export default function ResultPage() {
       origin,
       destination,
       fuel,
-      filters,
       avoidHighway,
       detourIntent: detourIntentForSearch,
     });
@@ -319,7 +332,6 @@ export default function ResultPage() {
     origin,
     destination,
     fuel,
-    filters,
     avoidHighway,
     detourIntent,
     routeKey,
@@ -339,8 +351,14 @@ export default function ResultPage() {
 
   const displayCandidates = useMemo(() => {
     const rawCandidates = result?.candidates ?? partial?.candidates ?? [];
-    return recomputeAndSort(rawCandidates, vehicle, referencePrice, mode);
-  }, [result, partial, vehicle, referencePrice, mode]);
+    const filteredCandidates = filterCandidates(rawCandidates, filters);
+    return recomputeAndSort(
+      filteredCandidates,
+      vehicle,
+      referencePrice,
+      mode,
+    );
+  }, [result, partial, filters, vehicle, referencePrice, mode]);
 
   // 어느 비교 경로에서든 경로상 후보가 있으면 우회 거리는 적용 대상이 아니다.
   const isOnRouteStage = result?.stage === "ON_ROUTE";
@@ -354,13 +372,6 @@ export default function ResultPage() {
     DETOUR_DISTANCE_OPTIONS_KM.find(
       (distanceKm) => distanceKm > maxDetourDistanceKm,
     ) ?? null;
-  const defaultFilters: WireFilters = {
-    facilities: [],
-    brands: [],
-    kpetroOnly: false,
-    selfOnly: false,
-  };
-
   if (!origin || !destination) {
     return (
       <main className="oilpick-page mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-center gap-4 px-4 py-16 text-center">
@@ -392,7 +403,6 @@ export default function ResultPage() {
                 origin,
                 destination,
                 fuel,
-                filters,
                 avoidHighway,
                 detourIntent,
               });
@@ -410,27 +420,7 @@ export default function ResultPage() {
   const showFullScreenLoading = isLoading || settling;
 
   function renderFilterSheet() {
-    if (isOnRouteStage) {
-      return (
-        <FilterSheet
-          filters={filters}
-          onApply={setFilters}
-          includeDetour={false}
-        />
-      );
-    }
-
-    return (
-      <FilterSheet
-        filters={filters}
-        onApply={setFilters}
-        maxDetourDistanceKm={maxDetourDistanceKm}
-        onApplyMaxDetourDistanceKm={(distanceKm) => {
-          setMaxDetourDistanceKm(distanceKm);
-          setDetourIntent({ maxDetourDistanceKm: distanceKm });
-        }}
-      />
-    );
+    return <FilterSheet filters={filters} onApply={setFilters} />;
   }
 
   return (
@@ -514,6 +504,15 @@ export default function ResultPage() {
                     검색 결과 {displayCandidates.length}곳
                   </span>
                 </div>
+                {!isOnRouteStage && (
+                  <DetourDistanceBar
+                    value={maxDetourDistanceKm}
+                    onChange={(distanceKm) => {
+                      setMaxDetourDistanceKm(distanceKm);
+                      setDetourIntent({ maxDetourDistanceKm: distanceKm });
+                    }}
+                  />
+                )}
                 <div className="flex items-center justify-between gap-2">
                   <ModeTabs value={mode} onChange={setMode} />
                   {renderFilterSheet()}
@@ -529,9 +528,9 @@ export default function ResultPage() {
                       </p>
                       <Button
                         variant="outline"
-                        onClick={() => setFilters(defaultFilters)}
+                        onClick={() => setFilters(EMPTY_FILTERS)}
                       >
-                        필터 초기화하고 다시 찾기
+                        필터 초기화하고 목록 보기
                       </Button>
                     </>
                   ) : nextDetourDistanceKm != null ? (

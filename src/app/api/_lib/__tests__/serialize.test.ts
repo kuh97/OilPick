@@ -16,6 +16,7 @@ function candidate(overrides: Partial<Candidate> = {}): Candidate {
       tel: "031-000-0000",
       facilities: { carWash: true, maintenance: false, cvs: true },
       isKpetro: false,
+      isSelf: true,
     },
     price: 1700,
     dPerp: 320,
@@ -67,6 +68,7 @@ describe("serializeCandidate", () => {
     expect(wire.brand).toBe("SKE");
     expect(wire.lat).toBe(37.5);
     expect(wire.lng).toBe(127.0);
+    expect(wire.isSelf).toBe(true);
   });
 
   it("도로명 주소가 있으면 도로명을 쓰고, 없으면 지번으로 폴백한다", () => {

@@ -62,6 +62,8 @@ export interface WireCandidate {
   priceUpdatedAt: string | null; // ISO8601
   facilities: { carWash: boolean; maintenance: boolean; cvs: boolean };
   kpetro: boolean;
+  /** 셀프 여부를 모르면 undefined로 남을 수 있다. */
+  isSelf?: boolean | null;
   tier: Tier;
   perpDistanceM: number;
   /** tollWon: 이 우회로 추가되는 통행료(원, 정보 표시 전용). 모르면 undefined. */

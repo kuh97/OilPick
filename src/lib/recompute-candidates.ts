@@ -14,7 +14,48 @@ import {
   computeScores,
   scoreByMode,
 } from "@/domain/pricing";
-import type { WireCandidate, WireVehicle, Mode } from "@/app/api/_lib/types";
+import type {
+  WireCandidate,
+  WireFilters,
+  WireVehicle,
+  Mode,
+} from "@/app/api/_lib/types";
+
+/**
+ * 검색 결과를 다시 요청하지 않고 화면에 표시할 후보만 좁힌다.
+ * 허용 우회 거리는 서버 검색 입력이므로 이 함수에서 다루지 않는다.
+ */
+export function filterCandidates(
+  candidates: WireCandidate[],
+  filters: WireFilters,
+): WireCandidate[] {
+  return candidates.filter((candidate) => {
+    if (filters.kpetroOnly && !candidate.kpetro) return false;
+    if (filters.selfOnly && candidate.isSelf !== true) return false;
+    if (
+      filters.brands.length > 0 &&
+      !filters.brands.includes(candidate.brand)
+    ) {
+      return false;
+    }
+    if (
+      filters.facilities.includes("CAR_WASH") &&
+      !candidate.facilities.carWash
+    ) {
+      return false;
+    }
+    if (
+      filters.facilities.includes("MAINTENANCE") &&
+      !candidate.facilities.maintenance
+    ) {
+      return false;
+    }
+    if (filters.facilities.includes("CVS") && !candidate.facilities.cvs) {
+      return false;
+    }
+    return true;
+  });
+}
 
 export function recomputeCandidate(
   candidate: WireCandidate,

@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { recomputeCandidate, recomputeAndSort } from "../recompute-candidates";
+import {
+  filterCandidates,
+  recomputeCandidate,
+  recomputeAndSort,
+} from "../recompute-candidates";
 import type { WireCandidate } from "@/app/api/_lib/types";
 
 function candidate(overrides: Partial<WireCandidate> = {}): WireCandidate {
@@ -45,6 +49,56 @@ describe("recomputeCandidate", () => {
     const original = candidate({ netSaving: 777 });
     const result = recomputeCandidate(original, { efficiency: 10, refuelAmount: 45, timeValue: 200 }, null);
     expect(result.netSaving).toBe(777);
+  });
+});
+
+describe("filterCandidates", () => {
+  it("브랜드·시설·품질인증·셀프 조건으로 기존 목록만 걸러낸다", () => {
+    const matching = candidate({
+      id: "MATCH",
+      brand: "SKE",
+      kpetro: true,
+      isSelf: true,
+      facilities: { carWash: true, maintenance: true, cvs: true },
+    });
+    const notMatching = candidate({
+      id: "NO_MATCH",
+      brand: "GSC",
+      kpetro: false,
+      isSelf: false,
+      facilities: { carWash: true, maintenance: false, cvs: true },
+    });
+
+    const result = filterCandidates([matching, notMatching], {
+      facilities: ["CAR_WASH", "MAINTENANCE", "CVS"],
+      brands: ["SKE"],
+      kpetroOnly: true,
+      selfOnly: true,
+    });
+
+    expect(result.map((c) => c.id)).toEqual(["MATCH"]);
+  });
+
+  it("필터를 모두 해제하면 서버가 준 목록을 그대로 보여준다", () => {
+    const candidates = [candidate({ id: "A" }), candidate({ id: "B" })];
+
+    expect(
+      filterCandidates(candidates, {
+        facilities: [],
+        brands: [],
+        kpetroOnly: false,
+        selfOnly: false,
+      }),
+    ).toEqual(candidates);
+  });
+
+  it("셀프 여부를 모르는 후보는 셀프 필터에서 제외한다", () => {
+    const result = filterCandidates(
+      [candidate({ id: "UNKNOWN" }), candidate({ id: "SELF", isSelf: true })],
+      { facilities: [], brands: [], kpetroOnly: false, selfOnly: true },
+    );
+
+    expect(result.map((c) => c.id)).toEqual(["SELF"]);
   });
 });
 

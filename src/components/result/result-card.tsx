@@ -66,7 +66,7 @@ export function ResultCard({
         : "text-text-muted";
 
   return (
-    <div className="group relative overflow-hidden rounded-card border border-route-strong/20 bg-surface shadow-route-sm transition-all hover:border-route-cyan hover:shadow-route-md">
+    <div className="group relative overflow-hidden rounded-card border border-border bg-surface shadow-route-sm transition-all hover:border-route-blue/40 hover:shadow-route-md">
       <Link
         href={`/station/${candidate.id}`}
         aria-label={`${candidate.name} 상세 보기`}
@@ -131,7 +131,7 @@ export function ResultCard({
           </p>
         )}
 
-        <div className="mt-2 flex items-center justify-between border-t border-route-strong/15 pt-2">
+        <div className="mt-2 flex items-center justify-between border-t border-border pt-2">
           <span className="text-xs text-text-body">{priceTimeText}</span>
           <span className="flex items-center gap-0.5 text-sm font-semibold text-route-strong">
             상세 보기

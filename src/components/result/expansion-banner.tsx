@@ -25,10 +25,10 @@ export function ExpansionBanner({
   return (
     <Alert
       variant="default"
-      className="rounded-card border border-border bg-surface-quiet/70 text-text-body"
+      className="rounded-card border border-route-blue/25 bg-route-sky text-route-blue"
     >
-      <Info className="size-4 text-text-muted" aria-hidden />
-      <AlertDescription className="text-wrap text-xs leading-5 text-text-body">
+      <Info className="size-4 text-route-blue" aria-hidden />
+      <AlertDescription className="text-wrap text-xs leading-5 text-route-blue">
         경로 주변에 조건에 맞는 {stationWord}가 적어 {km}km까지 넓혀 찾았어요.
       </AlertDescription>
     </Alert>

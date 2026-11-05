@@ -46,6 +46,7 @@ export function serializeCandidate(c: Candidate): WireCandidate {
     priceUpdatedAt: c.priceUpdatedAt ? c.priceUpdatedAt.toISOString() : null,
     facilities: { ...station.facilities },
     kpetro: station.isKpetro,
+    isSelf: station.isSelf ?? null,
     tier: c.tier,
     perpDistanceM: c.dPerp,
     detour: { ...c.detour },

@@ -580,6 +580,12 @@ interface Warning {
 }
 ```
 
+검색 API의 `filters` 필드는 계약상 유지한다. 다만 결과 화면은 시설·브랜드·품질인증·셀프
+필터를 검색 요청에 넣지 않고 빈 필터로 전체 후보를 받은 뒤, `WireCandidate`의 시설·브랜드·
+`kpetro`·`isSelf` 값을 사용해 브라우저에서 목록만 다시 계산한다. 이 필터를 바꿀 때는
+`/api/search`를 재호출하지 않는다. `maxDetourDistanceKm`은 DB 후보 범위와 실제 우회 판정을
+바꾸므로 별도 거리 컨트롤에서 변경하면 재검색하며, 새 결과에도 현재 화면 필터를 적용한다.
+
 **Response** `Content-Type: text/event-stream`
 
 | 이벤트       | 시점          | data                                                                      |
@@ -1052,11 +1058,11 @@ recommendation-service
   │   ═══▶ SSE: base_route
   │
   │   ═══▶ SSE: progress(COLLECT)
-  ├─▶ station-service.collectStations (STAGE 1, 고유 기본 경로별) ── STEP 2·3
+  ├─▶ station-service.collectStations (STAGE 1, 고유 기본 경로별) ── STEP 2
   │      ├─ 폴리라인 투영 → bbox(회랑) + ON_ROUTE_PREFILTER_MAX_M 마진
   │      ├─ refuel_point WHERE lat/lng BETWEEN … AND price_{fuel} > 0
   │      │                  AND last_seen_on >= today - 7d   (외부 호출 없음)
-  │      └─ 필터 적용 (시설·브랜드·품질인증·셀프여부)
+  │      └─ 연료 조건 적용. 화면 필터는 WireCandidate로 전달해 클라이언트에서 적용
   │
   ├─▶ domain/geo (d_perp · STAGE 1 범위)                    ── STEP 4
   │      300m 밖 제거. d_perp는 최종 경로상 판정이 아닌 사전 범위에만 사용 (PRODUCT §6.4)
@@ -1379,7 +1385,7 @@ Client → domain/deeplink.build(app, origin, station, destination)
 **의도적으로 범위를 좁힌 것들 — 정직하게 미룸**
 
 - **F10(내 주변)은 부품 재사용 범위로 구현함.** `useNearbyStations` 훅과 `/nearby` 화면은 주변 조회·가격 마커 지도·상세 진입을 담당하고, 상세에서는 `useStationRoute`로 현재 위치→주유소의 실제 카카오 경로를 지도에 표시하며 카카오맵·네이버지도·티맵 목적지 안내도 제공합니다.
-- **A2(필터 때문에 0건) 진단을 단순화함.** PRODUCT.md §5.2는 "어떤 필터가 원인인지 특정"하라고 하지만, 이는 필터를 하나씩 빼며 재검색해야 해 오피넷 예산을 추가로 씁니다. 지금은 활성 필터가 있으면 "필터 초기화하고 다시 찾기" 하나만 제시합니다 — 원인 필터를 짚어주지는 않습니다.
+- **A2(필터 때문에 0건) 진단을 단순화함.** 화면 필터는 재검색 없이 클라이언트에서 즉시 재평가할 수 있지만, 현재 UI는 원인 필터를 하나씩 표시하지 않고 활성 필터가 있으면 "필터 초기화하고 목록 보기"를 제시합니다.
 - **A1(확장해도 0건) 시 출발지·목적지 근처 검색 제안은 아직 보류.** 현재는 결과 화면에서 현재 위치 주변 검색(`/nearby`)으로 안내합니다. 출발지·목적지 좌표를 기준으로 한 별도 주변 검색은 범위 밖입니다.
 - **모바일 딥링크는 스토어 폴백 없이 각 앱의 스킴만 시도합니다.** 앱 실행 성공 여부를 웹에서 신뢰성 있게 감지할 수 없어(타이머+visibility 방식은 iOS에서 정상 실행 후 복귀 시 거짓 "설치 오류"를 띄웠음), 미설치 시 무동작을 택했습니다. 데스크톱은 경유지 포함 웹 지도로 폴백합니다.
 - **네이버지도 `appname`은 운영 웹 페이지 URL(`https://oilpick.vercel.app`)을 사용합니다.** 테스트 fixture의 `com.example.oilpick`은 런타임 값이 아닙니다.
