@@ -35,7 +35,7 @@ function toSearchInput(body: SearchRequest): SearchInput {
     mode: body.mode,
     avoidHighway: body.avoidHighway,
     includeDetour: body.includeDetour,
-    maxDetourMinutes: body.maxDetourMinutes,
+    maxDetourDistanceKm: body.maxDetourDistanceKm,
   };
 }
 

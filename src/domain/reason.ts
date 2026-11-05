@@ -20,6 +20,8 @@ export interface ReasonInput {
   precise?: boolean;
   hasFacilityMatch: boolean;    // 필터 조건 매칭 여부
   mode: Mode;
+  /** 기준가가 있을 때만 계산. null이면 절감액을 판정하지 않는다. */
+  netSavingWon?: number | null;
 }
 
 const MODE_LABEL: Record<Mode, string> = {
@@ -44,6 +46,7 @@ export function buildReason(input: ReasonInput): string {
     precise = true,
     hasFacilityMatch,
     mode,
+    netSavingWon = null,
   } = input;
 
   const priceDiff = priceRefWon - priceStationWon;
@@ -51,6 +54,12 @@ export function buildReason(input: ReasonInput): string {
   const detourMin = durationSToMin(detourDurationS);
   const estimatedPrefix = precise ? "" : "약 ";
   const detourDistanceLabel = `${estimatedPrefix}${detourKm}km`;
+
+  if (tier === "DETOUR" && netSavingWon != null && netSavingWon <= 0) {
+    return netSavingWon === 0
+      ? `${detourDistanceLabel} 우회가 필요하지만 절감 효과는 없습니다.`
+      : `${detourDistanceLabel} 우회가 필요해 약 ${Math.abs(netSavingWon).toLocaleString()}원 손해입니다.`;
+  }
 
   // 1위 & 우회
   if (rank === 1 && tier === "DETOUR") {

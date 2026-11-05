@@ -13,7 +13,7 @@ import {
   DEFAULT_EFFICIENCY,
   DEFAULT_REFUEL_AMOUNT,
   V_TIME,
-  DEFAULT_MAX_DETOUR_MINUTES,
+  DEFAULT_MAX_DETOUR_DISTANCE_KM,
 } from "@/domain/params";
 import type {
   Fuel,
@@ -60,11 +60,8 @@ interface SearchState {
   /** 연비를 사용자가 직접 고쳐둔 상태인지 — true면 연료를 바꿔도 연비를 덮어쓰지 않는다.
    * "현재 연료의 기본 연비와 다른가"로 판정하므로, 기본값으로 되돌리면 다시 자동 추종한다. */
   efficiencyTouched: boolean;
-  /**
-   * 사용자가 허용하는 최대 우회 시간(분) — persist. 서버의 STAGE 2 추정 게이트 입력이며,
-   * 경로상 후보가 없을 때 값을 바꾸면 재검색한다 (PRODUCT.md §5.2·§6.6).
-   */
-  maxDetourMinutes: number;
+  /** 사용자가 현재 경로에서 허용하는 최대 우회 거리(km) — 새 경로에서는 기본값으로 시작한다. */
+  maxDetourDistanceKm: number;
   mode: Mode;
   /**
    * 고속도로·자동차전용도로 회피 — persist(홈 화면 설정, `fuel`과 같은 부류). `filters`와
@@ -73,7 +70,7 @@ interface SearchState {
    */
   avoidHighway: boolean;
   /** 결과 화면에서 사용자가 우회 탐색을 요청했는지 — 상세→뒤로가기에서도 유지해야 하는 휘발성 상태 */
-  detourIntent: { maxDetourMinutes: number } | null;
+  detourIntent: { maxDetourDistanceKm: number } | null;
 
   // ─── 검색 진행 상태 (휘발성) ───────────────────────────────────────────
   isLoading: boolean;
@@ -107,10 +104,10 @@ interface SearchState {
   setFuel: (fuel: Fuel) => void;
   setFilters: (filters: WireFilters) => void;
   setVehicle: (vehicle: Partial<WireVehicle>) => void;
-  setMaxDetourMinutes: (minutes: number) => void;
+  setMaxDetourDistanceKm: (distanceKm: number) => void;
   setMode: (mode: Mode) => void;
   setAvoidHighway: (avoid: boolean) => void;
-  setDetourIntent: (intent: { maxDetourMinutes: number } | null) => void;
+  setDetourIntent: (intent: { maxDetourDistanceKm: number } | null) => void;
 
   startSearch: () => void;
   setJsonFallback: (value: boolean) => void;
@@ -158,10 +155,8 @@ function safeStorage(): StateStorage {
   };
 }
 
-type PersistedState = Pick<
-  SearchState,
-  "vehicle" | "efficiencyTouched" | "maxDetourMinutes" | "recentSearches" | "fuel" | "avoidHighway"
->;
+type PersistedState = Pick<SearchState, "vehicle" | "efficiencyTouched" | "recentSearches" | "fuel" | "avoidHighway">;
+type LegacyPersistedState = Partial<PersistedState> & { maxDetourDistanceKm?: number };
 
 export const useSearchStore = create<SearchState>()(
   persist(
@@ -173,7 +168,7 @@ export const useSearchStore = create<SearchState>()(
       filters: DEFAULT_FILTERS,
       vehicle: defaultVehicleFor("GASOLINE"),
       efficiencyTouched: false,
-      maxDetourMinutes: DEFAULT_MAX_DETOUR_MINUTES,
+      maxDetourDistanceKm: DEFAULT_MAX_DETOUR_DISTANCE_KM,
       mode: "balanced",
       avoidHighway: false,
       detourIntent: null,
@@ -192,8 +187,20 @@ export const useSearchStore = create<SearchState>()(
 
       recentSearches: [],
 
-      setOrigin: (p) => set({ origin: p, nearbyOrigin: null }),
-      setDestination: (p) => set({ destination: p, nearbyOrigin: null }),
+      setOrigin: (p) =>
+        set({
+          origin: p,
+          nearbyOrigin: null,
+          maxDetourDistanceKm: DEFAULT_MAX_DETOUR_DISTANCE_KM,
+          detourIntent: null,
+        }),
+      setDestination: (p) =>
+        set({
+          destination: p,
+          nearbyOrigin: null,
+          maxDetourDistanceKm: DEFAULT_MAX_DETOUR_DISTANCE_KM,
+          detourIntent: null,
+        }),
       setNearbyOrigin: (p) => set({ nearbyOrigin: p }),
       setFuel: (fuel) =>
         set((s) => ({
@@ -205,7 +212,7 @@ export const useSearchStore = create<SearchState>()(
         const next = { ...get().vehicle, ...vehicle };
         set({ vehicle: next, efficiencyTouched: next.efficiency !== DEFAULT_EFFICIENCY[get().fuel] });
       },
-      setMaxDetourMinutes: (minutes) => set({ maxDetourMinutes: minutes }),
+      setMaxDetourDistanceKm: (distanceKm) => set({ maxDetourDistanceKm: distanceKm }),
       setMode: (mode) => set({ mode }),
       setAvoidHighway: (avoid) => set({ avoidHighway: avoid }),
       setDetourIntent: (intent) => set({ detourIntent: intent }),
@@ -258,36 +265,48 @@ export const useSearchStore = create<SearchState>()(
           streamWarnings: [],
           error: null,
           detourIntent: null,
+          maxDetourDistanceKm: DEFAULT_MAX_DETOUR_DISTANCE_KM,
           nearbyOrigin: null,
           lastSearchKey: null,
         }),
 
       // 결과 화면에서 홈으로 돌아갈 때 — 연료·필터는 유지, 출발지/목적지만 비운다.
-      clearRoute: () => set({ origin: null, destination: null, nearbyOrigin: null, detourIntent: null, isJsonFallback: false }),
+      clearRoute: () =>
+        set({
+          origin: null,
+          destination: null,
+          nearbyOrigin: null,
+          detourIntent: null,
+          maxDetourDistanceKm: DEFAULT_MAX_DETOUR_DISTANCE_KM,
+          isJsonFallback: false,
+        }),
     }),
     {
       name: "oilpick-search-store",
       storage: createJSONStorage(safeStorage),
-      version: 1,
+      version: 2,
       // v0는 연비가 항상 휘발유 기본값으로 초기화됐다 — 그와 다른 값이면 사용자가 고친 것이고,
+      // v1에 저장된 maxDetourDistanceKm은 새 경로에 이어지면 안 되므로 버린다.
       // 같은 값이면 손대지 않은 것이므로 현재 연료의 기본 연비로 맞춰준다.
       migrate: (persisted, version) => {
-        const state = persisted as Partial<PersistedState> | undefined;
-        if (version >= 1 || !state?.vehicle) return state as PersistedState;
-        const touched = state.vehicle.efficiency !== DEFAULT_EFFICIENCY.GASOLINE;
+        const state = persisted as LegacyPersistedState | undefined;
+        if (!state) return undefined;
+        const { maxDetourDistanceKm: _legacyMaxDetourDistanceKm, ...cleanState } = state;
+        void _legacyMaxDetourDistanceKm;
+        if (version >= 1 || !cleanState.vehicle) return cleanState as PersistedState;
+        const touched = cleanState.vehicle.efficiency !== DEFAULT_EFFICIENCY.GASOLINE;
         return {
-          ...state,
+          ...cleanState,
           efficiencyTouched: touched,
           vehicle: touched
-            ? state.vehicle
-            : { ...state.vehicle, efficiency: DEFAULT_EFFICIENCY[state.fuel ?? "GASOLINE"] },
+            ? cleanState.vehicle
+            : { ...cleanState.vehicle, efficiency: DEFAULT_EFFICIENCY[cleanState.fuel ?? "GASOLINE"] },
         } as PersistedState;
       },
       // origin/destination/result는 의도적으로 휘발성 — persist하지 않음
       partialize: (state) => ({
         vehicle: state.vehicle,
         efficiencyTouched: state.efficiencyTouched,
-        maxDetourMinutes: state.maxDetourMinutes,
         recentSearches: state.recentSearches,
         fuel: state.fuel,
         avoidHighway: state.avoidHighway,

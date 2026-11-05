@@ -43,7 +43,7 @@ function searchResult(): SearchResult {
     expansion: { triggered: true, finalRadiusM: 5000 },
     warnings: [{ code: "TIMEOUT", message: "일부 계산이 완료되지 않았습니다." }],
     stage: "DETOUR",
-    minutesNeededForOneResult: null,
+    distanceNeededForOneResultKm: null,
   };
 }
 

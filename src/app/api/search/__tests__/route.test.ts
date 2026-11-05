@@ -38,7 +38,7 @@ function fakeResult(): SearchResult {
     expansion: { triggered: false, finalRadiusM: 3000 },
     warnings: [],
     stage: "DETOUR",
-    minutesNeededForOneResult: null,
+    distanceNeededForOneResultKm: null,
   };
 }
 

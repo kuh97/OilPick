@@ -47,8 +47,8 @@ export interface SearchStreamInput {
   avoidHighway: boolean;
   /** 사용자가 접힌 우회 섹션을 펼쳤는가 — STAGE 2 실행 여부 (PRODUCT.md §6.6) */
   includeDetour?: boolean;
-  /** "우회 허용 시간"(분). 표시 필터가 아니라 검색 파라미터 (AGENTS.md 불변식 8) */
-  maxDetourMinutes?: number;
+  /** "허용 우회 거리"(km). 표시 필터가 아니라 검색 파라미터 */
+  maxDetourDistanceKm?: number;
 }
 
 function isAbortError(err: unknown): boolean {
@@ -314,7 +314,7 @@ export function useSearchStream() {
               warnings: [{ code: "TIMEOUT", message: "일부 계산이 완료되지 않았습니다." }],
               // partial은 Valhalla 검색 실측 후보를 담지만 Kakao 최종 확인 전이라 precise:false다.
               stage: "DETOUR",
-              minutesNeededForOneResult: null,
+              distanceNeededForOneResultKm: null,
             };
             finishAfterSteps(() => {
               if (requestId === requestIdRef.current) setResult(synthesized);

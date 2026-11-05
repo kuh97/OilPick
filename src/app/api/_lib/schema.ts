@@ -42,10 +42,10 @@ export const SearchRequestSchema = z.object({
   mode: ModeSchema,
   /** 고속도로·자동차전용도로 회피 — 경로 자체가 바뀌는 검색 조건 (PRODUCT.md §5.1) */
   avoidHighway: z.boolean().default(false),
-  /** 우회 섹션 펼침 여부 — 기본 false면 STAGE 1만 (§6.6) */
+  /** 기존 클라이언트 호환 필드 — 서버는 경로상 후보가 없으면 STAGE 2를 실행한다 (§6.6) */
   includeDetour: z.boolean().default(false),
-  /** "우회 허용 시간"(분) — 검색 파라미터, STAGE 2 전용 (불변식 8) */
-  maxDetourMinutes: z.number().int().nonnegative().optional(),
+  /** "허용 우회 거리"(km) — 검색 파라미터, STAGE 2 전용 */
+  maxDetourDistanceKm: z.union([z.literal(3), z.literal(5), z.literal(10), z.literal(15)]).optional(),
 });
 export type SearchRequest = z.infer<typeof SearchRequestSchema>;
 

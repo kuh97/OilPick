@@ -22,10 +22,10 @@ import {
   type SearchStreamInput,
 } from "@/lib/api/useSearchStream";
 import { recomputeAndSort } from "@/lib/recompute-candidates";
+import { DETOUR_DISTANCE_OPTIONS_KM } from "@/domain/params";
 import {
   distanceMToKm,
   durationSToMin,
-  maxDetourCeilingMinutesForRoutes,
 } from "@/domain/pricing";
 import type {
   Fuel,
@@ -210,11 +210,11 @@ export default function ResultPage() {
   const filters = useSearchStore((s) => s.filters);
   const avoidHighway = useSearchStore((s) => s.avoidHighway);
   const vehicle = useSearchStore((s) => s.vehicle);
-  const maxDetourMinutes = useSearchStore((s) => s.maxDetourMinutes);
+  const maxDetourDistanceKm = useSearchStore((s) => s.maxDetourDistanceKm);
   const mode = useSearchStore((s) => s.mode);
   const setFilters = useSearchStore((s) => s.setFilters);
   const setVehicle = useSearchStore((s) => s.setVehicle);
-  const setMaxDetourMinutes = useSearchStore((s) => s.setMaxDetourMinutes);
+  const setMaxDetourDistanceKm = useSearchStore((s) => s.setMaxDetourDistanceKm);
   const setMode = useSearchStore((s) => s.setMode);
   const detourIntent = useSearchStore((s) => s.detourIntent);
   const setDetourIntent = useSearchStore((s) => s.setDetourIntent);
@@ -268,7 +268,7 @@ export default function ResultPage() {
   const routeKey = JSON.stringify({ origin, destination });
   const previousRouteKeyRef = useRef(routeKey);
 
-  function runSearch(detour: { maxDetourMinutes: number } | null) {
+  function runSearch(detour: { maxDetourDistanceKm: number } | null) {
     if (!origin || !destination) return;
     const body: SearchStreamInput = {
       origin,
@@ -279,12 +279,12 @@ export default function ResultPage() {
       mode: useSearchStore.getState().mode,
       avoidHighway,
       includeDetour: detour != null,
-      maxDetourMinutes: detour?.maxDetourMinutes,
+      maxDetourDistanceKm: detour?.maxDetourDistanceKm,
     };
     void search(body);
   }
 
-  // 재검색 트리거는 이 한 곳뿐 — 필터·우회 시간을 같이 바꿔도 검색은 한 번만 나간다 (불변식 8).
+  // 재검색 트리거는 이 한 곳뿐 — 필터·허용 우회 거리를 같이 바꿔도 검색은 한 번만 나간다 (불변식 8).
   // vehicle·mode는 클라이언트 재계산만 하므로 제외. lastSearchKey는 스토어에 둬서
   // 상세→뒤로가기 리마운트 후에도 같은 조건이면 재검색을 건너뛴다.
   useEffect(() => {
@@ -342,7 +342,7 @@ export default function ResultPage() {
     return recomputeAndSort(rawCandidates, vehicle, referencePrice, mode);
   }, [result, partial, vehicle, referencePrice, mode]);
 
-  // 어느 비교 경로에서든 경로상 후보가 있으면 우회 시간은 적용 대상이 아니다.
+  // 어느 비교 경로에서든 경로상 후보가 있으면 우회 거리는 적용 대상이 아니다.
   const isOnRouteStage = result?.stage === "ON_ROUTE";
 
   const hasActiveFilters =
@@ -350,25 +350,10 @@ export default function ResultPage() {
     filters.brands.length > 0 ||
     filters.kpetroOnly ||
     filters.selfOnly;
-  // 우회 허용 시간이 검색 파라미터라 클라이언트엔 걸러진 후보가 없다 → 서버가 담아 준다 (§5.3).
-  const minutesNeededForOneResult = result?.minutesNeededForOneResult ?? null;
-  const resultRoutes = result?.baseRoutes?.map(({ route }) => route);
-  const partialRoutes = partial?.baseRoutes?.map(({ route }) => route);
-  const routesForDetourCeiling =
-    resultRoutes && resultRoutes.length > 0
-      ? resultRoutes
-      : partialRoutes && partialRoutes.length > 0
-        ? partialRoutes
-        : baseRoute
-          ? [baseRoute]
-          : [];
-  const maxDetourCeiling =
-    routesForDetourCeiling.length > 0
-      ? maxDetourCeilingMinutesForRoutes(routesForDetourCeiling)
-      : 30;
-  const canRelaxMaxDetour =
-    minutesNeededForOneResult != null &&
-    minutesNeededForOneResult <= maxDetourCeiling;
+  const nextDetourDistanceKm =
+    DETOUR_DISTANCE_OPTIONS_KM.find(
+      (distanceKm) => distanceKm > maxDetourDistanceKm,
+    ) ?? null;
   const defaultFilters: WireFilters = {
     facilities: [],
     brands: [],
@@ -439,11 +424,10 @@ export default function ResultPage() {
       <FilterSheet
         filters={filters}
         onApply={setFilters}
-        maxDetourMinutes={maxDetourMinutes}
-        maxDetourCeiling={maxDetourCeiling}
-        onApplyMaxDetourMinutes={(minutes) => {
-          setMaxDetourMinutes(minutes);
-          setDetourIntent({ maxDetourMinutes: minutes });
+        maxDetourDistanceKm={maxDetourDistanceKm}
+        onApplyMaxDetourDistanceKm={(distanceKm) => {
+          setMaxDetourDistanceKm(distanceKm);
+          setDetourIntent({ maxDetourDistanceKm: distanceKm });
         }}
       />
     );
@@ -550,31 +534,23 @@ export default function ResultPage() {
                         필터 초기화하고 다시 찾기
                       </Button>
                     </>
-                  ) : minutesNeededForOneResult != null ? (
+                  ) : nextDetourDistanceKm != null ? (
                     <>
                       <p className="text-sm text-text-body">
-                        우회 허용 시간({maxDetourMinutes}분) 안에 드는 주유소가
+                        허용 우회 거리({maxDetourDistanceKm}km) 안에 드는 주유소가
                         없습니다.
                       </p>
-                      {canRelaxMaxDetour ? (
-                        <Button
-                          variant="outline"
-                          onClick={() => {
-                            setMaxDetourMinutes(minutesNeededForOneResult);
-                            setDetourIntent({
-                              maxDetourMinutes: minutesNeededForOneResult,
-                            });
-                          }}
-                        >
-                          우회 허용 시간을 {minutesNeededForOneResult}분으로
-                          늘리기
-                        </Button>
-                      ) : (
-                        <p className="text-xs text-text-body">
-                          허용 시간을 최대({maxDetourCeiling}분)로 늘려도 이
-                          경로에는 조건에 맞는 주유소가 없습니다.
-                        </p>
-                      )}
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setMaxDetourDistanceKm(nextDetourDistanceKm);
+                          setDetourIntent({
+                            maxDetourDistanceKm: nextDetourDistanceKm,
+                          });
+                        }}
+                      >
+                        우회 범위를 {nextDetourDistanceKm}km로 넓혀 다시 찾기
+                      </Button>
                     </>
                   ) : (
                     <>

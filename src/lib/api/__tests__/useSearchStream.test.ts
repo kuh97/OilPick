@@ -25,7 +25,7 @@ const RESULT: WireSearchResult = {
   expansion: { triggered: false, finalRadiusM: 3000 },
   warnings: [],
   stage: "ON_ROUTE",
-  minutesNeededForOneResult: null,
+  distanceNeededForOneResultKm: null,
 };
 
 function frame(event: string, data: unknown): string {

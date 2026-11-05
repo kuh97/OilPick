@@ -17,7 +17,7 @@ const localStorage = {
   removeItem: (k: string) => void store.delete(k),
 };
 
-function seedV0(fuel: Fuel, efficiency: number) {
+function seed(version: number, fuel: Fuel, efficiency: number, maxDetourDistanceKm?: number) {
   store.set(
     KEY,
     JSON.stringify({
@@ -25,10 +25,15 @@ function seedV0(fuel: Fuel, efficiency: number) {
         vehicle: { efficiency, refuelAmount: DEFAULT_REFUEL_AMOUNT, timeValue: V_TIME },
         recentSearches: [],
         fuel,
+        ...(maxDetourDistanceKm == null ? {} : { maxDetourDistanceKm }),
       },
-      version: 0,
+      version,
     }),
   );
+}
+
+function seedV0(fuel: Fuel, efficiency: number) {
+  seed(0, fuel, efficiency);
 }
 
 async function loadStore() {
@@ -61,5 +66,12 @@ describe("search-store — persist 마이그레이션", () => {
 
     expect(useSearchStore.getState().vehicle.efficiency).toBe(9.5);
     expect(useSearchStore.getState().efficiencyTouched).toBe(true);
+  });
+
+  it("이전 버전에 저장된 허용 우회 거리는 새 경로 기본값으로 되돌린다", async () => {
+    seed(1, "GASOLINE", DEFAULT_EFFICIENCY.GASOLINE, 10);
+    const useSearchStore = await loadStore();
+
+    expect(useSearchStore.getState().maxDetourDistanceKm).toBe(5);
   });
 });

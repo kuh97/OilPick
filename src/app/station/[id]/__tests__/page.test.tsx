@@ -84,7 +84,7 @@ function result(overrides: Partial<WireSearchResult> = {}): WireSearchResult {
     expansion: { triggered: true, finalRadiusM: 7000 },
     warnings: [],
     stage: "DETOUR",
-    minutesNeededForOneResult: null,
+    distanceNeededForOneResultKm: null,
     ...overrides,
   };
 }

@@ -18,7 +18,7 @@ import {
   fetchValhallaRoute,
   mapMatchValhallaRoute,
 } from "@/infra/valhalla/client";
-import { ON_ROUTE_PREFILTER_MAX_M, T2_MAX, T3_MAX } from "@/domain/params";
+import { ON_ROUTE_PREFILTER_MAX_M, T2_MAX } from "@/domain/params";
 import { wgs84 } from "@/domain/types";
 import type { BaseRoute, Fuel, RefuelPoint, SearchInput } from "@/domain/types";
 import type { RedisLike } from "../route-service";
@@ -160,7 +160,7 @@ describe("search — Valhalla map-match와 후보 경로", () => {
     const margins: number[] = [];
     collectStationsMock.mockImplementation(async ({ marginM }) => {
       margins.push(marginM);
-      if (marginM === T3_MAX) {
+      if (marginM === 8_000) {
         return {
           stations: [
             collected({ id: "EXPANDED", location: wgs84(37.05, 127.15), price: 1500 }),
@@ -172,7 +172,7 @@ describe("search — Valhalla map-match와 후보 경로", () => {
 
     const result = await search(baseInput(), undefined, FAKE_DEPS);
 
-    expect(margins).toEqual([ON_ROUTE_PREFILTER_MAX_M, T2_MAX, T3_MAX]);
+    expect(margins).toEqual([ON_ROUTE_PREFILTER_MAX_M, T2_MAX, 8_000]);
     expect(result.stage).toBe("DETOUR");
     expect(result.candidates.map((candidate) => candidate.station.id)).toEqual([
       "EXPANDED",
@@ -244,7 +244,7 @@ describe("search — Valhalla map-match와 후보 경로", () => {
 });
 
 describe("search — STAGE 2 실제 우회 게이트", () => {
-  it("추정 게이트를 통과한 후보는 실제 우회값으로 예산을 다시 확인한다", async () => {
+  it("선택 거리 밖의 후보는 제외하고, 다음에 시도할 거리를 알려준다", async () => {
     collectStationsMock.mockResolvedValue({
       stations: [collected({ id: "TOO_LONG", location: wgs84(37.05, 127.15), price: 1500 })],
     });
@@ -254,14 +254,14 @@ describe("search — STAGE 2 실제 우회 게이트", () => {
       durationS: BASE_ROUTE.durationS + 1_800,
     });
 
-    const result = await search(baseInput({ maxDetourMinutes: 20 }), undefined, FAKE_DEPS);
+    const result = await search(baseInput({ maxDetourDistanceKm: 3 }), undefined, FAKE_DEPS);
 
     expect(result.stage).toBe("DETOUR");
     expect(result.candidates).toEqual([]);
-    expect(result.minutesNeededForOneResult).toBe(30);
+    expect(result.distanceNeededForOneResultKm).toBe(5);
   });
 
-  it("우회 후보는 추정 NetSaving 게이트에서 탈락하면 최종 목록에 넣지 않는다", async () => {
+  it("실측 NetSaving이 음수여도 실제로 갈 수 있는 우회 후보는 참고 후보로 남긴다", async () => {
     collectStationsMock.mockResolvedValue({
       stations: [collected({ id: "EXPENSIVE", location: wgs84(37.05, 127.15), price: 2500 })],
     });
@@ -269,11 +269,13 @@ describe("search — STAGE 2 실제 우회 게이트", () => {
     const result = await search(baseInput(), undefined, FAKE_DEPS);
 
     expect(fetchValhallaRouteMock).toHaveBeenCalledTimes(1);
-    expect(result.candidates).toEqual([]);
+    expect(result.candidates).toHaveLength(1);
+    expect(result.candidates[0].netSaving).toBeLessThan(0);
+    expect(result.candidates[0].reason).toContain("손해입니다");
     expect(result.stage).toBe("DETOUR");
   });
 
-  it("실제 NetSaving이 음수로 뒤집혀도 추정 게이트를 통과한 후보는 제거하지 않는다", async () => {
+  it("실측 우회거리와 안전 상한을 통과한 후보는 순절감액이 음수여도 남긴다", async () => {
     collectStationsMock.mockResolvedValue({
       stations: [collected({ id: "ACTUAL_LOSS", location: wgs84(37.003, 127.15), price: 1890 })],
     });
@@ -283,11 +285,28 @@ describe("search — STAGE 2 실제 우회 게이트", () => {
       durationS: BASE_ROUTE.durationS + 600,
     });
 
-    const result = await search(baseInput({ maxDetourMinutes: 20 }), undefined, FAKE_DEPS);
+    const result = await search(baseInput({ maxDetourDistanceKm: 10 }), undefined, FAKE_DEPS);
 
     expect(result.candidates).toHaveLength(1);
-    expect(result.candidates[0].station.id).toBe("ACTUAL_LOSS");
     expect(result.candidates[0].netSaving).toBeLessThan(0);
+  });
+
+  it("순절감액이 양수인 우회 후보를 손해 후보보다 먼저 보여준다", async () => {
+    collectStationsMock.mockResolvedValue({
+      stations: [
+        collected({ id: "CHEAP", price: 1700 }),
+        collected({ id: "EXPENSIVE", price: 2500 }),
+      ],
+    });
+
+    const result = await search(baseInput({ maxDetourDistanceKm: 10 }), undefined, FAKE_DEPS);
+
+    expect(result.candidates.map((candidate) => candidate.station.id)).toEqual([
+      "CHEAP",
+      "EXPENSIVE",
+    ]);
+    expect(result.candidates[0].netSaving).toBeGreaterThan(0);
+    expect(result.candidates[1].netSaving).toBeLessThan(0);
   });
 
   it("기준가가 없으면 T2 표본만 가격순으로 반환한다", async () => {

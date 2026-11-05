@@ -1,6 +1,11 @@
 import { describe, expect, it, beforeEach } from "vitest";
 import { useSearchStore } from "../search-store";
-import { DEFAULT_EFFICIENCY, DEFAULT_REFUEL_AMOUNT, V_TIME, DEFAULT_MAX_DETOUR_MINUTES } from "@/domain/params";
+import {
+  DEFAULT_EFFICIENCY,
+  DEFAULT_REFUEL_AMOUNT,
+  V_TIME,
+  DEFAULT_MAX_DETOUR_DISTANCE_KM,
+} from "@/domain/params";
 
 const ORIGIN = { lat: 37.42, lng: 127.12, name: "성남시청" };
 const DESTINATION = { lat: 37.88, lng: 127.73, name: "춘천역" };
@@ -14,7 +19,7 @@ beforeEach(() => {
     filters: { facilities: [], brands: [], kpetroOnly: false, selfOnly: false },
     vehicle: { efficiency: DEFAULT_EFFICIENCY.GASOLINE, refuelAmount: DEFAULT_REFUEL_AMOUNT, timeValue: V_TIME },
     efficiencyTouched: false,
-    maxDetourMinutes: DEFAULT_MAX_DETOUR_MINUTES,
+    maxDetourDistanceKm: DEFAULT_MAX_DETOUR_DISTANCE_KM,
     mode: "balanced",
     avoidHighway: false,
     isLoading: false,
@@ -59,13 +64,26 @@ describe("search-store — 입력", () => {
     expect(vehicle.timeValue).toBe(V_TIME);
   });
 
-  // maxDetourMinutes는 filters와 달리 vehicle에 안 묶는다 — API 계약(vehicle)과
-  // 무관한 순수 클라이언트 표시 필터이기 때문 (PRODUCT.md §5.2, 2026-09-08).
-  it("setMaxDetourMinutes는 다른 필드에 영향을 주지 않는다", () => {
-    useSearchStore.getState().setMaxDetourMinutes(35);
+  // maxDetourDistanceKm는 filters와 달리 vehicle에 안 묶는다 — API 계약(vehicle)과
+  // 무관한 검색 입력이기 때문 (PRODUCT.md §5.2).
+  it("setMaxDetourDistanceKm는 다른 필드에 영향을 주지 않는다", () => {
+    useSearchStore.getState().setMaxDetourDistanceKm(10);
     const state = useSearchStore.getState();
-    expect(state.maxDetourMinutes).toBe(35);
+    expect(state.maxDetourDistanceKm).toBe(10);
     expect(state.vehicle.efficiency).toBe(DEFAULT_EFFICIENCY.GASOLINE);
+  });
+
+  it("새 출발지·목적지를 고르면 허용 우회 거리를 기본값으로 되돌린다", () => {
+    useSearchStore.getState().setMaxDetourDistanceKm(10);
+    useSearchStore.getState().setDetourIntent({ maxDetourDistanceKm: 10 });
+
+    useSearchStore.getState().setOrigin(ORIGIN);
+    expect(useSearchStore.getState().maxDetourDistanceKm).toBe(DEFAULT_MAX_DETOUR_DISTANCE_KM);
+    expect(useSearchStore.getState().detourIntent).toBeNull();
+
+    useSearchStore.getState().setMaxDetourDistanceKm(10);
+    useSearchStore.getState().setDestination(DESTINATION);
+    expect(useSearchStore.getState().maxDetourDistanceKm).toBe(DEFAULT_MAX_DETOUR_DISTANCE_KM);
   });
 
   it("setAvoidHighway는 다른 필드에 영향을 주지 않는다", () => {
@@ -120,16 +138,18 @@ describe("search-store — 연료별 기본 연비 (PRODUCT.md §9.2)", () => {
 
 describe("search-store — 검색 진행 상태", () => {
   it("우회 의도는 상세→뒤로가기에서 재검색 조건을 복원할 수 있도록 유지된다", () => {
-    useSearchStore.getState().setDetourIntent({ maxDetourMinutes: 20 });
+    useSearchStore.getState().setDetourIntent({ maxDetourDistanceKm: 10 });
 
-    expect(useSearchStore.getState().detourIntent).toEqual({ maxDetourMinutes: 20 });
+    expect(useSearchStore.getState().detourIntent).toEqual({ maxDetourDistanceKm: 10 });
   });
 
   it("경로를 비우면 이전 우회 의도도 비운다", () => {
-    useSearchStore.getState().setDetourIntent({ maxDetourMinutes: 20 });
+    useSearchStore.getState().setDetourIntent({ maxDetourDistanceKm: 10 });
+    useSearchStore.getState().setMaxDetourDistanceKm(10);
     useSearchStore.getState().clearRoute();
 
     expect(useSearchStore.getState().detourIntent).toBeNull();
+    expect(useSearchStore.getState().maxDetourDistanceKm).toBe(DEFAULT_MAX_DETOUR_DISTANCE_KM);
   });
 
   it("startSearch는 이전 result·partial·error를 지운다", () => {

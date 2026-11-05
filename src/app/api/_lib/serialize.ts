@@ -81,6 +81,6 @@ export function serializeSearchResult(result: SearchResult): WireSearchResult {
     candidates: serializeCandidates(result.candidates),
     warnings: result.warnings,
     stage: result.stage,
-    minutesNeededForOneResult: result.minutesNeededForOneResult,
+    distanceNeededForOneResultKm: result.distanceNeededForOneResultKm,
   };
 }

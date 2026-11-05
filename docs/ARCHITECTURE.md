@@ -179,7 +179,7 @@ oilpick/
 | `route-service`           | 기본 경로·경유 경로 조회, 폴리라인 정규화, 경로 캐시. 카카오 응답을 도메인 타입으로 변환             |
 | `station-service`         | 경로 폴리라인 bbox(회랑) 계산 → `refuel_point` 후보 조회 → 필터 적용. 외부 호출 없음                 |
 | `price-service`           | 이상치 제거, **`P_ref` 산출** — T1+T2 중앙값, 부족하면 `refuel_point` 시군구→시도→전국 가중평균      |
-| `recommendation-service`  | 기본 경로 3종 조회 → Valhalla map-match → DB 후보 수집 → 후보별 Valhalla 경유 경로 측정 → 실측 티어·추정 게이트·정렬 |
+| `recommendation-service`  | 기본 경로 3종 조회 → Valhalla map-match → 단계별 DB 후보 수집 → 후보별 Valhalla 경유 경로 측정 → 실측 티어·거리·순절감액·정렬 |
 | `price-import-service`    | 유가 CSV 임포트 오케스트레이션 (decode→parse→게이트→지오코딩→스테이징→원자 스왑). cron·스크립트 공유 |
 | `detail-backfill-service` | 시설 정보 백필 (큐 조회→상세 API 병렬 호출→시설 컬럼 UPDATE). cron·스크립트 공유                     |
 | `event-service`           | 익명 검색·딥링크 이벤트 기록 (Phase 11)                                                              |
@@ -541,7 +541,7 @@ interface SearchResult {
   candidates: Candidate[];
   warnings: Warning[];
   stage: "ON_ROUTE" | "DETOUR"; // STAGE 1 경로상 목록 또는 STAGE 2 우회 목록
-  minutesNeededForOneResult: number | null; // STAGE 2 0건일 때 최소 우회 허용 시간(분)
+  distanceNeededForOneResultKm: number | null; // STAGE 2 0건일 때 다음 검색에 필요한 실제 우회거리(km)
 }
 
 interface Warning {
@@ -575,7 +575,8 @@ interface Warning {
     "selfOnly": false
   },
   "vehicle": { "efficiency": 8.5, "refuelAmount": 45, "timeValue": 200 },
-  "mode": "balanced"
+  "mode": "balanced",
+  "maxDetourDistanceKm": 5
 }
 ```
 
@@ -601,7 +602,7 @@ event: progress
 data: {"step":"PRECISE"}
 
 event: progress
-data: {"step":"EXPAND","radiusM":15000}
+data: {"step":"EXPAND","radiusM":8000}
 
 event: partial
 data: {"candidates":[...],"baseRoutes":[...],"referencePrice":1210,"refPriceSource":"SIGUNGU_AVG",
@@ -612,14 +613,14 @@ data: {"step":"PRECISE"}
 
 event: result
 data: {"searchId":"...","baseRoute":{...},"baseRoutes":[...],"candidates":[...],
-       "stage":"DETOUR","minutesNeededForOneResult":null}
+       "stage":"DETOUR","distanceNeededForOneResultKm":null}
 ```
 
 **`progress.radiusM`의 의미 — 헷갈리기 쉬움**
 
 | 필드                       | 값                                 | 의미                                                                                                                                   |
 | -------------------------- | ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| `progress(EXPAND).radiusM` | `T3_MAX` = 15,000                  | **STAGE 1에 경로상 후보가 없어 확장하는 탐색 상한.** 후보 평가 전이라 실제 결과를 모름                                                                     |
+| `progress(EXPAND).radiusM` | `min(선택 거리+3km, T3_MAX)`        | **STAGE 1에 경로상 후보가 없어 확장하는 DB 탐색 반경.** 후보 평가 전이라 실제 결과를 모름                                                                     |
 | `expansion.finalRadiusM`   | 채택된 🟡우회 후보의 최대 `d_perp` | **어디서 찾았는가.** 결과 배너에 쓰는 값. 배지(`ΔT`)로 우회인 후보 중 가장 먼 기하 거리 — STAGE 1만으로 끝나면 배너 자체가 없다 (§6.4) |
 
 두 값이 다른 것은 정상입니다. 로딩 UI는 상한인 `radiusM`을 숫자로 노출하지 않고 범위를 넓히는
@@ -690,7 +691,7 @@ Accept: application/json   → search(input)            // 콜백 없음 = 완�
 | 메서드 · 경로                                                                              | 용도                   | 응답                                                                                                                                                        |
 | ------------------------------------------------------------------------------------------ | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `GET /api/places/search?q=`                                                                | 장소 자동완성 (F1)     | `{ places: [{ name, address, lat, lng }] }` 최대 5건                                                                                                        |
-| `GET /api/stations/nearby?lat=&lng=&fuel=&sort=&facilities=&brands=&kpetroOnly=&selfOnly=` | 내 주변 (F10)          | `{ stations: [...] }` 반경 `SEARCH_RADIUS`; 필터 쿼리는 선택 사항이며 우회 허용 시간은 없음                                                                 |
+| `GET /api/stations/nearby?lat=&lng=&fuel=&sort=&facilities=&brands=&kpetroOnly=&selfOnly=` | 내 주변 (F10)          | `{ stations: [...] }` 반경 `SEARCH_RADIUS`; 필터 쿼리는 선택 사항이며 허용 우회 거리는 없음                                                                 |
 | `GET /api/stations/:id?fuel=`                                                              | 상세 보강              | 요청 연료 가격을 포함한 `Candidate`에서 경로 의존 필드(`tier`·`perpDistanceM`·`detour`·`netSaving`·`scores`·`reason`)를 뺀 형태. `fuel` 기본값은 `GASOLINE` |
 | `POST /api/stations/directions`                                                            | 주변 상세 지도 경로    | `{ stationId, origin }` → `WireBaseRoute`(현재 위치→주유소 실제 도로 경로)                                                                                  |
 | `POST /api/events/navi`                                                                    | 딥링크 클릭 기록       | `204`                                                                                                                                                       |
@@ -1074,11 +1075,12 @@ recommendation-service
   │  └──────────────────────────────────────────────────────────────┘
   │
   │  ┌─ STAGE 2 ─ 우회 탐색 (모든 고유 기본 경로에서 경로상 0곳) ────┐
-  │   ═══▶ SSE: progress(EXPAND, radiusM=T3_MAX)
-  ├─▶ station-service.collectStations (T3 확장)              ── STEP 7 전
-  │      detourPool = T3_MAX 확장 후보
-  ├─▶ domain/pricing (추정 게이트 + 실제 예산 재확인)          ── STEP 7
-  │      추정 ΔT̂ > maxDetourMinutes → 제거. NetSaving ≤ 0 → 제거
+  │   ═══▶ SSE: progress(EXPAND, radiusM=min(선택 거리+3km,T3_MAX))
+  ├─▶ station-service.collectStations (선택 거리+3km)       ── STEP 7 전
+  │      detourPool = 거리 여유를 포함한 DB 후보
+  ├─▶ domain/pricing (실측 거리·순절감액·안전 cap 판정)          ── STEP 7
+  │      실제 ΔD > maxDetourDistanceKm → 제거. 내부 안전 cap 초과 → 제거
+  │      NetSaving > 0 → 추천 후보 우선, 그 밖은 참고 후보로 보존
   │
   ├─▶ 실제 후보 정렬·상한 적용 (모드별 점수 → MAX_RESULTS)       ── STEP 9
   │
@@ -1087,7 +1089,7 @@ recommendation-service
   │
   │  └─ 검색 결과는 Valhalla 실측을 사용하지만 precise:false. 최종 Kakao 확인은 상세 `/api/detour`에서 1곳만 계산
   │      최종 목록 = STAGE 2 실제 측정 결과. 같은 주유소는 더 나은 경로 버전 하나만 보존
-  │      우회 후보만 MAX_RESULTS개까지 표시
+  │      추천 후보를 먼저 정렬하고, 참고 후보를 뒤에 배치한 뒤 MAX_RESULTS개까지 표시
   │   ═══▶ SSE: result
   │
   └─▶ event-service.logSearch (비동기 · Phase 11)
@@ -1252,7 +1254,7 @@ Client → domain/deeplink.build(app, origin, station, destination)
 | --------------------- | ---------------------------------------------------------------------- |
 | `verify:coverage` (⑫) | 회랑 bbox 수집이 전수 스캔 대비 후보를 누락하지 않는가                 |
 | `verify:t3-rate`      | **T3 발동률·게이트 통과율**                                            |
-| `verify:uturn` (④)    | `DETOUR_ESTIMATE_FACTOR` + 경로 API의 유턴 반영 여부                   |
+| `verify:uturn` (④)    | Valhalla 실제 경유 경로와 경로 API의 유턴 반영 여부                   |
 | `verify:detour` (⑭)   | `DETOUR_TIME_CAP_RATIO` + 실측 `ΔT` 분포·`ΔD=0` 비율 (Phase 10에 추가) |
 
 > **`verify:coverage`·`verify:t3-rate`·`verify:uturn` 셋은 회랑 bbox 전환(§7 Phase C) 뒤
@@ -1372,7 +1374,7 @@ Client → domain/deeplink.build(app, origin, station, destination)
 
 **구현 중 발견 — `PlaceAutocompleteInput`이 부모가 바깥에서 값을 바꿔도 반영 안 함.** "현재 위치" 버튼과 최근 검색 클릭이 스토어의 `origin`/`destination`을 바꿔도 입력창에 표시되는 텍스트는 그대로였습니다 — 컴포넌트 내부 `query` state를 `useState(value?.name ?? "")`로 마운트 시 한 번만 초기화하고 이후 `value` prop 변화를 반영하지 않았기 때문입니다. React 공식 권장 패턴인 "렌더링 중 상태 조정"(이전 값과 비교해 렌더 중에 `setState`)으로 고쳤습니다 — `useEffect` 안에서 `setState`를 부르는 것보다 리렌더 한 번을 아낄 수 있고, 이 프로젝트의 `react-hooks/set-state-in-effect` 린트 규칙도 피합니다.
 
-**구현 중 발견 — 짧은 경로에서 `DETOUR_CAP_RATIO`가 우회 후보를 전부 걸러냄(알고리즘 설계 갭).** 사용자가 실제 짧은 경로(남한산성입구역 → 을지대학교, 기본 경로 2km)로 검색해보고 발견함. `domain/pricing.exceedsDetourCap`은 우회가 `D_base × 0.5`를 넘으면 후보를 제외하는데(§7.2 STEP 11 ③, PRODUCT.md §10.1 A6), 이 규칙은 장거리 여행(92km 예시 — cap이 46km)을 전제로 설계되어 있었습니다. 기본 경로가 2km면 cap이 1km가 되어, 실제로 우회할 가치가 있는 T3 후보(예: 몇 km 밖의 LPG 충전소)까지 전부 제외됐습니다. `baseDistanceM < MIN_ROUTE_DISTANCE`(20km, 이미 `SHORT_ROUTE` 경고 기준으로 쓰던 값)면 이 cap을 적용하지 않도록 고쳤습니다 — `T3_MAX`(우회 탐색 상한 15km)와 `NetSaving > 0` 게이트가 이미 "어느 정도 범위"를 제한하므로 cap 없이도 무한정 찾아주지는 않습니다. `PRODUCT.md` §9.1·§10.1·§7.2 STEP11을 함께 갱신했습니다.
+**구현 중 발견 — 짧은 경로에서 `DETOUR_CAP_RATIO`가 우회 후보를 전부 걸러냄(알고리즘 설계 갭).** 사용자가 실제 짧은 경로(남한산성입구역 → 을지대학교, 기본 경로 2km)로 검색해보고 발견함. `domain/pricing.exceedsDetourCap`은 우회가 `D_base × 0.5`를 넘으면 후보를 제외하는데(§7.2 STEP 8, PRODUCT.md §10.1 A6), 이 규칙은 장거리 여행(92km 예시 — cap이 46km)을 전제로 설계되어 있었습니다. 기본 경로가 2km면 cap이 1km가 되어, 실제로 우회할 가치가 있는 후보까지 전부 제외됐습니다. `baseDistanceM < MIN_ROUTE_DISTANCE`(20km, 이미 `SHORT_ROUTE` 경고 기준으로 쓰던 값)면 대신 절대 시간 상한을 적용하도록 고쳤습니다. 현재 STAGE 2는 사용자가 고른 실제 거리와 `+3km` DB 여유를 사용하며, `T3_MAX`(15km)를 넘지 않습니다. `PRODUCT.md` §9.1·§10.1·§7.2를 함께 갱신했습니다.
 
 **의도적으로 범위를 좁힌 것들 — 정직하게 미룸**
 
@@ -1487,7 +1489,7 @@ Client → domain/deeplink.build(app, origin, station, destination)
 | ⑬   | Upstash 무료 티어 일일 명령 수 한도     | **10,000회/일.** 예상 사용량 665회/일 — 여유 충분. `INCRBY` 원자성 확인                                                                                                                                                                                                                                                                                                                                                                                                   |
 | ⑧   | 티맵 경유지 딥링크 지원                 | **미지원 — 실기기 확인 (2026-08-28).** 커뮤니티 자료에 정리된 경유지 파라미터(`rV1Name`·`rV1X`·`rV1Y`)를 붙인 `tmap://route?...`를 실기기에서 열었으나 **경유지가 경로에 반영되지 않음** — 목적지만 안내됨. 기존 가정대로 **주유소를 목적지(`rGo*`)로 전달하는 방식 유지** ([`PRODUCT.md`](PRODUCT.md) §5.5). 표본이 실기기 1대이므로 Phase 10 매트릭스에서 iOS/Android 양쪽 재확인                                                                                       |
 | ⑫   | 샘플링 커버리지·T2 후보 누락률          | **누락률 0%** (`verify:coverage`, 2026-08-28, 노선 3개 — 8km vs 2km 샘플 간격 T1+T2 일치). 이후 후보 수집이 회랑 bbox 쿼리로 바뀌어 T2 누락은 구조적으로 0 — 샘플링 파라미터 자체가 제거됨. **재검증(2026-09-08, `verify:coverage`, bbox vs 전수 스캔 방식으로 재작성):** 성남→춘천 노선 LPG 126곳 전수 일치, 누락 0건 — 계속 해결됨                                                                                                                                      |
-| ④   | 경로 API가 유턴·중앙분리대 반영         | **반영됨 — 확인.** 실제 후보로 검증한 결과 `d_perp` 대비 실제 우회거리 비율이 노선별 중앙값 0.67~2.11(통합 약 1.4)로 현재 `DETOUR_ESTIMATE_FACTOR=2.0`과 같은 자릿수. 동시에 중앙분리대 건너편·고속도로 반대 방향 충전소에서 실제 우회가 추정의 **100~425배**에 달하는 사례를 실측으로 확인 — `PRODUCT.md` §6.5 표가 이론으로 적어둔 위험이 실측으로 재현됨. **`DETOUR_ESTIMATE_FACTOR=2.0` 유지** (표본이 노선당 6곳뿐이라 재조정 근거 부족, `verify:uturn`, 2026-08-28) |
+| ④   | 경로 API가 유턴·중앙분리대 반영         | **반영됨 — 확인.** 직선거리 계수로 최종 후보를 판단하지 않고, 후보별 Valhalla 경유 경로의 실제 `ΔT`·`ΔD`를 사용한다. 중앙분리대·유턴 비용은 실제 경로 계산에 반영되며, `verify:uturn`으로 Kakao 상세 경로와 계속 대조한다. |
 
 **⑭ 현재 근거 (2026-09-08)** — 노선 **1개**(휘발유, 원익홀딩스 본사 → 수내역 40.4km)에서
 추정 상위 40곳을 실측했습니다: `ΔD=0`이 60%, `ΔT` 중앙값 7.9분(p25 4.2 / p75 9.5 / 최대 39.1).
@@ -1511,7 +1513,7 @@ Client → domain/deeplink.build(app, origin, station, destination)
 **Phase 0의 넷(②③⑪⑬)이 코드 작성 전 필수였습니다.** 샘플링 수집이 없어지면서
 `FEATURE_EXPANSION_ENABLED`·`MIN_CANDIDATES`·`OFFSET`·`SAMPLE_INTERVAL`도 함께 제거됐습니다 —
 후보 수집은 STAGE 1의 300m 회랑 bbox와, 경로상 후보가 없을 때만 실행하는 STAGE 2의
-`T3_MAX` 회랑 bbox로 나뉩니다.
+`min(선택 거리+3km, T3_MAX)` 회랑 bbox로 나뉩니다.
 
 **⑤ 부분 확인 (2026-08-28)** — 카카오맵·네이버지도 딥링크에 경유지를 넣어 실기기에서 열어본 결과 **양쪽 모두 경유지가 경로에 정상 반영**되었습니다. 두 앱의 경유지 파라미터는 **공식 문서에 명시된 것**입니다 — 카카오 `vp`(최대 5개, KakaoMaps SDK URL Scheme), 네이버 `v1lat`·`v1lng`·`v1name`(최대 5개, NAVER Cloud Platform Maps URL Scheme). **§5.5의 "주유소를 경유지로 포함한 경로를 열어준다"는 전제가 실기기로 확인되었습니다.** 다만 ⑤는 **미해결로 유지**합니다 — 확인한 것은 실기기 1대의 스킴 동작뿐이고, iOS/Android/카카오톡 인앱 브라우저 매트릭스와 SSE 폴백은 Phase 10 과제로 남아 있습니다.
 
@@ -1521,7 +1523,7 @@ Client → domain/deeplink.build(app, origin, station, destination)
 
 **샘플링 관련 미해결 항목(`SAMPLE_INTERVAL` 재조정, `MIN_CANDIDATES`·`OFFSET` 확정)은
 소멸했습니다.** 후보 수집이 폴리라인 회랑 bbox 쿼리로 바뀌어 샘플 간격 개념은 없습니다.
-현재는 경로상 후보가 없을 때만 `T3_MAX` 회랑으로 넓히는 2단계 탐색을 사용합니다
+현재는 경로상 후보가 없을 때만 선택 거리+3km(최대 `T3_MAX`) 회랑으로 넓히는 2단계 탐색을 사용합니다
 (MIGRATION-DB.md §7 Phase C). 해당 샘플링 파라미터·함수(`samplePolyline`·`normalOffsets`·
 `needsExpansion`)는 제거됐습니다.
 

@@ -1,40 +1,31 @@
 "use client";
 
 /**
- * "우회 허용 시간" 세그먼트 바 (5분 단위) — §5.3 ⑥. 필터 시트 안에서 씀 (불변식 8).
- * `ceilingMinutes`는 `pricing.maxDetourCeilingMinutes` 값 — 30 하드코딩 금지.
+ * "허용 우회 거리" 세그먼트 바 — 결과 필터 시트에서 사용한다.
  */
 import { cn } from "@/lib/utils";
 
-export function maxDetourSteps(ceilingMinutes: number): number[] {
-  const steps: number[] = [];
-  for (let m = 5; m <= ceilingMinutes; m += 5) steps.push(m);
-  return steps.length > 0 ? steps : [5];
-}
+export const DETOUR_DISTANCE_STEPS_KM = [3, 5, 10, 15] as const;
 
-export function MaxDetourBar({
+export function DetourDistanceBar({
   value,
-  ceilingMinutes,
   onChange,
 }: {
   value: number;
-  ceilingMinutes: number;
-  onChange: (minutes: number) => void;
+  onChange: (distanceKm: number) => void;
 }) {
-  const steps = maxDetourSteps(ceilingMinutes);
-  const ceil = steps[steps.length - 1];
   return (
     <section className="flex shrink-0 flex-col gap-1.5">
       <h3 className="text-sm font-medium text-foreground">
-        우회 허용 시간(분)
+        허용 우회 거리(km)
       </h3>
       <div
         role="radiogroup"
-        aria-label="최대 우회 시간(분)"
+        aria-label="허용 우회 거리(km)"
         className="flex overflow-hidden rounded-xl border border-border"
       >
-        {steps.map((step, i) => {
-          const active = value >= ceil ? step === ceil : step === value;
+        {DETOUR_DISTANCE_STEPS_KM.map((step, i) => {
+          const active = step === value;
           return (
             <button
               key={step}

@@ -4,8 +4,7 @@ import {
   T3_MAX,
   ON_ROUTE_MAX_S,
   ON_ROUTE_MAX_D,
-  ROUTE_SPEED_MIN_KMH,
-  ROUTE_SPEED_MAX_KMH,
+  DETOUR_SEARCH_BUFFER_M,
 } from "./params";
 import type { Tier } from "./types";
 
@@ -27,20 +26,7 @@ export function isOutOfRange(dPerpM: number): boolean {
   return dPerpM > T3_MAX;
 }
 
-/** 그 경로의 실측 평균속도(km/h) — 우회 허용 시간 게이트 전용, `AVG_SPEED` 상수 아님 (§7.2 STEP 7). */
-export function routeAvgSpeedKmh(
-  baseDistanceM: number,
-  baseDurationS: number,
-): number {
-  if (baseDurationS <= 0) return ROUTE_SPEED_MIN_KMH;
-  const kmh = baseDistanceM / 1000 / (baseDurationS / 3600);
-  return Math.min(ROUTE_SPEED_MAX_KMH, Math.max(ROUTE_SPEED_MIN_KMH, kmh));
-}
-
-/** 추정 우회거리(m)를 그 경로의 실측 평균속도로 시간(초) 환산 — §7.2 STEP 7. */
-export function estimateDetourDurationSAtSpeed(
-  detourDistanceM: number,
-  speedKmh: number,
-): number {
-  return (detourDistanceM / 1000 / speedKmh) * 3600;
+/** 선택 거리 + 여유 3km로 DB 검색 반경을 만들고, 전체 상한 15km를 넘기지 않는다. */
+export function detourSearchRadiusM(maxDetourDistanceM: number): number {
+  return Math.min(maxDetourDistanceM + DETOUR_SEARCH_BUFFER_M, T3_MAX);
 }

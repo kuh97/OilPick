@@ -121,7 +121,7 @@ describe("serializeSearchResult", () => {
       expansion: { triggered: false, finalRadiusM: 3000 },
       warnings: [{ code: "SHORT_ROUTE", message: "경로가 짧습니다" }],
       stage: "DETOUR",
-      minutesNeededForOneResult: null,
+      distanceNeededForOneResultKm: null,
     };
 
     const wire = serializeSearchResult(result);

@@ -7,8 +7,6 @@
  */
 
 import {
-  DETOUR_ESTIMATE_FACTOR,
-  T3_GATE_DETOUR_FACTOR,
   AVG_SPEED,
   V_TIME,
   OUTLIER_SIGMA,
@@ -19,24 +17,6 @@ import {
   MIN_ROUTE_DISTANCE,
 } from "./params";
 import type { Mode, RefPriceSource, Scores } from "./types";
-
-// ─── 우회 추정 ───────────────────────────────────────────────────────────────
-
-/**
- * 우회 거리 추정 (m).
- * ΔD̂ = DETOUR_ESTIMATE_FACTOR × d_perp
- */
-export function estimateDetourDistanceM(dPerpM: number): number {
-  return DETOUR_ESTIMATE_FACTOR * dPerpM;
-}
-
-/**
- * 우회 시간 추정 (초).
- * ΔT̂ = ΔD̂ / 1000 / AVG_SPEED × 3600
- */
-export function estimateDetourDurationS(detourDistanceM: number): number {
-  return (detourDistanceM / 1000 / AVG_SPEED) * 3600;
-}
 
 /**
  * 실질 우회 거리 (m) — ΔD와 ΔT 중 **나쁜 쪽**을 거리 단위로 통일한 값.
@@ -114,82 +94,6 @@ export function computeScores(args: {
     minCost: tc,
     balanced: Math.round(tc + (detourDurationS / 60) * timeValuePerMin),
   };
-}
-
-// ─── 우회 게이트 (STAGE 2) ───────────────────────────────────────────────────
-
-/**
- * 게이트 전용 추정 우회거리 (m) — `T3_GATE_DETOUR_FACTOR`(1.0, 낙관적).
- * 후보를 영구 제외하는 판정(NetSaving 게이트·우회 허용 시간 예산)에는 전부 이 값을 쓴다
- * — 점수·정렬용 `estimateDetourDistanceM`(2.0)와 다르다 (불변식 7).
- */
-export function gateDetourDistanceM(dPerpM: number): number {
-  return dPerpM * T3_GATE_DETOUR_FACTOR;
-}
-
-/**
- * 우회 후보가 목록 진입 게이트를 통과하는지 — 추정치 기준 1회만 (불변식 7).
- * 경로상(🟢) 후보에는 걸지 않는다.
- */
-export function passesDetourGate(args: {
-  priceRefWon: number;
-  priceStationWon: number;
-  refuelAmountL: number;
-  dPerpM: number;
-  efficiencyKmPerL: number;
-}): boolean {
-  const estimatedDetour = args.dPerpM * T3_GATE_DETOUR_FACTOR;
-  const saving = netSaving({
-    priceRefWon: args.priceRefWon,
-    priceStationWon: args.priceStationWon,
-    refuelAmountL: args.refuelAmountL,
-    detourDistanceM: estimatedDetour,
-    efficiencyKmPerL: args.efficiencyKmPerL,
-  });
-  return saving > 0;
-}
-
-/**
- * "우회 허용 시간" 예산 안에 드는지 — 추정 단계에서 건다 (§7.2 STEP 7, 불변식 8).
- * `estimatedDetourDurationS`는 경로 실측 평균속도로 환산한 값 (`tier.routeAvgSpeedKmh`).
- */
-export function withinDetourBudget(args: {
-  estimatedDetourDurationS: number;
-  maxDetourMinutes: number;
-}): boolean {
-  return args.estimatedDetourDurationS <= args.maxDetourMinutes * 60;
-}
-
-/** 실제 경유 경로가 사용자가 허용한 우회 시간 안에 드는지 확인합니다. */
-export function withinActualDetourBudget(args: {
-  detourDurationS: number;
-  maxDetourMinutes: number;
-}): boolean {
-  return args.detourDurationS <= args.maxDetourMinutes * 60;
-}
-
-/**
- * "우회 허용 시간" 세그먼트 바의 상한(분, 5분 단위 내림) — 그 경로의 A6 cap에서 유도.
- * 30분 하드코딩 금지 — 짧은 경로에서 죽은 버튼이 생긴다 (§5.3 ⑥).
- */
-export function maxDetourCeilingMinutes(base: { distanceM: number; durationS: number }): number {
-  const capS =
-    base.distanceM < MIN_ROUTE_DISTANCE
-      ? SHORT_ROUTE_DETOUR_TIME_CAP_S
-      : base.durationS * DETOUR_TIME_CAP_RATIO;
-  return Math.max(5, Math.floor(capS / 60 / 5) * 5);
-}
-
-/**
- * 여러 기본 경로를 하나의 우회 시간 조절 UI로 다룰 때의 상한.
- * 경로 중 하나라도 더 긴 우회를 허용할 수 있으면 그 경로의 후보를 막지 않도록
- * 가장 큰 경로별 상한을 사용한다. 빈 배열은 호출자가 별도 기본값으로 처리한다.
- */
-export function maxDetourCeilingMinutesForRoutes(
-  routes: ReadonlyArray<{ distanceM: number; durationS: number }>,
-): number {
-  if (routes.length === 0) return 0;
-  return Math.max(...routes.map(maxDetourCeilingMinutes));
 }
 
 /**

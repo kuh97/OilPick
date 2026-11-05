@@ -3,24 +3,16 @@ import {
   netSaving,
   totalCost,
   computeScores,
-  passesDetourGate,
-  withinDetourBudget,
-  withinActualDetourBudget,
-  maxDetourCeilingMinutes,
-  maxDetourCeilingMinutesForRoutes,
   exceedsDetourCap,
   median,
   removeOutliers,
   computeReferencePrice,
-  estimateDetourDistanceM,
-  estimateDetourDurationS,
   effectiveDetourDistanceM,
   scoreByMode,
   durationSToMin,
   distanceMToKm,
 } from "../pricing";
 import {
-  DETOUR_ESTIMATE_FACTOR,
   AVG_SPEED,
   MIN_ROUTE_DISTANCE,
   DETOUR_CAP_RATIO,
@@ -52,7 +44,6 @@ describe("골든 테스트 — PRODUCT.md §5.3", () => {
     expect(tc).toBe(76783);
   });
 });
-
 // ─── netSaving 경계값 ─────────────────────────────────────────────────────────
 describe("netSaving 경계값", () => {
   it("P_s == P_ref → 우회 비용만큼 음수", () => {
@@ -161,55 +152,6 @@ describe("effectiveDetourDistanceM", () => {
 
   it("둘 다 0이면 0", () => {
     expect(effectiveDetourDistanceM(0, 0)).toBe(0);
-  });
-});
-
-// ─── passesDetourGate ────────────────────────────────────────────────────────
-describe("passesDetourGate", () => {
-  it("충분히 저렴 → true", () => {
-    expect(passesDetourGate({
-      priceRefWon: 1800,
-      priceStationWon: 1600,
-      refuelAmountL: 45,
-      dPerpM: 100,
-      efficiencyKmPerL: 12,
-    })).toBe(true);
-  });
-
-  it("비싸거나 우회비가 절감분을 초과 → false", () => {
-    expect(passesDetourGate({
-      priceRefWon: 1700,
-      priceStationWon: 1700,
-      refuelAmountL: 45,
-      dPerpM: 10_000,
-      efficiencyKmPerL: 12,
-    })).toBe(false);
-  });
-
-  // Phase 12 실측 — 남사대로주유소(GS칼텍스). d_perp 3,664m, 가격 1,825원(P_ref 1,845원),
-  // 45L·12km/L 기준. DETOUR_ESTIMATE_FACTOR(2.0)로 게이트를 걸면 순절감액이 음수가
-  // 되어 영구 제외되지만, 실측 ΔD는 705m뿐이라(비율 0.19) 실제로는 순이득 +793원짜리
-  // 후보였다. 게이트는 T3_GATE_DETOUR_FACTOR(1.0, d_perp 그대로)를 써서 이런 경우를
-  // 살린다 — 낙관적으로 통과시킨 뒤 정밀 계산·A6 캡이 진짜 나쁜 후보를 걸러낸다.
-  it("d_perp 그대로(factor 1.0) 계산했을 때만 양수인 경계 사례 → true (실측 사례)", () => {
-    const args = {
-      priceRefWon: 1845,
-      priceStationWon: 1825,
-      refuelAmountL: 45,
-      dPerpM: 3_664,
-      efficiencyKmPerL: 12,
-    };
-    // 검증: DETOUR_ESTIMATE_FACTOR(2.0)였다면 음수였을 사례라는 것부터 확인
-    const wouldFailAt2x = netSaving({
-      priceRefWon: args.priceRefWon,
-      priceStationWon: args.priceStationWon,
-      refuelAmountL: args.refuelAmountL,
-      detourDistanceM: args.dPerpM * DETOUR_ESTIMATE_FACTOR,
-      efficiencyKmPerL: args.efficiencyKmPerL,
-    });
-    expect(wouldFailAt2x).toBeLessThan(0);
-
-    expect(passesDetourGate(args)).toBe(true);
   });
 });
 
@@ -337,20 +279,6 @@ describe("computeReferencePrice — P_ref 폴백 단계", () => {
   });
 });
 
-// ─── 추정 계산 ───────────────────────────────────────────────────────────────
-describe("estimateDetourDistanceM", () => {
-  it(`DETOUR_ESTIMATE_FACTOR(${DETOUR_ESTIMATE_FACTOR}) × d_perp`, () => {
-    expect(estimateDetourDistanceM(1000)).toBe(DETOUR_ESTIMATE_FACTOR * 1000);
-  });
-});
-
-describe("estimateDetourDurationS", () => {
-  it(`AVG_SPEED(${AVG_SPEED}km/h) 기준 시간 추정`, () => {
-    // 10km → 10/50h → 0.2h → 720s
-    expect(estimateDetourDurationS(10_000)).toBeCloseTo(720, 5);
-  });
-});
-
 // ─── 유틸 ────────────────────────────────────────────────────────────────────
 describe("유틸", () => {
   it("durationSToMin: 초→분 반올림", () => {
@@ -371,56 +299,5 @@ describe("유틸", () => {
     expect(scoreByMode(scores, "minDistance")).toBe(1000);
     expect(scoreByMode(scores, "minCost")).toBe(80000);
     expect(scoreByMode(scores, "balanced")).toBe(82000);
-  });
-});
-
-// ─── withinDetourBudget (STAGE 2 검색 파라미터 — 불변식 8) ────────────────────
-describe("withinDetourBudget", () => {
-  it("예산 안이면 통과", () => {
-    expect(withinDetourBudget({ estimatedDetourDurationS: 240, maxDetourMinutes: 5 })).toBe(true);
-  });
-
-  it("경계값(정확히 N분)은 통과", () => {
-    expect(withinDetourBudget({ estimatedDetourDurationS: 300, maxDetourMinutes: 5 })).toBe(true);
-  });
-
-  it("예산을 넘으면 제외 — 실측 예산을 여기 쓰지 않기 위해 추정 단계에서 건다", () => {
-    expect(withinDetourBudget({ estimatedDetourDurationS: 301, maxDetourMinutes: 5 })).toBe(false);
-  });
-});
-
-describe("withinActualDetourBudget", () => {
-  it("실제 우회 시간이 예산 이내면 통과한다", () => {
-    expect(withinActualDetourBudget({ detourDurationS: 300, maxDetourMinutes: 5 })).toBe(true);
-  });
-
-  it("실제 우회 시간이 예산을 넘으면 탈락한다", () => {
-    expect(withinActualDetourBudget({ detourDurationS: 301, maxDetourMinutes: 5 })).toBe(false);
-  });
-});
-
-// ─── maxDetourCeilingMinutes (§5.3 ⑥ — 죽은 UI 방지) ─────────────────────────
-describe("maxDetourCeilingMinutes", () => {
-  it("짧은 경로는 서버 하드캡(20분)이 상한이다 — 25·30 버튼을 만들면 안 된다", () => {
-    // 남한산성입구역 → 단대오거리역: 3.7km / 15분
-    expect(maxDetourCeilingMinutes({ distanceM: 3_700, durationS: 15 * 60 })).toBe(20);
-  });
-
-  it("긴 경로는 T_base의 50%가 상한이다", () => {
-    // 92km / 94분 → cap 47분 → 5분 단위 내림 45분
-    expect(maxDetourCeilingMinutes({ distanceM: 92_000, durationS: 94 * 60 })).toBe(45);
-  });
-
-  it("아주 짧은 경로에서도 최소 한 칸(5분)은 남긴다", () => {
-    expect(maxDetourCeilingMinutes({ distanceM: 500, durationS: 60 })).toBeGreaterThanOrEqual(5);
-  });
-
-  it("여러 기본 경로에서는 가장 큰 경로별 상한을 사용한다", () => {
-    expect(
-      maxDetourCeilingMinutesForRoutes([
-        { distanceM: 3_700, durationS: 15 * 60 },
-        { distanceM: 92_000, durationS: 94 * 60 },
-      ]),
-    ).toBe(45);
   });
 });

@@ -80,7 +80,7 @@ pnpm verify:uturn      -- --route=0 --yes
 | `verify:upstash` | **~20회** (Redis) | 캐시 전략 유지 여부 |
 | `verify:coverage` (Phase 5) | 노선당 수십 회 — 실행 전 출력됨 | `SAMPLE_INTERVAL`·`OFFSET`·`T2_MAX`·`T3_MAX` |
 | `verify:t3-rate` (Phase 5) | 조합당 최대 수십 회 — 실행 전 출력됨 | `MIN_CANDIDATES`, T3 발동률·게이트 통과율 |
-| `verify:uturn` (Phase 5) | 1회 (카카오는 여러 회, 쿼터 넉넉함) | `DETOUR_ESTIMATE_FACTOR` 보정 |
+| `verify:uturn` (Phase 5) | 1회 (카카오는 여러 회, 쿼터 넉넉함) | 직선거리와 실제 우회거리 편차 확인 |
 
 ---
 

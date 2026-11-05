@@ -1,10 +1,10 @@
 /**
- * verify:uturn — 경로 API의 유턴·중앙분리대 반영 여부, DETOUR_ESTIMATE_FACTOR 보정 [§12 ④]
+ * verify:uturn — 경로 API의 유턴·중앙분리대 반영 여부 [§12 ④]
  *
  * 실제 후보 주유소 몇 곳을 경유지로 넣어 카카오 길찾기를 호출하고,
- * 실측 우회 거리(ΔD)를 추정식(ΔD̂ = DETOUR_ESTIMATE_FACTOR × d_perp)과 비교합니다.
- * 비율이 큰 이상치가 있으면 유턴·중앙분리대·IC 진출입 때문일 가능성이 높습니다
- * (PRODUCT.md §6.5 표 참고).
+ * 실측 우회 거리(ΔD)와 직선거리(d_perp)의 차이를 관찰합니다. 비율이 큰 이상치가
+ * 있으면 유턴·중앙분리대·IC 진출입 때문일 가능성이 높습니다. 이 결과는 계수를
+ * 보정하는 데 쓰지 않고, 후보별 실제 경로를 계산해야 하는 근거를 확인하는 데 씁니다.
  *
  * 후보는 오피넷 반경검색이 아니라 실제 검색 파이프라인과 같은 방법(station-service.
  * collectStations — refuel_point 회랑 bbox 쿼리)으로 모읍니다(MIGRATION-DB.md §7 Phase C
@@ -22,9 +22,8 @@ import { parseFuelArg } from "./_measure-shared";
 import { fetchDirections } from "@/infra/kakao/mobility";
 import { collectStations } from "@/services/station-service";
 import { wgs84ToProjected, pointToPolylineDistanceM } from "@/domain/geo";
-import { classifyTier } from "@/domain/tier";
-import { estimateDetourDistanceM } from "@/domain/pricing";
-import { T3_MAX, DETOUR_ESTIMATE_FACTOR } from "@/domain/params";
+import { isOutOfRange } from "@/domain/tier";
+import { T3_MAX } from "@/domain/params";
 
 requireEnv(["KAKAO_REST_API_KEY", "DATABASE_URL"]);
 
@@ -50,7 +49,7 @@ info(`회랑 bbox 후보 ${collected.stations.length}곳`);
 
 const withDPerp = collected.stations
   .map(({ station }) => ({ station, dPerpM: pointToPolylineDistanceM(wgs84ToProjected(station.location), polyline) }))
-  .filter((s) => classifyTier(s.dPerpM) != null)
+  .filter((s) => !isOutOfRange(s.dPerpM))
   .sort((a, b) => a.dPerpM - b.dPerpM);
 
 if (withDPerp.length === 0) {
@@ -67,7 +66,6 @@ const selected = withDPerp.filter((_, i) => i % step === 0).slice(0, MAX_CANDIDA
 interface Row {
   name: string;
   dPerpM: number;
-  estimatedDetourM: number;
   actualDetourM: number;
   ratio: number;
 }
@@ -83,12 +81,10 @@ for (const { station, dPerpM } of selected) {
     retries: 0, // 경유 경로 — ARCHITECTURE.md §5.4
   });
   const actualDetourM = Math.max(0, viaRoute.distanceM - baseRoute.distanceM); // AGENTS.md §5 불변식 5
-  const estimatedDetourM = estimateDetourDistanceM(dPerpM);
   const ratio = dPerpM > 0 ? actualDetourM / dPerpM : NaN;
   rows.push({
     name: station.name,
     dPerpM: Math.round(dPerpM),
-    estimatedDetourM: Math.round(estimatedDetourM),
     actualDetourM,
     ratio: Number(ratio.toFixed(2)),
   });
@@ -109,7 +105,6 @@ const maxRatio = Math.max(...validRatios);
 // 평균은 극단치 하나에 쉽게 흔들려서(예: 유턴 필요 케이스) 보정 기준으로 쓰지 않습니다 — 중앙값을 씁니다.
 const outliers = rows.filter((r) => Number.isFinite(r.ratio) && r.ratio > medianRatio * 3);
 
-info(`현재 DETOUR_ESTIMATE_FACTOR = ${DETOUR_ESTIMATE_FACTOR}`);
 info(`실측 비율 중앙값 = ${medianRatio.toFixed(2)}, 최댓값 = ${maxRatio.toFixed(2)}`);
 
 if (outliers.length > 0) {
@@ -122,6 +117,5 @@ if (outliers.length > 0) {
 }
 
 console.log("\n── 다음 단계 ──────────────────────────────────────────");
-info(`DETOUR_ESTIMATE_FACTOR를 ${medianRatio.toFixed(1)}로 보정할지 검토하십시오 (현재 ${DETOUR_ESTIMATE_FACTOR}). 이상치는 중앙값 계산에서 제외됩니다.`);
-info("표본이 적으므로(최대 6곳) 다른 노선(--route=1, --route=2)·연료에서도 돌려 중앙값을 교차 확인하십시오.");
-info("값을 바꾸면 params.ts와 PRODUCT.md §9.1을 같은 커밋에서 갱신하십시오 (AGENTS.md §7.2).");
+info("표본이 적으므로(최대 6곳) 다른 노선(--route=1, --route=2)·연료에서도 실제 우회 편차를 교차 확인하십시오.");
+info("중앙분리대·유턴 편차는 계수로 보정하지 않고, 검색 단계에서 후보별 Valhalla 경로를 계산하는 근거로 사용합니다.");

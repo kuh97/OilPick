@@ -1,8 +1,8 @@
 "use client";
 
 /**
- * 필터 시트(F2·F6) — §5.2. 시설·브랜드·품질·셀프·우회 허용 시간.
- * 내 주변 화면에서는 우회 허용 시간만 숨기고 나머지 필터 UI를 재사용한다.
+ * 필터 시트(F2·F6) — §5.2. 시설·브랜드·품질·셀프·허용 우회 거리.
+ * 내 주변 화면에서는 허용 우회 거리만 숨기고 나머지 필터 UI를 재사용한다.
  */
 import { useState } from "react";
 import { SlidersHorizontal } from "lucide-react";
@@ -17,8 +17,8 @@ import {
 } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { MaxDetourBar } from "@/components/result/max-detour-bar";
-import { DEFAULT_MAX_DETOUR_MINUTES } from "@/domain/params";
+import { DetourDistanceBar } from "@/components/result/max-detour-bar";
+import { DEFAULT_MAX_DETOUR_DISTANCE_KM } from "@/domain/params";
 import { cn } from "@/lib/utils";
 import type { Facility, WireFilters } from "@/app/api/_lib/types";
 
@@ -56,12 +56,11 @@ type BaseFilterSheetProps = {
 
 type FilterSheetProps =
   | (BaseFilterSheetProps & {
-      /** 생략하면 결과 화면용으로 우회 허용 시간 필터를 표시한다. */
+      /** 생략하면 결과 화면용으로 허용 우회 거리 필터를 표시한다. */
       includeDetour?: true;
-      maxDetourMinutes: number;
-      maxDetourCeiling: number;
+      maxDetourDistanceKm: number;
       /** draft가 실제로 바뀌었을 때만 호출 — page.tsx가 이걸 STAGE 2 재검색으로 해석한다. */
-      onApplyMaxDetourMinutes: (minutes: number) => void;
+      onApplyMaxDetourDistanceKm: (distanceKm: number) => void;
     })
   | (BaseFilterSheetProps & {
       includeDetour: false;
@@ -71,10 +70,8 @@ export function FilterSheet(props: FilterSheetProps) {
   const { filters, onApply } = props;
   const detourProps = props.includeDetour === false ? null : props;
   const [draft, setDraft] = useState(filters);
-  const clampedMax = detourProps
-    ? Math.min(detourProps.maxDetourMinutes, detourProps.maxDetourCeiling)
-    : 0;
-  const [maxDetourDraft, setMaxDetourDraft] = useState(clampedMax);
+  const maxDetourDraft = detourProps?.maxDetourDistanceKm ?? DEFAULT_MAX_DETOUR_DISTANCE_KM;
+  const [draftDistanceKm, setDraftDistanceKm] = useState(maxDetourDraft);
 
   return (
     <Drawer
@@ -82,7 +79,7 @@ export function FilterSheet(props: FilterSheetProps) {
         if (open) {
           // 열 때마다 현재 적용된 값으로 초기화
           setDraft(filters);
-          if (detourProps) setMaxDetourDraft(clampedMax);
+          if (detourProps) setDraftDistanceKm(detourProps.maxDetourDistanceKm);
         }
       }}
     >
@@ -107,9 +104,7 @@ export function FilterSheet(props: FilterSheetProps) {
             onClick={() => {
               setDraft(EMPTY_FILTERS);
               if (detourProps) {
-                setMaxDetourDraft(
-                  Math.min(DEFAULT_MAX_DETOUR_MINUTES, detourProps.maxDetourCeiling),
-                );
+                setDraftDistanceKm(DEFAULT_MAX_DETOUR_DISTANCE_KM);
               }
             }}
           >
@@ -119,10 +114,9 @@ export function FilterSheet(props: FilterSheetProps) {
 
         <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto overscroll-contain bg-surface px-4 pb-4 pt-4 touch-pan-y [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {detourProps && (
-            <MaxDetourBar
-              value={maxDetourDraft}
-              ceilingMinutes={detourProps.maxDetourCeiling}
-              onChange={setMaxDetourDraft}
+            <DetourDistanceBar
+              value={draftDistanceKm}
+              onChange={setDraftDistanceKm}
             />
           )}
 
@@ -219,8 +213,8 @@ export function FilterSheet(props: FilterSheetProps) {
                 onClick={() => {
                   onApply(draft);
                   // 실제로 건드렸을 때만 — 안 건드린 필터 적용이 STAGE 2로 튕기지 않게.
-                  if (detourProps && maxDetourDraft !== clampedMax) {
-                    detourProps.onApplyMaxDetourMinutes(maxDetourDraft);
+                  if (detourProps && draftDistanceKm !== maxDetourDraft) {
+                    detourProps.onApplyMaxDetourDistanceKm(draftDistanceKm);
                   }
                 }}
               />

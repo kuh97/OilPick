@@ -85,4 +85,17 @@ describe("buildReason — 6분기 전부 커버", () => {
     });
     expect(result).toContain("약 5km");
   });
+
+  it("실제 손해 후보는 추천처럼 말하지 않는다", () => {
+    const result = buildReason({
+      ...BASE,
+      tier: "DETOUR",
+      netSavingWon: -800,
+      precise: false,
+      detourDistanceM: 5000,
+    });
+
+    expect(result).toContain("약 5km");
+    expect(result).toContain("800원 손해");
+  });
 });

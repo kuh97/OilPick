@@ -59,7 +59,7 @@ function searchResult(candidates: typeof CANDIDATE[] | []) {
     candidates,
     warnings: [],
     stage: "ON_ROUTE" as const,
-    minutesNeededForOneResult: null,
+    distanceNeededForOneResultKm: null,
   };
 }
 

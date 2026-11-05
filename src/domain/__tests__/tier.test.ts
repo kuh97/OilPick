@@ -2,15 +2,12 @@ import { describe, expect, it } from "vitest";
 import {
   classifyByDetour,
   isOutOfRange,
-  routeAvgSpeedKmh,
-  estimateDetourDurationSAtSpeed,
+  detourSearchRadiusM,
 } from "../tier";
 import {
   T3_MAX,
   ON_ROUTE_MAX_S,
   ON_ROUTE_MAX_D,
-  ROUTE_SPEED_MIN_KMH,
-  ROUTE_SPEED_MAX_KMH,
 } from "../params";
 
 describe("classifyByDetour — 배지는 실측 ΔT·ΔD 둘 다로 판정한다 (불변식 6)", () => {
@@ -36,37 +33,14 @@ describe("isOutOfRange", () => {
   it("T3_MAX 초과 → true", () => expect(isOutOfRange(T3_MAX + 0.001)).toBe(true));
 });
 
-describe("routeAvgSpeedKmh — 우회 허용 시간 게이트 전용 (AVG_SPEED 상수가 아님)", () => {
-  it("도심 경로의 실제 속도를 그대로 반영한다", () => {
-    // 남한산성입구역 → 단대오거리역: 3.7km / 15분 = 14.8km/h
-    expect(routeAvgSpeedKmh(3_700, 15 * 60)).toBeCloseTo(14.8, 1);
+describe("detourSearchRadiusM", () => {
+  it("선택 거리보다 3km 넓게 검색한다", () => {
+    expect(detourSearchRadiusM(3_000)).toBe(6_000);
+    expect(detourSearchRadiusM(5_000)).toBe(8_000);
+    expect(detourSearchRadiusM(10_000)).toBe(13_000);
   });
 
-  it("고속도로 경로도 그대로 반영한다", () => {
-    expect(routeAvgSpeedKmh(92_000, 94 * 60)).toBeCloseTo(58.7, 1);
-  });
-
-  it("정체(극단적 저속)는 하한으로 클램프한다", () => {
-    expect(routeAvgSpeedKmh(1_000, 60 * 60)).toBe(ROUTE_SPEED_MIN_KMH);
-  });
-
-  it("심야 고속(극단적 고속)은 상한으로 클램프한다", () => {
-    expect(routeAvgSpeedKmh(300_000, 60 * 60)).toBe(ROUTE_SPEED_MAX_KMH);
-  });
-
-  it("durationS가 0이면 하한을 쓴다 (0으로 나누지 않는다)", () => {
-    expect(routeAvgSpeedKmh(1_000, 0)).toBe(ROUTE_SPEED_MIN_KMH);
-  });
-});
-
-describe("estimateDetourDurationSAtSpeed", () => {
-  it("도심 속도에서 1km 우회는 4분이 넘는다", () => {
-    const speed = routeAvgSpeedKmh(3_700, 15 * 60); // 14.8km/h
-    expect(estimateDetourDurationSAtSpeed(1_000, speed)).toBeGreaterThan(240);
-  });
-
-  it("AVG_SPEED(50km/h) 상수를 썼다면 같은 우회가 3분 미만으로 나왔을 것이다", () => {
-    // 이 격차가 "5분까지만"을 눌러도 17분짜리가 통과하던 원인이다 (§7.2 STEP 7).
-    expect(estimateDetourDurationSAtSpeed(1_000, 50)).toBeLessThan(180);
+  it("15km를 넘지 않는다", () => {
+    expect(detourSearchRadiusM(15_000)).toBe(15_000);
   });
 });

@@ -108,8 +108,8 @@ export interface WireSearchResult {
   warnings: WireWarning[];
   /** 이 결과가 STAGE 1(경로상)인지 STAGE 2(우회)인지 — PRODUCT.md §6.6 */
   stage: SearchStage;
-  /** STAGE 2가 0건일 때 한 건이라도 나오는 최소 우회 허용 시간(분). 없으면 null */
-  minutesNeededForOneResult: number | null;
+  /** STAGE 2가 0건일 때 측정된 후보 중 가장 가까운 실제 우회거리(km). 없으면 null */
+  distanceNeededForOneResultKm: number | null;
 }
 
 export interface WirePartial {

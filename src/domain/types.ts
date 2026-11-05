@@ -174,8 +174,8 @@ export interface SearchResult {
   expansion: ExpansionInfo;
   warnings: Warning[];
   stage: SearchStage;
-  /** STAGE 2가 0건일 때 한 건이라도 나오는 최소 우회 허용 시간(분). 없으면 null (§5.3). */
-  minutesNeededForOneResult: number | null;
+  /** STAGE 2가 0건일 때 측정된 후보 중 가장 가까운 실제 우회거리(km). 없으면 null. */
+  distanceNeededForOneResultKm: number | null;
 }
 
 // ─── 장소 검색 (F1 자동완성) ─────────────────────────────────────────────────
@@ -214,6 +214,6 @@ export interface SearchInput {
   avoidHighway: boolean;
   /** 이전 요청과의 호환 필드. 경로상 후보가 하나라도 있으면 STAGE 2는 실행하지 않는다. */
   includeDetour?: boolean;
-  /** "우회 허용 시간"(분) — 표시 필터가 아니라 검색 파라미터 (불변식 8). STAGE 2 전용. */
-  maxDetourMinutes?: number;
+  /** "허용 우회 거리"(km) — 표시 필터가 아니라 검색 파라미터. STAGE 2 전용. */
+  maxDetourDistanceKm?: number;
 }
