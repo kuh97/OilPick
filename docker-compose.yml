@@ -19,7 +19,7 @@ services:
     environment:
       OSM_PBF_NAME: ${VALHALLA_OSM_PBF_NAME:-south-korea-261103.osm.pbf}
       tile_urls: ""
-      server_threads: ${VALHALLA_SERVER_THREADS:-1}
+      server_threads: ${VALHALLA_SERVER_THREADS:-4}
       serve_tiles: "True"
       use_tiles_ignore_pbf: "False"
       force_rebuild: "False"

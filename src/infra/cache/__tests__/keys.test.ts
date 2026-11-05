@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { routeKey, placeKey, gridSnapWgs84 } from "../keys";
+import {
+  routeKey,
+  placeKey,
+  gridSnapWgs84,
+  valhallaRouteKey,
+  valhallaTraceRouteKey,
+} from "../keys";
 import { wgs84 } from "@/domain/types";
 
 describe("routeKey", () => {
@@ -77,5 +83,23 @@ describe("placeKey", () => {
 
   it("쿼리가 다르면 다른 키", () => {
     expect(placeKey("dev", "강남역")).not.toBe(placeKey("dev", "서울역"));
+  });
+});
+
+describe("Valhalla cache keys", () => {
+  const origin = wgs84(37.42, 127.12);
+  const destination = wgs84(37.88, 127.73);
+  const waypoint = wgs84(37.6, 127.4);
+
+  it("경유지 포함 여부와 좌표가 경로 키에 반영된다", () => {
+    expect(valhallaRouteKey("dev", origin, destination)).not.toBe(
+      valhallaRouteKey("dev", origin, destination, waypoint),
+    );
+  });
+
+  it("기본 폴리라인 점이 같으면 map-match 키를 재사용한다", () => {
+    expect(valhallaTraceRouteKey("dev", [origin, destination])).toBe(
+      valhallaTraceRouteKey("dev", [origin, destination]),
+    );
   });
 });

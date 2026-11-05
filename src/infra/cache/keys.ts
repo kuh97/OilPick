@@ -6,6 +6,7 @@
 
 import { wgs84ToProjected } from "@/domain/geo";
 import type { RoutePriority, WGS84Point } from "@/domain/types";
+import { createHash } from "node:crypto";
 
 /** 2km 격자 스냅 — 반경검색 캐시 키 중복 최대화 */
 const STATION_GRID_M = 2_000;
@@ -56,6 +57,33 @@ export function routeKey(
   const via = viaGrid ? `:${viaGrid}` : "";
   const avoid = avoidHighway ? ":avoid" : "";
   return `${prefix}:route:${originGrid}:${destGrid}${via}${avoid}:priority=${priority}`;
+}
+
+function pointsHash(points: ReadonlyArray<WGS84Point>): string {
+  return createHash("sha256")
+    .update(points.map((point) => `${point.lat.toFixed(6)},${point.lng.toFixed(6)}`).join(";"))
+    .digest("hex")
+    .slice(0, 24);
+}
+
+/** Valhalla 기본 폴리라인 map-match 결과 캐시 키. */
+export function valhallaTraceRouteKey(
+  prefix: string,
+  polyline: ReadonlyArray<WGS84Point>,
+): string {
+  return `${prefix}:valhalla:trace:${pointsHash(polyline)}`;
+}
+
+/** Valhalla 출발지·경유지·목적지 경로 캐시 키. */
+export function valhallaRouteKey(
+  prefix: string,
+  origin: WGS84Point,
+  destination: WGS84Point,
+  waypoint?: WGS84Point,
+): string {
+  return `${prefix}:valhalla:route:${pointsHash(
+    waypoint ? [origin, waypoint, destination] : [origin, destination],
+  )}`;
 }
 
 /**

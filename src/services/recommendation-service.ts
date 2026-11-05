@@ -36,12 +36,15 @@ import { buildReason } from "@/domain/reason";
 import {
   T2_MAX,
   T3_MAX,
+  ON_ROUTE_PREFILTER_MAX_M,
   MAX_RESULTS,
   MIN_ROUTE_DISTANCE,
   DEFAULT_MAX_DETOUR_MINUTES,
   VALHALLA_ROUTE_CONCURRENCY,
   VALHALLA_TIMEOUT_MS,
+  VALHALLA_CACHE_TTL_S,
 } from "@/domain/params";
+import { valhallaRouteKey, valhallaTraceRouteKey } from "@/infra/cache/keys";
 import {
   fetchValhallaRoute,
   mapMatchValhallaRoute,
@@ -60,6 +63,7 @@ import type {
   RoutePriority,
   RouteVariant,
 } from "@/domain/types";
+import { wgs84 } from "@/domain/types";
 import type { RedisLike } from "./route-service";
 import type { Db } from "@/infra/db/client";
 
@@ -145,6 +149,7 @@ function toInternalCandidates(
     pricedOn: string | null;
   }>,
   route: RouteVariant,
+  maxDistanceM: number,
 ): InternalCandidate[] {
   const projectedPolyline = route.route.polyline.map(wgs84ToProjected);
   const result: InternalCandidate[] = [];
@@ -153,7 +158,7 @@ function toInternalCandidates(
       wgs84ToProjected(station.location),
       projectedPolyline,
     );
-    if (isOutOfRange(dPerp)) continue;
+    if (dPerp > maxDistanceM || isOutOfRange(dPerp)) continue;
     const detourDistanceM = estimateDetourDistanceM(dPerp);
     const detourDurationS = estimateDetourDurationS(detourDistanceM);
     result.push({
@@ -169,6 +174,56 @@ function toInternalCandidates(
     });
   }
   return result;
+}
+
+async function collectInternalCandidates(
+  routes: readonly RouteVariant[],
+  options: {
+    marginM: number;
+    maxDistanceM: number;
+    fuel: SearchInput["vehicle"]["fuel"];
+    filters: {
+      facilities: SearchInput["filters"]["facilities"];
+      brands: SearchInput["filters"]["brands"];
+      kpetroOnly: boolean;
+      selfOnly: boolean;
+    };
+    now: Date;
+    db: Db;
+  },
+): Promise<InternalCandidate[]> {
+  const collected = await Promise.all(
+    routes.map(async (route) => ({
+      route,
+      collected: await collectStations({
+        referencePoints: route.route.polyline.map(wgs84ToProjected),
+        marginM: options.marginM,
+        fuel: options.fuel,
+        filters: options.filters,
+        now: options.now,
+        db: options.db,
+      }),
+    })),
+  );
+  return collected.flatMap(({ route, collected: found }) =>
+    toInternalCandidates(found.stations, route, options.maxDistanceM),
+  );
+}
+
+function candidateKey(item: InternalCandidate): string {
+  return `${item.station.id}:${routeFingerprint(item.route.route)}`;
+}
+
+function dedupeByCandidateKey(
+  pool: readonly InternalCandidate[],
+): InternalCandidate[] {
+  const seen = new Set<string>();
+  return pool.filter((item) => {
+    const key = candidateKey(item);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 /** 기준가 표본은 한 주유소가 여러 회랑에 놓여도 한 번만 넣는다. */
@@ -328,6 +383,8 @@ interface BaselineResult {
 async function mapMatchBaseRoutes(
   routes: readonly RouteVariant[],
   options: {
+    redis: RedisLike;
+    prefix: string;
     baseUrl?: string;
     timeoutMs: number;
     concurrency: number;
@@ -335,15 +392,21 @@ async function mapMatchBaseRoutes(
   },
 ): Promise<BaselineResult[]> {
   return mapWithConcurrency(routes, options.concurrency, async (variant) => {
+    const key = valhallaTraceRouteKey(options.prefix, variant.route.polyline);
+    const cached = await getCachedValhallaRoute(options.redis, key);
+    if (cached) return { key: routeFingerprint(variant.route), route: cached };
+
     try {
+      const route = await mapMatchValhallaRoute({
+        polyline: variant.route.polyline,
+        baseUrl: options.baseUrl,
+        timeoutMs: options.timeoutMs,
+        signal: options.signal,
+      });
+      await cacheValhallaRoute(options.redis, key, route);
       return {
         key: routeFingerprint(variant.route),
-        route: await mapMatchValhallaRoute({
-          polyline: variant.route.polyline,
-          baseUrl: options.baseUrl,
-          timeoutMs: options.timeoutMs,
-          signal: options.signal,
-        }),
+        route,
       };
     } catch {
       options.signal?.throwIfAborted();
@@ -360,6 +423,8 @@ async function measureCandidates(
   candidates: readonly InternalCandidate[],
   baselines: ReadonlyMap<string, BaseRoute>,
   options: {
+    redis: RedisLike;
+    prefix: string;
     origin: SearchInput["origin"];
     destination: SearchInput["destination"];
     baseUrl?: string;
@@ -372,6 +437,28 @@ async function measureCandidates(
     const baseline = baselines.get(routeFingerprint(item.route.route));
     if (!baseline) return { candidate: null };
 
+    const key = valhallaRouteKey(
+      options.prefix,
+      options.origin,
+      options.destination,
+      item.station.location,
+    );
+    const cached = await getCachedValhallaRoute(options.redis, key);
+    if (cached) {
+      const detour = computeDetourFromRoutes(baseline, cached);
+      return {
+        candidate: {
+          ...item,
+          tier: classifyByDetour(detour.durationS, detour.distanceM),
+          detourDistanceM: detour.distanceM,
+          detourDurationS: detour.durationS,
+          precise: false,
+          viaDistanceM: cached.distanceM,
+          viaDurationS: cached.durationS,
+        },
+      };
+    }
+
     try {
       const viaRoute = await fetchValhallaRoute({
         origin: options.origin,
@@ -381,6 +468,7 @@ async function measureCandidates(
         timeoutMs: options.timeoutMs,
         signal: options.signal,
       });
+      await cacheValhallaRoute(options.redis, key, viaRoute);
       const detour = computeDetourFromRoutes(baseline, viaRoute);
       return {
         candidate: {
@@ -402,6 +490,51 @@ async function measureCandidates(
 
 function finalRadiusM(items: ReadonlyArray<{ dPerp: number }>): number {
   return items.length ? Math.max(...items.map((item) => item.dPerp)) : 0;
+}
+
+interface CachedBaseRoute {
+  distanceM: number;
+  durationS: number;
+  polyline: Array<{ lat: number; lng: number }>;
+}
+
+function serializeValhallaRoute(route: BaseRoute): string {
+  const cached: CachedBaseRoute = {
+    distanceM: route.distanceM,
+    durationS: route.durationS,
+    polyline: route.polyline.map((point) => ({ lat: point.lat, lng: point.lng })),
+  };
+  return JSON.stringify(cached);
+}
+
+function deserializeValhallaRoute(raw: string): BaseRoute {
+  const cached = JSON.parse(raw) as CachedBaseRoute;
+  return {
+    distanceM: cached.distanceM,
+    durationS: cached.durationS,
+    polyline: cached.polyline.map((point) => wgs84(point.lat, point.lng)),
+  };
+}
+
+async function getCachedValhallaRoute(
+  redis: RedisLike,
+  key: string,
+): Promise<BaseRoute | null> {
+  const cached = await redis.get(key);
+  if (!cached) return null;
+  try {
+    return deserializeValhallaRoute(cached);
+  } catch {
+    return null;
+  }
+}
+
+async function cacheValhallaRoute(
+  redis: RedisLike,
+  key: string,
+  route: BaseRoute,
+): Promise<void> {
+  await redis.set(key, serializeValhallaRoute(route), { ex: VALHALLA_CACHE_TTL_S });
 }
 
 /** 오케스트레이터 본체. */
@@ -455,24 +588,28 @@ export async function search(
     selfOnly: input.filters.selfOnly,
   };
   onProgress?.({ type: "progress", step: "COLLECT" });
-  const collected = await Promise.all(
-    baseRoutes.map(async (route) => ({
-      route,
-      collected: await collectStations({
-        referencePoints: route.route.polyline.map(wgs84ToProjected),
-        marginM: T3_MAX,
-        fuel: input.vehicle.fuel,
-        filters,
-        now,
-        db,
-      }),
-    })),
+  // STAGE 1은 경로상 후보를 놓치지 않도록 좁은 사전 범위만 조회한다.
+  const stage1Internal = await collectInternalCandidates(baseRoutes, {
+    marginM: ON_ROUTE_PREFILTER_MAX_M,
+    maxDistanceM: ON_ROUTE_PREFILTER_MAX_M,
+    fuel: input.vehicle.fuel,
+    filters,
+    now,
+    db,
+  });
+  // P_ref는 기존 계약대로 d_perp ≤ T2_MAX 전체의 가격 표본을 사용한다.
+  // 이 조회 결과는 기준가 계산 전용이며 Valhalla 후보 측정에는 사용하지 않는다.
+  const referencePool = dedupeForReference(
+    await collectInternalCandidates(baseRoutes, {
+      marginM: T2_MAX,
+      maxDistanceM: T2_MAX,
+      fuel: input.vehicle.fuel,
+      filters,
+      now,
+      db,
+    }),
   );
   deps.signal?.throwIfAborted();
-  const internal = collected.flatMap(({ route, collected: found }) =>
-    toInternalCandidates(found.stations, route),
-  );
-  const referencePool = dedupeForReference(internal);
   const priceResult = await computeReferencePrice({
     t1t2Prices: referencePool
       .filter((item) => item.dPerp <= T2_MAX)
@@ -498,6 +635,8 @@ export async function search(
   const valhallaConcurrency =
     deps.valhallaConcurrency ?? VALHALLA_ROUTE_CONCURRENCY;
   const baselineResults = await mapMatchBaseRoutes(baseRoutes, {
+    redis,
+    prefix,
     baseUrl: deps.valhallaBaseUrl,
     timeoutMs: valhallaTimeoutMs,
     concurrency: valhallaConcurrency,
@@ -508,7 +647,9 @@ export async function search(
       result.route ? [[result.key, result.route] as const] : [],
     ),
   );
-  const measuredResults = await measureCandidates(internal, baselines, {
+  const stage1MeasuredResults = await measureCandidates(stage1Internal, baselines, {
+    redis,
+    prefix,
     origin: input.origin,
     destination: input.destination,
     baseUrl: deps.valhallaBaseUrl,
@@ -516,47 +657,63 @@ export async function search(
     concurrency: valhallaConcurrency,
     signal: deps.signal,
   });
-  const measured = measuredResults.flatMap((result) =>
+  const stage1Measured = stage1MeasuredResults.flatMap((result) =>
     result.candidate ? [result.candidate] : [],
   );
-  const valhallaFailureCount =
-    baselineResults.filter((result) => result.route == null).length +
-    measuredResults.filter((result) => result.candidate == null).length;
-  if (valhallaFailureCount > 0) {
+  let measured = stage1Measured;
+  const emitValhallaWarning = (
+    failureCount: number,
+    measuredCount: number,
+  ): void => {
+    if (
+      failureCount <= 0 ||
+      warnings.some(
+        (warning) =>
+          warning.code === "VALHALLA_PARTIAL" ||
+          warning.code === "VALHALLA_UNAVAILABLE",
+      )
+    )
+      return;
     const warning: Warning = {
-      code: measured.length > 0 ? "VALHALLA_PARTIAL" : "VALHALLA_UNAVAILABLE",
+      code: measuredCount > 0 ? "VALHALLA_PARTIAL" : "VALHALLA_UNAVAILABLE",
       message:
-        measured.length > 0
+        measuredCount > 0
           ? "일부 후보의 실제 경로를 확인하지 못해 결과에서 제외했습니다."
           : "실제 경로를 확인하지 못해 후보를 표시할 수 없습니다.",
     };
     warnings.push(warning);
     onProgress?.({ type: "warning", data: warning });
-  }
+  };
 
   // 어느 기본 경로에서든 실제 ΔT·ΔD가 모두 기준 안인 후보가 있으면 우회 탐색은 하지 않는다.
   const onRoute = dedupeByStation(
     measured.filter((item) => item.tier === "ON_ROUTE"),
   );
-  if (onRoute.length > 0) {
-    const result: SearchResult = {
-      searchId: crypto.randomUUID(),
-      baseRoute,
-      baseRoutes,
-      candidates: finalizeCandidates(
-        onRoute,
-        referencePrice,
-        input.vehicle,
-        input.mode,
-        filters.facilities.length > 0,
-      ),
+  const buildOnRouteResult = (items: InternalCandidate[]): SearchResult => ({
+    searchId: crypto.randomUUID(),
+    baseRoute,
+    baseRoutes,
+    candidates: finalizeCandidates(
+      dedupeByStation(items),
       referencePrice,
-      refPriceSource,
-      expansion: { triggered: false, finalRadiusM: T2_MAX },
-      warnings,
-      stage: "ON_ROUTE",
-      minutesNeededForOneResult: null,
-    };
+      input.vehicle,
+      input.mode,
+      filters.facilities.length > 0,
+    ),
+    referencePrice,
+    refPriceSource,
+    expansion: { triggered: false, finalRadiusM: T2_MAX },
+    warnings,
+    stage: "ON_ROUTE",
+    minutesNeededForOneResult: null,
+  });
+  if (onRoute.length > 0) {
+    const stage1FailureCount =
+      baselineResults.filter((result) => result.route == null).length +
+      dedupeByCandidateKey(stage1Internal).length -
+      new Set(stage1Measured.map(candidateKey)).size;
+    emitValhallaWarning(stage1FailureCount, measured.length);
+    const result = buildOnRouteResult(onRoute);
     void logSearch(result, {
       durationMs: Date.now() - startedAt,
       fuel: input.vehicle.fuel,
@@ -572,6 +729,66 @@ export async function search(
   // 경로상 후보가 없어서 STAGE 2에 진입하면 탐색 범위를 T3 회랑까지 넓힌다.
   // T2_MAX는 기준가 표본 경계일 뿐, 범위 확장 여부를 가르는 조건이 아니다.
   onProgress?.({ type: "progress", step: "EXPAND", radiusM: T3_MAX });
+
+  const expandedInternal = await collectInternalCandidates(baseRoutes, {
+    marginM: T3_MAX,
+    maxDistanceM: T3_MAX,
+    fuel: input.vehicle.fuel,
+    filters,
+    now,
+    db,
+  });
+  const measuredKeys = new Set(measured.map(candidateKey));
+  const expansionInternal = expandedInternal.filter(
+    (item) => !measuredKeys.has(candidateKey(item)),
+  );
+  const expansionMeasuredResults = await measureCandidates(
+    expansionInternal,
+    baselines,
+    {
+      redis,
+      prefix,
+      origin: input.origin,
+      destination: input.destination,
+      baseUrl: deps.valhallaBaseUrl,
+      timeoutMs: valhallaTimeoutMs,
+      concurrency: valhallaConcurrency,
+      signal: deps.signal,
+    },
+  );
+  measured = [
+    ...measured,
+    ...expansionMeasuredResults.flatMap((result) =>
+      result.candidate ? [result.candidate] : [],
+    ),
+  ];
+  const allInternal = dedupeByCandidateKey([
+    ...stage1Internal,
+    ...expandedInternal,
+  ]);
+  const failureCount =
+    baselineResults.filter((result) => result.route == null).length +
+    allInternal.length -
+    new Set(measured.map(candidateKey)).size;
+  emitValhallaWarning(failureCount, measured.length);
+
+  // 좁은 사전 범위 밖에서 실제 경로상 후보가 발견되면 우회로 오표시하지 않는다.
+  const expandedOnRoute = dedupeByStation(
+    measured.filter((item) => item.tier === "ON_ROUTE"),
+  );
+  if (expandedOnRoute.length > 0) {
+    const result = buildOnRouteResult(expandedOnRoute);
+    void logSearch(result, {
+      durationMs: Date.now() - startedAt,
+      fuel: input.vehicle.fuel,
+      filters: input.filters,
+      origin: input.origin,
+      destination: input.destination,
+      routeCalls,
+      jsonFallback: deps.jsonFallback,
+    }).catch(() => {});
+    return result;
+  }
 
   const maxDetourMinutes = input.maxDetourMinutes ?? DEFAULT_MAX_DETOUR_MINUTES;
   let detourPool = measured;

@@ -18,7 +18,7 @@ import {
   fetchValhallaRoute,
   mapMatchValhallaRoute,
 } from "@/infra/valhalla/client";
-import { T2_MAX } from "@/domain/params";
+import { ON_ROUTE_PREFILTER_MAX_M, T2_MAX, T3_MAX } from "@/domain/params";
 import { wgs84 } from "@/domain/types";
 import type { BaseRoute, Fuel, RefuelPoint, SearchInput } from "@/domain/types";
 import type { RedisLike } from "../route-service";
@@ -31,8 +31,20 @@ const logSearchMock = vi.mocked(logSearch);
 const fetchValhallaRouteMock = vi.mocked(fetchValhallaRoute);
 const mapMatchValhallaRouteMock = vi.mocked(mapMatchValhallaRoute);
 
+function fakeRedis(): RedisLike {
+  const store = new Map<string, string>();
+  return {
+    get: async (key) => store.get(key) ?? null,
+    set: async (key, value) => {
+      store.set(key, value);
+    },
+    incrby: async () => 1,
+    expire: async () => 1,
+  };
+}
+
 const FAKE_DEPS = {
-  redis: {} as RedisLike,
+  redis: fakeRedis(),
   db: {} as Db,
   now: new Date("2026-08-31T03:00:00.000Z"),
   valhallaBaseUrl: "http://valhalla.test",
@@ -86,6 +98,7 @@ function baseInput(overrides: Partial<SearchInput> = {}): SearchInput {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  FAKE_DEPS.redis = fakeRedis();
   getRouteMock.mockResolvedValue(BASE_ROUTE);
   mapMatchValhallaRouteMock.mockResolvedValue(BASE_ROUTE);
   fetchValhallaRouteMock.mockImplementation(async ({ waypoint }) =>
@@ -137,6 +150,33 @@ describe("search — Valhalla map-match와 후보 경로", () => {
       durationS: 0,
       precise: false,
     });
+    expect(collectStationsMock.mock.calls.map(([options]) => options.marginM)).toEqual([
+      ON_ROUTE_PREFILTER_MAX_M,
+      T2_MAX,
+    ]);
+  });
+
+  it("경로상 후보가 없을 때만 T3 범위로 확장한다", async () => {
+    const margins: number[] = [];
+    collectStationsMock.mockImplementation(async ({ marginM }) => {
+      margins.push(marginM);
+      if (marginM === T3_MAX) {
+        return {
+          stations: [
+            collected({ id: "EXPANDED", location: wgs84(37.05, 127.15), price: 1500 }),
+          ],
+        };
+      }
+      return { stations: [] };
+    });
+
+    const result = await search(baseInput(), undefined, FAKE_DEPS);
+
+    expect(margins).toEqual([ON_ROUTE_PREFILTER_MAX_M, T2_MAX, T3_MAX]);
+    expect(result.stage).toBe("DETOUR");
+    expect(result.candidates.map((candidate) => candidate.station.id)).toEqual([
+      "EXPANDED",
+    ]);
   });
 
   it("폴리라인 가까운 후보라도 실제 ΔT·ΔD가 크면 우회로 분류한다", async () => {
@@ -158,7 +198,7 @@ describe("search — Valhalla map-match와 후보 경로", () => {
     collectStationsMock.mockResolvedValue({
       stations: [
         collected({ id: "OK", location: wgs84(37.0, 127.1) }),
-        collected({ id: "FAILED", location: wgs84(37.003, 127.2) }),
+        collected({ id: "FAILED", location: wgs84(37.002, 127.2) }),
       ],
     });
     fetchValhallaRouteMock.mockImplementation(async ({ waypoint }) => {
@@ -172,6 +212,21 @@ describe("search — Valhalla map-match와 후보 경로", () => {
     expect(result.warnings).toContainEqual(
       expect.objectContaining({ code: "VALHALLA_PARTIAL" }),
     );
+  });
+
+  it("같은 검색을 반복하면 Valhalla map-match·경유 경로 캐시를 재사용한다", async () => {
+    collectStationsMock.mockResolvedValue({
+      stations: [collected({ id: "CACHED", location: wgs84(37.0, 127.1) })],
+    });
+
+    await search(baseInput(), undefined, FAKE_DEPS);
+    const mapMatchCalls = mapMatchValhallaRouteMock.mock.calls.length;
+    const routeCalls = fetchValhallaRouteMock.mock.calls.length;
+
+    await search(baseInput(), undefined, FAKE_DEPS);
+
+    expect(mapMatchValhallaRouteMock).toHaveBeenCalledTimes(mapMatchCalls);
+    expect(fetchValhallaRouteMock).toHaveBeenCalledTimes(routeCalls);
   });
 
   it("기본 경로 map-match가 모두 실패하면 후보별 무료 경로로 대체하지 않는다", async () => {

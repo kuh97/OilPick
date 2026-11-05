@@ -3,8 +3,8 @@
  * "이 문장이 뜨는 순간이 곧 제품의 존재 이유" — 기존 서비스가 검색 결과 없음으로
  * 끝냈을 순간에 우회해서라도 찾아줬다는 걸 알린다.
  *
- * 회랑 bbox 쿼리가 T3_MAX까지 한 번에 덮으므로, STAGE 2 최종 목록에 우회 후보가
- * 남았을 때 켜진다. 실제로 채택된 후보의 도달 거리(finalRadiusM)로 문구를 구성한다.
+ * STAGE 1에서 경로상 후보가 없을 때만 T3_MAX 회랑으로 확장하며, STAGE 2 최종 목록에
+ * 우회 후보가 남았을 때 켜진다. 실제로 채택된 후보의 도달 거리(finalRadiusM)로 문구를 구성한다.
  */
 import { Info } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";

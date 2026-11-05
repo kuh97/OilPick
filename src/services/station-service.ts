@@ -32,7 +32,7 @@ export interface CollectStationsResult {
 export interface CollectStationsOptions {
   /** 후보를 찾을 기준 지점들(EPSG:5179) — 경로 폴리라인 전체 또는 단일 지점(내 주변) */
   referencePoints: ProjectedPoint[];
-  /** bbox를 넓힐 여유(m). 경로 검색은 T3_MAX, 내 주변은 SEARCH_RADIUS */
+  /** bbox를 넓힐 여유(m). 호출자가 STAGE 1·2 또는 내 주변 범위를 전달한다. */
   marginM: number;
   fuel: Fuel;
   filters: CollectStationsFilters;

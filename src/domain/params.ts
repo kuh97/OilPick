@@ -8,6 +8,9 @@
 // 실제 경로의 ΔT·ΔD가 모두 기준 이내면 🟢경로상, 그 밖은 🟡우회.
 export const ON_ROUTE_MAX_S = 180; // s
 export const ON_ROUTE_MAX_D = 1_500; // m
+// STAGE 1에서 Valhalla 실측을 시작할 DB 사전 범위. 실제 경로상 판정은
+// ON_ROUTE_MAX_S·ON_ROUTE_MAX_D로만 한다. STAGE 2에서 T3_MAX까지 확장한다.
+export const ON_ROUTE_PREFILTER_MAX_M = 300; // m
 
 // ─── 티어 분류 (§6.3) ───────────────────────────────────────────────────────
 export const T2_MAX = 3_000; // m — P_ref 표본 정의 전용 (§6.4)
@@ -72,7 +75,8 @@ export const V_TIME = 200; // 원/분 — 균형 모드 시간 가치 (시급 12
 export const DEFAULT_MAX_DETOUR_MINUTES = 20;
 
 // ─── 검색 단계 Valhalla 실행 ────────────────────────────────────────────────
-// 첫 연결은 외부 라우터를 과도하게 때리지 않도록 보수적으로 직렬 실행한다.
-// 후보 수와 응답 시간을 실측한 뒤 이 값을 조정한다.
-export const VALHALLA_ROUTE_CONCURRENCY = 1;
+// 로컬 실측: Valhalla server_threads=4에서 후보 16개 검색이 약 16초로 수렴했다.
+// Valhalla 서버의 스레드 수보다 크게 올리지 않는다.
+export const VALHALLA_ROUTE_CONCURRENCY = 8;
 export const VALHALLA_TIMEOUT_MS = 5_000;
+export const VALHALLA_CACHE_TTL_S = 60 * 60;

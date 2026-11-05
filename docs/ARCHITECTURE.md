@@ -348,9 +348,10 @@ JSON API로 한 번에 받을 수 없지만, "과거 판매가격" CSV가 전국
 - Kakao 기본 경로와 Valhalla 검색 경로는 모두 `BaseRoute`로 변환합니다
 - 폴리라인은 단순화하거나 일부 점만 보내지 않고 전체 점을 보냅니다. Valhalla의 breakage distance 오류를 피하기 위한 계약입니다
 - 검색 결과의 `detour.precise`는 `false`로 유지합니다. 검색 단계 수치는 Valhalla 실측을 사용하지만, 상세의 Kakao 경로 확인 전이라는 의미입니다
+- map-match·후보 경유 경로 결과는 Redis에 1시간 캐시합니다. 같은 O/D·주유소 검색은 Valhalla를 다시 호출하지 않습니다
 - 기본 경로 map-match 실패는 Kakao 경로로 조용히 대체하지 않습니다. 해당 경로의 후보를 제외하고 `VALHALLA_PARTIAL` 또는 `VALHALLA_UNAVAILABLE` 경고를 냅니다
 - 후보별 실패는 성공한 후보를 보존하는 부분 실패로 처리합니다
-- 외부 호출은 `VALHALLA_ROUTE_CONCURRENCY`와 `VALHALLA_TIMEOUT_MS`로 제한합니다. 현재 기본 동시성은 1이며 실제 후보 수·응답 시간을 측정한 뒤 조정합니다
+- 외부 호출은 `VALHALLA_ROUTE_CONCURRENCY`와 `VALHALLA_TIMEOUT_MS`로 제한합니다. 로컬 실측 후 기본 동시성은 8로 정했고, Valhalla 서버 스레드 4개보다 크게 올리지 않습니다
 
 로컬 개발은 `docker-compose.yml`의 Valhalla 컨테이너를 사용합니다. 운영 환경의 Valhalla
 호스팅 위치와 비용은 아직 결정하지 않았으므로, `VALHALLA_BASE_URL`을 별도 환경변수로
@@ -368,7 +369,7 @@ JSON API로 한 번에 받을 수 없지만, "과거 판매가격" CSV가 전국
 
 카카오 경로 무료 쿼터는 일 10,000건입니다. 검색은 기본 경로 최대 3회로 상한이 고정되고,
 후보별 Kakao 경유 경로는 상세 진입 때만 호출합니다. 검색 단계의 Valhalla 호출은 자체
-호스팅 서비스이며, 동시성 1·5초 타임아웃으로 시작합니다.
+호스팅 서비스이며, 동시성 8·5초 타임아웃으로 시작합니다. 운영 환경에서는 후보 수와 응답 시간을 다시 측정해 조정합니다.
 
 > **검색 후보는 Valhalla가 계산한 실제 `ΔT`·`ΔD`로 1차 분류합니다.** 두 값이 모두
 > 기준 이내면 `ON_ROUTE`, 하나라도 넘으면 `DETOUR`입니다. 표준 도로 링크 방향 데이터는
@@ -618,7 +619,7 @@ data: {"searchId":"...","baseRoute":{...},"baseRoutes":[...],"candidates":[...],
 
 | 필드                       | 값                                 | 의미                                                                                                                                   |
 | -------------------------- | ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| `progress(EXPAND).radiusM` | `T3_MAX` = 15,000                  | **지금 어디까지 뒤지는 중인가.** 후보 평가 전이라 실제 결과를 모름                                                                     |
+| `progress(EXPAND).radiusM` | `T3_MAX` = 15,000                  | **STAGE 1에 경로상 후보가 없어 확장하는 탐색 상한.** 후보 평가 전이라 실제 결과를 모름                                                                     |
 | `expansion.finalRadiusM`   | 채택된 🟡우회 후보의 최대 `d_perp` | **어디서 찾았는가.** 결과 배너에 쓰는 값. 배지(`ΔT`)로 우회인 후보 중 가장 먼 기하 거리 — STAGE 1만으로 끝나면 배너 자체가 없다 (§6.4) |
 
 두 값이 다른 것은 정상입니다. 로딩 UI는 상한인 `radiusM`을 숫자로 노출하지 않고 범위를 넓히는
@@ -1050,17 +1051,17 @@ recommendation-service
   │   ═══▶ SSE: base_route
   │
   │   ═══▶ SSE: progress(COLLECT)
-  ├─▶ station-service.collectStations (고유 기본 경로별) ── STEP 2·3
-  │      ├─ 폴리라인 투영 → bbox(회랑) + T3_MAX 마진
+  ├─▶ station-service.collectStations (STAGE 1, 고유 기본 경로별) ── STEP 2·3
+  │      ├─ 폴리라인 투영 → bbox(회랑) + ON_ROUTE_PREFILTER_MAX_M 마진
   │      ├─ refuel_point WHERE lat/lng BETWEEN … AND price_{fuel} > 0
   │      │                  AND last_seen_on >= today - 7d   (외부 호출 없음)
   │      └─ 필터 적용 (시설·브랜드·품질인증·셀프여부)
   │
-  ├─▶ domain/geo (d_perp · T3 범위)                         ── STEP 4
-  │      T3 밖 제거. d_perp는 후보 수집·P_ref 표본·우회 범위에만 사용 (PRODUCT §6.4)
+  ├─▶ domain/geo (d_perp · STAGE 1 범위)                    ── STEP 4
+  │      300m 밖 제거. d_perp는 최종 경로상 판정이 아닌 사전 범위에만 사용 (PRODUCT §6.4)
   │
   ├─▶ price-service.computeReferencePrice                 ── STEP 5
-  │      └─ d_perp ≤ T2_MAX 표본 ≥ P_REF_MIN_BASE ? median
+  │      └─ 별도 T2_MAX 가격 표본 ≥ P_REF_MIN_BASE ? median
   │         : refuel_point 시군구→시도→전국 avg(price) 가중평균
   │
   │  ┌─ STAGE 1 ─ 경로상 목록 (항상 실행) ──────────────────────────┐
@@ -1074,8 +1075,9 @@ recommendation-service
   │
   │  ┌─ STAGE 2 ─ 우회 탐색 (모든 고유 기본 경로에서 경로상 0곳) ────┐
   │   ═══▶ SSE: progress(EXPAND, radiusM=T3_MAX)
+  ├─▶ station-service.collectStations (T3 확장)              ── STEP 7 전
+  │      detourPool = T3_MAX 확장 후보
   ├─▶ domain/pricing (추정 게이트 + 실제 예산 재확인)          ── STEP 7
-  │      detourPool = 모든 고유 기본 경로의 후보
   │      추정 ΔT̂ > maxDetourMinutes → 제거. NetSaving ≤ 0 → 제거
   │
   ├─▶ 실제 후보 정렬·상한 적용 (모드별 점수 → MAX_RESULTS)       ── STEP 9
@@ -1506,9 +1508,10 @@ Client → domain/deeplink.build(app, origin, station, destination)
 "20분"이라는 값 자체는 실측 분포가 아니라 판단(사용자 확인)으로 정했다** — 여러 짧은
 노선·연료로 재측정해 적정성을 교차 확인해야 한다.
 
-**Phase 0의 넷(②③⑪⑬)이 코드 작성 전 필수였습니다.** 확장 수집이 없어지면서
+**Phase 0의 넷(②③⑪⑬)이 코드 작성 전 필수였습니다.** 샘플링 수집이 없어지면서
 `FEATURE_EXPANSION_ENABLED`·`MIN_CANDIDATES`·`OFFSET`·`SAMPLE_INTERVAL`도 함께 제거됐습니다 —
-회랑 bbox 쿼리가 T3_MAX까지 한 번에 덮습니다.
+후보 수집은 STAGE 1의 300m 회랑 bbox와, 경로상 후보가 없을 때만 실행하는 STAGE 2의
+`T3_MAX` 회랑 bbox로 나뉩니다.
 
 **⑤ 부분 확인 (2026-08-28)** — 카카오맵·네이버지도 딥링크에 경유지를 넣어 실기기에서 열어본 결과 **양쪽 모두 경유지가 경로에 정상 반영**되었습니다. 두 앱의 경유지 파라미터는 **공식 문서에 명시된 것**입니다 — 카카오 `vp`(최대 5개, KakaoMaps SDK URL Scheme), 네이버 `v1lat`·`v1lng`·`v1name`(최대 5개, NAVER Cloud Platform Maps URL Scheme). **§5.5의 "주유소를 경유지로 포함한 경로를 열어준다"는 전제가 실기기로 확인되었습니다.** 다만 ⑤는 **미해결로 유지**합니다 — 확인한 것은 실기기 1대의 스킴 동작뿐이고, iOS/Android/카카오톡 인앱 브라우저 매트릭스와 SSE 폴백은 Phase 10 과제로 남아 있습니다.
 
@@ -1516,10 +1519,11 @@ Client → domain/deeplink.build(app, origin, station, destination)
 
 > **이 항목에서 얻은 교훈** — `buildTmapDeeplink`의 원래 주석은 `AGENTS.md §12`(=이 표)를 근거로 인용했지만, **이 표는 "확인해야 할 것" 목록이지 "확인된 것" 목록이 아닙니다.** 미확인 가정이 구현 근거로 승격되면서 티맵 딥링크가 기획과 반대로 동작하는 버그가 생겼고, 테스트가 그 동작을 고정시켜 오래 살아남았습니다(수정: `fix(domain)` — 티맵 딥링크). **미해결 항목을 코드에서 인용할 때는 그것이 가정임을 주석에 명시하십시오.**
 
-**샘플링·확장 관련 미해결 항목(`SAMPLE_INTERVAL` 재조정, `MIN_CANDIDATES`·`OFFSET` 확정)은
-소멸했습니다.** 후보 수집이 폴리라인 회랑 bbox 쿼리로 바뀌어 샘플 간격도, 후보 부족 시
-넓혀 찾는 확장 단계도 없습니다 (MIGRATION-DB.md §7 Phase C). 해당 파라미터·함수
-(`samplePolyline`·`normalOffsets`·`needsExpansion`)는 제거됐습니다.
+**샘플링 관련 미해결 항목(`SAMPLE_INTERVAL` 재조정, `MIN_CANDIDATES`·`OFFSET` 확정)은
+소멸했습니다.** 후보 수집이 폴리라인 회랑 bbox 쿼리로 바뀌어 샘플 간격 개념은 없습니다.
+현재는 경로상 후보가 없을 때만 `T3_MAX` 회랑으로 넓히는 2단계 탐색을 사용합니다
+(MIGRATION-DB.md §7 Phase C). 해당 샘플링 파라미터·함수(`samplePolyline`·`normalOffsets`·
+`needsExpansion`)는 제거됐습니다.
 
 ---
 

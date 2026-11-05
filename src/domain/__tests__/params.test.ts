@@ -3,7 +3,12 @@ import * as P from "../params";
 
 describe("params — 상수 불변식", () => {
   it("거리 경계가 단조증가한다", () => {
+    expect(P.ON_ROUTE_PREFILTER_MAX_M).toBeLessThan(P.T2_MAX);
     expect(P.T2_MAX).toBeLessThan(P.T3_MAX);
+  });
+
+  it("경로상 사전 범위는 300m이다", () => {
+    expect(P.ON_ROUTE_PREFILTER_MAX_M).toBe(300);
   });
 
   it("경로 실측 평균속도 클램프가 유효 구간을 이룬다", () => {
