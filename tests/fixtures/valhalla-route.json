@@ -1,0 +1,19 @@
+{
+  "trip": {
+    "status": 0,
+    "status_message": "Found route between points",
+    "summary": {
+      "length": 0.123,
+      "time": 42.6
+    },
+    "legs": [
+      {
+        "summary": {
+          "length": 0.123,
+          "time": 42.6
+        },
+        "shape": "_shqeA_{mfqFgEgEgw@_X"
+      }
+    ]
+  }
+}

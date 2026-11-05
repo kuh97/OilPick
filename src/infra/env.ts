@@ -26,6 +26,7 @@ export const env = {
   get KAKAO_REST_API_KEY() { return required("KAKAO_REST_API_KEY"); },
   get KAKAO_MOBILITY_BASE_URL() { return optional("KAKAO_MOBILITY_BASE_URL", "https://apis-navi.kakaomobility.com"); },
   get KAKAO_LOCAL_BASE_URL() { return optional("KAKAO_LOCAL_BASE_URL", "https://dapi.kakao.com"); },
+  get VALHALLA_BASE_URL() { return optional("VALHALLA_BASE_URL", "http://127.0.0.1:8002"); },
   get DATABASE_URL() { return required("DATABASE_URL"); },
   get CRON_SECRET() { return required("CRON_SECRET"); },
   // Vercel Blob — 일일 CSV 임포트(Phase D). GitHub Actions가 쓰고 Cron이 읽는다.
