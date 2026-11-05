@@ -15,6 +15,7 @@ out/
 data/
 scripts/data/
 !scripts/data/.gitkeep
+data/valhalla/
 
 # ── 테스트 픽스처는 커밋 대상 ─────────────
 # tests/fixtures/ 는 제외하지 않음

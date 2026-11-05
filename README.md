@@ -130,6 +130,47 @@ pnpm data:import-csv          # 오피넷 유가 CSV → refuel_point 마스터 
 pnpm dev                      # http://localhost:3000
 ```
 
+### 로컬 Valhalla
+
+검색 단계의 후보 경로 검증은 로컬 Valhalla Docker를 사용합니다. 한국 OSM PBF와
+생성된 타일은 Git에 커밋하지 않습니다. 기본 PBF 경로는
+`/Users/kim-uihyeon/Desktop/south-korea-261103.osm.pbf`이며, 다른 경로를 쓰면
+`VALHALLA_OSM_PBF_DIR`와 `VALHALLA_OSM_PBF_NAME`으로 바꿉니다.
+
+첫 실행 때 PBF를 `data/valhalla/`에 한 번 복사해 Valhalla 입력과 생성 타일을
+같은 영속 디렉터리에서 관리합니다. 이후 컨테이너 재시작 때는 기존 파일 해시와
+타일을 사용합니다.
+
+```bash
+docker compose up -d       # 첫 실행은 PBF에서 타일을 생성하므로 오래 걸릴 수 있음
+docker compose ps
+docker compose logs -f valhalla
+docker compose stop        # 컨테이너를 멈춤. 타일은 유지
+docker compose start       # 기존 타일로 다시 시작
+curl http://127.0.0.1:8002/status
+```
+
+타일을 다시 만들지 않고 컨테이너만 재시작하려면 `stop`과 `start`를 사용합니다.
+`data/valhalla/`를 삭제하는 명령은 기본 사용법에 포함하지 않습니다.
+
+현재 Vercel 서버는 개발자의 localhost Docker에 접근할 수 없습니다. 운영용 Valhalla
+서버 위치는 아직 결정하지 않았으며, 배포 전 별도로 결정해야 합니다.
+
+#### 한국 PBF 로컬 실측 (2026-11-05)
+
+- 이미지: `ghcr.io/valhalla/valhalla-scripted:latest` (Valhalla `3.9.1-2085e78a5`)
+- 입력 PBF: 약 `277MB`
+- 초기 타일 생성: 약 `3분 20초` (서버 스레드 1개)
+- 생성 타일: `595개`, `valhalla_tiles.tar` 약 `671MB`
+- 생성 데이터 전체: 약 `1.7GB`
+- 관측된 최대 메모리: 약 `2.1GiB` (Docker stats 표본 기준)
+- 재시작: 약 `12초`, 기존 타일을 재사용하고 재생성하지 않음
+
+검증한 요청은 Valhalla 기본 `route`, 출발지·주유소·목적지 `route`, 카카오
+폴리라인을 `trace_route`의 `map_snap`으로 매핑하는 요청입니다. 단, OSM에 없는
+중앙분리대·진입 제한은 map-match가 복구하지 못할 수 있으므로 검색 결과는
+Valhalla 검색용 값이고 상세 최종 경로는 카카오 결과를 사용합니다.
+
 ### 검사
 
 ```bash

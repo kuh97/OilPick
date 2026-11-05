@@ -1,0 +1,37 @@
+services:
+  valhalla:
+    image: ${VALHALLA_IMAGE:-ghcr.io/valhalla/valhalla-scripted:latest}
+    container_name: oilpick-valhalla
+    restart: unless-stopped
+    entrypoint: ["/bin/bash", "-lc"]
+    command:
+      - |
+        set -euo pipefail
+        if [ ! -f "/custom_files/$$OSM_PBF_NAME" ]; then
+          cp "/osm/$$OSM_PBF_NAME" "/custom_files/$$OSM_PBF_NAME"
+        fi
+        exec /valhalla/scripts/docker-entrypoint.sh build_tiles
+    ports:
+      - "127.0.0.1:${VALHALLA_PORT:-8002}:8002"
+    volumes:
+      - ${VALHALLA_DATA_DIR:-./data/valhalla}:/custom_files
+      - ${VALHALLA_OSM_PBF_DIR:-/Users/kim-uihyeon/Desktop}:/osm:ro
+    environment:
+      OSM_PBF_NAME: ${VALHALLA_OSM_PBF_NAME:-south-korea-261103.osm.pbf}
+      tile_urls: ""
+      server_threads: ${VALHALLA_SERVER_THREADS:-1}
+      serve_tiles: "True"
+      use_tiles_ignore_pbf: "False"
+      force_rebuild: "False"
+      build_tar: "True"
+      build_elevation: "False"
+      build_admins: "False"
+      build_time_zones: "False"
+      build_transit: "False"
+      update_existing_config: "True"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8002/status >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
