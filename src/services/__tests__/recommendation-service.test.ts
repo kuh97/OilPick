@@ -349,8 +349,8 @@ describe("search — 기존 API·진행 계약", () => {
     expect(events.filter((event) => event.type === "progress").map((event) => event.step)).toEqual([
       "ROUTE",
       "COLLECT",
-      "PRECISE",
       "EXPAND",
+      "PRECISE",
     ]);
     expect(events.some((event) => event.type === "partial")).toBe(true);
   });

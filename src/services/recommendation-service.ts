@@ -630,7 +630,6 @@ export async function search(
     onProgress?.({ type: "warning", data: warning });
   }
 
-  onProgress?.({ type: "progress", step: "PRECISE" });
   const valhallaTimeoutMs = deps.valhallaTimeoutMs ?? VALHALLA_TIMEOUT_MS;
   const valhallaConcurrency =
     deps.valhallaConcurrency ?? VALHALLA_ROUTE_CONCURRENCY;
@@ -713,6 +712,7 @@ export async function search(
       dedupeByCandidateKey(stage1Internal).length -
       new Set(stage1Measured.map(candidateKey)).size;
     emitValhallaWarning(stage1FailureCount, measured.length);
+    onProgress?.({ type: "progress", step: "PRECISE" });
     const result = buildOnRouteResult(onRoute);
     void logSearch(result, {
       durationMs: Date.now() - startedAt,
@@ -771,6 +771,7 @@ export async function search(
     allInternal.length -
     new Set(measured.map(candidateKey)).size;
   emitValhallaWarning(failureCount, measured.length);
+  onProgress?.({ type: "progress", step: "PRECISE" });
 
   // 좁은 사전 범위 밖에서 실제 경로상 후보가 발견되면 우회로 오표시하지 않는다.
   const expandedOnRoute = dedupeByStation(
