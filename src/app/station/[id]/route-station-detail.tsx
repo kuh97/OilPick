@@ -7,6 +7,7 @@ import {
   NetSavingDialog,
   formatSignedWon,
 } from "@/components/result/net-saving-dialog";
+import { classifyByDetour } from "@/domain/tier";
 import { distanceMToKm, durationSToMin } from "@/domain/pricing";
 import { buildReason } from "@/domain/reason";
 import {
@@ -85,6 +86,12 @@ export function RouteStationDetail({
   const isMobile = useIsMobile();
   const distanceM = detour?.distanceM ?? candidate.detour.distanceM;
   const durationS = detour?.durationS ?? candidate.detour.durationS;
+  const tier =
+    result.stage === "DETOUR"
+      ? "DETOUR"
+      : detour
+        ? classifyByDetour(durationS, distanceM)
+        : candidate.tier;
   const netSavingValue = detour?.netSaving ?? candidate.netSaving;
   const priceSavingWon =
     result.referencePrice != null
@@ -121,7 +128,7 @@ export function RouteStationDetail({
   const reason = detour
     ? buildReason({
         rank,
-        tier: candidate.tier,
+        tier,
         priceRefWon: result.referencePrice ?? candidate.price,
         priceStationWon: candidate.price,
         priceRankAmongAll,
@@ -149,7 +156,7 @@ export function RouteStationDetail({
       searchId: result.searchId,
       app,
       rank,
-      tier: candidate.tier,
+      tier,
       netSaving: netSavingValue,
       detourDistanceM: distanceM,
     });
@@ -185,7 +192,7 @@ export function RouteStationDetail({
         <div className="md:col-start-1 md:row-start-1">
           <StationDetailTitle
             stationName={candidate.name}
-            tier={candidate.tier}
+            tier={tier}
           />
         </div>
 

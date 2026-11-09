@@ -10,8 +10,13 @@ import { computeReferencePrice } from "./price-service";
 import { logSearch } from "./event-service";
 import { getRedis } from "@/infra/cache/redis";
 import { getDb } from "@/infra/db/client";
+import { findNearestRoadLinkProbes } from "@/infra/db/repositories";
 import { env } from "@/infra/env";
 import { wgs84ToProjected, pointToPolylineDistanceM } from "@/domain/geo";
+import {
+  classifyRoadLinkDirections,
+  routeHeadingAtPoint,
+} from "@/domain/road-direction";
 import {
   isOutOfRange,
   classifyByDetour,
@@ -261,6 +266,56 @@ function dedupeByStation(pool: InternalCandidate[]): InternalCandidate[] {
       byStation.set(item.station.id, item);
   }
   return [...byStation.values()];
+}
+
+/**
+ * STAGE 1 후보가 Valhalla의 짧은 우회만으로 경로상으로 오표시되지 않게 한다.
+ * 방향 데이터가 없거나 계산할 수 없으면 기존 실측 결과를 보존한다 — 표준
+ * 링크에는 주유소 진입구가 없기 때문이다.
+ */
+async function applyRoadDirectionGate(
+  candidates: readonly InternalCandidate[],
+  db: Db,
+): Promise<InternalCandidate[]> {
+  if (candidates.length === 0) return [];
+
+  const stationPoints = [
+    ...new Map(
+      candidates.map((candidate) => [
+        candidate.station.id,
+        {
+          stationId: candidate.station.id,
+          point: wgs84ToProjected(candidate.station.location),
+        },
+      ]),
+    ).values(),
+  ];
+
+  let probes: Awaited<ReturnType<typeof findNearestRoadLinkProbes>>;
+  try {
+    probes = await findNearestRoadLinkProbes(stationPoints, db);
+  } catch {
+    // 방향 보조 데이터 장애가 검색 전체를 중단시키지 않도록 UNKNOWN으로 보존한다.
+    return [...candidates];
+  }
+
+  const probeByStationId = new Map(probes.map((probe) => [probe.stationId, probe]));
+
+  return candidates.map((candidate) => {
+    if (candidate.tier !== "ON_ROUTE") return candidate;
+
+    const probe = probeByStationId.get(candidate.station.id);
+    if (!probe) return candidate;
+
+    const routeHeading = routeHeadingAtPoint(
+      wgs84ToProjected(candidate.station.location),
+      candidate.route.route.polyline.map(wgs84ToProjected),
+    );
+    const direction = classifyRoadLinkDirections(routeHeading, [probe.headingRad]);
+    if (direction !== "OPPOSITE_DIRECTION") return candidate;
+
+    return { ...candidate, tier: "DETOUR" };
+  });
 }
 
 function finalizeCandidates(
@@ -660,7 +715,7 @@ export async function search(
   const stage1Measured = stage1MeasuredResults.flatMap((result) =>
     result.candidate ? [result.candidate] : [],
   );
-  let measured = stage1Measured;
+  let measured = await applyRoadDirectionGate(stage1Measured, db);
   const emitValhallaWarning = (
     failureCount: number,
     measuredCount: number,
@@ -762,12 +817,14 @@ export async function search(
       signal: deps.signal,
     },
   );
-  measured = [
-    ...measured,
-    ...expansionMeasuredResults.flatMap((result) =>
-      result.candidate ? [result.candidate] : [],
-    ),
-  ];
+  // STAGE 2는 우회 탐색 결과다. Valhalla가 ΔT·ΔD를 작게 계산하더라도
+  // STAGE 1의 300m 사전 범위를 벗어난 후보를 경로상으로 승격하지 않는다.
+  const expansionMeasured = expansionMeasuredResults.flatMap((result) =>
+    result.candidate
+      ? [{ ...result.candidate, tier: "DETOUR" as const }]
+      : [],
+  );
+  measured = [...measured, ...expansionMeasured];
   const allInternal = dedupeByCandidateKey([
     ...stage1Internal,
     ...expandedInternal,
@@ -778,24 +835,6 @@ export async function search(
     new Set(measured.map(candidateKey)).size;
   emitValhallaWarning(failureCount, measured.length);
   onProgress?.({ type: "progress", step: "PRECISE" });
-
-  // 좁은 사전 범위 밖에서 실제 경로상 후보가 발견되면 우회로 오표시하지 않는다.
-  const expandedOnRoute = dedupeByStation(
-    measured.filter((item) => item.tier === "ON_ROUTE"),
-  );
-  if (expandedOnRoute.length > 0) {
-    const result = buildOnRouteResult(expandedOnRoute);
-    void logSearch(result, {
-      durationMs: Date.now() - startedAt,
-      fuel: input.vehicle.fuel,
-      filters: input.filters,
-      origin: input.origin,
-      destination: input.destination,
-      routeCalls,
-      jsonFallback: deps.jsonFallback,
-    }).catch(() => {});
-    return result;
-  }
 
   const distanceDropped = measured.filter(
     (item) => item.detourDistanceM > maxDetourDistanceM,

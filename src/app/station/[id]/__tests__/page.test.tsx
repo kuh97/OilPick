@@ -205,6 +205,36 @@ describe("StationDetailView — 정상 흐름 (AGENTS.md §6 불변식)", () => 
     expect(screen.queryByText(/약 2\.4km/)).toBeNull();
   });
 
+  it("상세 정밀값이 3분을 넘으면 경로상 배지를 우회로 갱신한다", async () => {
+    fetchDetourMock.mockResolvedValue({
+      distanceM: 0,
+      durationS: 300,
+      precise: true,
+      netSaving: -45,
+      tollWon: 0,
+      polyline: [{ lat: 37.42, lng: 127.12 }],
+    });
+    useSearchStore.setState({
+      result: result({
+        stage: "ON_ROUTE",
+        expansion: { triggered: false, finalRadiusM: 300 },
+        candidates: [
+          candidate({
+            tier: "ON_ROUTE",
+            detour: { precise: false, distanceM: 100, durationS: 60 },
+          }),
+        ],
+      }),
+    });
+
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.queryByText("경로상")).toBeNull();
+      expect(screen.getByText("우회", { selector: '[data-slot="badge"]' })).toBeTruthy();
+    });
+  });
+
   it("데스크톱(비모바일 UA)에서는 티맵 버튼과 보조 문구를 보여주지 않는다 — 티맵은 웹 길찾기가 없음", async () => {
     stubUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
     renderPage();

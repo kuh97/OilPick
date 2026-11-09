@@ -4,6 +4,9 @@ vi.mock("../route-service", () => ({ getRoute: vi.fn() }));
 vi.mock("../station-service", () => ({ collectStations: vi.fn() }));
 vi.mock("../price-service", () => ({ computeReferencePrice: vi.fn() }));
 vi.mock("../event-service", () => ({ logSearch: vi.fn().mockResolvedValue(undefined) }));
+vi.mock("@/infra/db/repositories", () => ({
+  findNearestRoadLinkProbes: vi.fn(),
+}));
 vi.mock("@/infra/valhalla/client", () => ({
   fetchValhallaRoute: vi.fn(),
   mapMatchValhallaRoute: vi.fn(),
@@ -14,6 +17,7 @@ import { getRoute } from "../route-service";
 import { collectStations } from "../station-service";
 import { computeReferencePrice } from "../price-service";
 import { logSearch } from "../event-service";
+import { findNearestRoadLinkProbes } from "@/infra/db/repositories";
 import {
   fetchValhallaRoute,
   mapMatchValhallaRoute,
@@ -28,6 +32,7 @@ const getRouteMock = vi.mocked(getRoute);
 const collectStationsMock = vi.mocked(collectStations);
 const computeReferencePriceMock = vi.mocked(computeReferencePrice);
 const logSearchMock = vi.mocked(logSearch);
+const findNearestRoadLinkProbesMock = vi.mocked(findNearestRoadLinkProbes);
 const fetchValhallaRouteMock = vi.mocked(fetchValhallaRoute);
 const mapMatchValhallaRouteMock = vi.mocked(mapMatchValhallaRoute);
 
@@ -111,6 +116,7 @@ beforeEach(() => {
       : BASE_ROUTE,
   );
   computeReferencePriceMock.mockResolvedValue({ price: 1900, source: "MEDIAN_T1T2" });
+  findNearestRoadLinkProbesMock.mockResolvedValue([]);
   logSearchMock.mockResolvedValue(undefined);
 });
 
@@ -179,6 +185,37 @@ describe("search — Valhalla map-match와 후보 경로", () => {
     ]);
   });
 
+  it("STAGE 2 후보는 Valhalla ΔT·ΔD가 작아도 우회로 표시한다", async () => {
+    collectStationsMock.mockImplementation(async ({ marginM }) => {
+      if (marginM === 8_000) {
+        return {
+          stations: [
+            collected({
+              id: "EXPANDED_ON_ROUTE",
+              location: wgs84(37.05, 127.15),
+            }),
+          ],
+        };
+      }
+      return { stations: [] };
+    });
+    fetchValhallaRouteMock.mockResolvedValue({
+      ...BASE_ROUTE,
+      distanceM: BASE_ROUTE.distanceM + 1_000,
+      durationS: BASE_ROUTE.durationS + 60,
+    });
+
+    const result = await search(baseInput(), undefined, FAKE_DEPS);
+
+    expect(result.stage).toBe("DETOUR");
+    expect(result.expansion.triggered).toBe(true);
+    expect(result.candidates[0]).toMatchObject({
+      station: { id: "EXPANDED_ON_ROUTE" },
+      tier: "DETOUR",
+      detour: { distanceM: 1_000, durationS: 60, precise: false },
+    });
+  });
+
   it("폴리라인 가까운 후보라도 실제 ΔT·ΔD가 크면 우회로 분류한다", async () => {
     collectStationsMock.mockResolvedValue({
       stations: [collected({ id: "DETOUR", location: wgs84(37.003, 127.15) })],
@@ -191,6 +228,50 @@ describe("search — Valhalla map-match와 후보 경로", () => {
       station: { id: "DETOUR" },
       tier: "DETOUR",
       detour: { distanceM: 2_000, durationS: 240, precise: false },
+    });
+  });
+
+  it("Valhalla가 경로상으로 판정해도 최근접 도로가 반대 방향이면 우회로 보존한다", async () => {
+    collectStationsMock.mockResolvedValue({
+      stations: [collected({ id: "OPPOSITE", location: wgs84(37.001, 127.15) })],
+    });
+    findNearestRoadLinkProbesMock.mockResolvedValue([
+      {
+        stationId: "OPPOSITE",
+        distanceM: 50,
+        headingRad: -Math.PI / 2,
+      },
+    ]);
+
+    const result = await search(baseInput(), undefined, FAKE_DEPS);
+
+    expect(result.stage).toBe("DETOUR");
+    expect(result.candidates).toHaveLength(1);
+    expect(result.candidates[0]).toMatchObject({
+      station: { id: "OPPOSITE" },
+      tier: "DETOUR",
+      detour: { distanceM: 2_000, durationS: 240, precise: false },
+    });
+  });
+
+  it("최근접 도로가 같은 방향이면 기존 경로상 판정을 유지한다", async () => {
+    collectStationsMock.mockResolvedValue({
+      stations: [collected({ id: "SAME", location: wgs84(37.0, 127.15) })],
+    });
+    findNearestRoadLinkProbesMock.mockResolvedValue([
+      {
+        stationId: "SAME",
+        distanceM: 50,
+        headingRad: Math.PI / 2,
+      },
+    ]);
+
+    const result = await search(baseInput(), undefined, FAKE_DEPS);
+
+    expect(result.stage).toBe("ON_ROUTE");
+    expect(result.candidates[0]).toMatchObject({
+      station: { id: "SAME" },
+      tier: "ON_ROUTE",
     });
   });
 

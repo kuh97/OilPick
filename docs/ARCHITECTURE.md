@@ -371,10 +371,11 @@ JSON API로 한 번에 받을 수 없지만, "과거 판매가격" CSV가 전국
 후보별 Kakao 경유 경로는 상세 진입 때만 호출합니다. 검색 단계의 Valhalla 호출은 자체
 호스팅 서비스이며, 동시성 8·5초 타임아웃으로 시작합니다. 운영 환경에서는 후보 수와 응답 시간을 다시 측정해 조정합니다.
 
-> **검색 후보는 Valhalla가 계산한 실제 `ΔT`·`ΔD`로 1차 분류합니다.** 두 값이 모두
-> 기준 이내면 `ON_ROUTE`, 하나라도 넘으면 `DETOUR`입니다. 표준 도로 링크 방향 데이터는
-> 후보 누락 방지용 보조 데이터로 남아 있지만 검색의 최종 티어 판정에는 사용하지 않습니다.
-> 상세 진입 시에는 Kakao `/api/detour`로 최종 경로를 다시 확인합니다.
+> **STAGE 1 검색 후보는 Valhalla가 계산한 실제 `ΔT`·`ΔD`로 분류합니다.** 두 값이 모두
+> 기준 이내인 STAGE 1 후보만 `ON_ROUTE`입니다. STAGE 2에서 범위를 넓혀 찾은 후보는
+> 실제 `ΔT`·`ΔD`가 기준 이내여도 `DETOUR`로 표시하고, 실제 `ΔD`와 내부 안전 cap으로
+> 이동 가능 여부를 확인합니다. 표준 도로 링크 방향 데이터는 STAGE 1의 보수적 보조 필터로
+> 사용합니다. 상세 진입 시에는 Kakao `/api/detour`로 최종 경로를 다시 확인합니다.
 >
 > **Upstash 쪽이 먼저 바인딩될 수 있습니다.** 경로 1건당 `GET` + (미스 시) `SET`이라 검색
 > 1건이 Redis 명령 약 32회를 씁니다. 무료 티어 일 10,000회 기준 약 300검색/일입니다 (§12 ⑬).
@@ -1065,7 +1066,7 @@ recommendation-service
   │      └─ 연료 조건 적용. 화면 필터는 WireCandidate로 전달해 클라이언트에서 적용
   │
   ├─▶ domain/geo (d_perp · STAGE 1 범위)                    ── STEP 4
-  │      300m 밖 제거. d_perp는 최종 경로상 판정이 아닌 사전 범위에만 사용 (PRODUCT §6.4)
+  │      300m 밖은 STAGE 1에서 제외. d_perp는 STAGE 1·STAGE 2 범위를 정하는 검색 기준
   │
   ├─▶ price-service.computeReferencePrice                 ── STEP 5
   │      └─ 별도 T2_MAX 가격 표본 ≥ P_REF_MIN_BASE ? median
@@ -1086,6 +1087,7 @@ recommendation-service
   │      detourPool = 거리 여유를 포함한 DB 후보
   ├─▶ domain/pricing (실측 거리·순절감액·안전 cap 판정)          ── STEP 7
   │      실제 ΔD > maxDetourDistanceKm → 제거. 내부 안전 cap 초과 → 제거
+  │      STAGE 2 후보는 모두 DETOUR로 표시
   │      NetSaving > 0 → 추천 후보 우선, 그 밖은 참고 후보로 보존
   │
   ├─▶ 실제 후보 정렬·상한 적용 (모드별 점수 → MAX_RESULTS)       ── STEP 9

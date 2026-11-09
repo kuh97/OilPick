@@ -39,7 +39,7 @@ export function projected(x: number, y: number): ProjectedPoint {
 // ─── 연료 · 티어 (§6.3) ──────────────────────────────────────────────────────
 
 export type Fuel = "GASOLINE" | "DIESEL" | "LPG";
-/** 배지 2종 — 상세에서는 실측 `ΔT`·`ΔD`, 검색에서는 도로 링크 방향 + T2 공간 조건으로 분류 (§6.4). */
+/** 배지 2종 — 검색 STAGE 1은 Valhalla 실측과 방향 보조로, STAGE 2는 우회로 고정하며 상세는 Kakao 실측으로 확인한다 (§6.4). */
 export type Tier = "ON_ROUTE" | "DETOUR";
 export type Facility = "CAR_WASH" | "MAINTENANCE" | "CVS";
 export type Mode = "balanced" | "minCost" | "minDistance";
