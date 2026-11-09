@@ -61,8 +61,8 @@ export function HelpDrawer({
           <CircleHelp className="size-5" aria-hidden />
           <span className="hidden md:inline">도움말</span>
         </DrawerTrigger>
-        <DrawerContent className="rounded-t-card border-route-strong/15 bg-surface sm:mx-auto sm:max-w-md">
-          <DrawerHeader className="flex flex-row items-center justify-between border-b border-border bg-surface px-4 pb-3 pt-4 text-left">
+        <DrawerContent className="h-auto rounded-t-card border-route-strong/15 bg-surface sm:mx-auto sm:max-w-md">
+          <DrawerHeader className="flex min-h-16 flex-row items-center justify-between border-b border-border bg-surface px-4 pb-3 pt-4 text-left">
             <div className="flex items-center gap-2">
               <DrawerTitle className="text-text-strong">도움말</DrawerTitle>
             </div>
@@ -71,7 +71,7 @@ export function HelpDrawer({
                 <button
                   type="button"
                   aria-label="도움말 닫기"
-                  className="rounded-control-sm p-1.5 text-text-body hover:bg-route-sky hover:text-route-blue"
+                  className="-my-1 flex size-11 items-center justify-center rounded-control-sm text-text-body hover:bg-route-sky hover:text-route-blue focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-route-blue/30"
                 />
               }
             >

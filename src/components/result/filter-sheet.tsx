@@ -77,11 +77,11 @@ export function FilterSheet({ filters, onApply }: FilterSheetProps) {
         필터
       </DrawerTrigger>
       <DrawerContent className="h-[min(76dvh,42rem)] rounded-t-card border-route-strong/15 bg-surface sm:mx-auto sm:h-auto sm:max-w-md">
-        <DrawerHeader className="flex flex-row items-center justify-between border-b border-border bg-surface px-4 pb-3 pt-4 text-left">
+        <DrawerHeader className="flex min-h-16 flex-row items-center justify-between border-b border-border bg-surface px-4 pb-3 pt-4 text-left">
           <DrawerTitle className="text-text-strong">필터</DrawerTitle>
           <button
             type="button"
-            className="text-sm text-text-body underline underline-offset-2 hover:text-route-blue"
+            className="-my-1 flex min-h-11 items-center rounded-control-sm px-2 text-sm text-text-body underline underline-offset-2 hover:text-route-blue focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-route-blue/30"
             onClick={() => {
               setDraft(EMPTY_FILTERS);
             }}

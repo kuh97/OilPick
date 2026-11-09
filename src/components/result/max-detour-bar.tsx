@@ -62,14 +62,14 @@ export function DetourDistanceBar({
       </DrawerTrigger>
 
       <DrawerContent className="h-auto rounded-t-card border-route-strong/15 bg-surface sm:mx-auto sm:max-w-md">
-        <DrawerHeader className="flex flex-row items-center justify-between border-b border-border bg-surface px-4 pb-3 pt-4 !text-left">
+        <DrawerHeader className="flex min-h-16 flex-row items-center justify-between border-b border-border bg-surface px-4 pb-3 pt-4 !text-left">
           <DrawerTitle className="text-text-strong">허용 우회 거리</DrawerTitle>
           <DrawerClose
             render={
               <button
                 type="button"
                 aria-label="허용 우회 거리 닫기"
-                className="rounded-control-sm p-1.5 text-text-body hover:bg-route-sky hover:text-route-blue focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-route-blue/30"
+                className="-my-1 flex size-11 items-center justify-center rounded-control-sm text-text-body hover:bg-route-sky hover:text-route-blue focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-route-blue/30"
               />
             }
           >

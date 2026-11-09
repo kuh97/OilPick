@@ -7,17 +7,17 @@
  * 허용 우회 거리는 표시 필터라 여기가 아니라 필터 시트에 있다 (§5.3 ⑥).
  */
 import { useState } from "react";
-import { Fuel, Pencil } from "lucide-react";
+import { Fuel, Pencil, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogTrigger,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-  DialogClose,
-} from "@/components/ui/dialog";
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerTrigger,
+} from "@/components/ui/drawer";
 import { cn } from "@/lib/utils";
 import type {
   Fuel as FuelType,
@@ -95,7 +95,7 @@ export function CalcAssumptions({
       : null;
 
   return (
-    <Dialog
+    <Drawer
       open={open}
       onOpenChange={(next) => {
         setOpen(next);
@@ -137,7 +137,7 @@ export function CalcAssumptions({
               )}
             </div>
           )}
-          <DialogTrigger
+          <DrawerTrigger
             render={
               <Button
                 variant="outline"
@@ -152,7 +152,7 @@ export function CalcAssumptions({
             }
           >
             수정
-          </DialogTrigger>
+          </DrawerTrigger>
         </div>
       ) : title ? (
         <div className={cn("flex flex-col text-sm text-text-body", className)}>
@@ -160,7 +160,7 @@ export function CalcAssumptions({
             <h2 className="text-base font-semibold text-text-strong">
               {title}
             </h2>
-            <DialogTrigger
+            <DrawerTrigger
               render={
                 <Button
                   variant="ghost"
@@ -173,7 +173,7 @@ export function CalcAssumptions({
               }
             >
               수정
-            </DialogTrigger>
+            </DrawerTrigger>
           </div>
 
           <div className="mt-3 w-full">
@@ -236,7 +236,7 @@ export function CalcAssumptions({
             {referenceSummary ? `${referenceSummary} · ` : ""}
             연비 {vehicle.efficiency}km/L · {vehicle.refuelAmount}L 주유 기준
           </span>
-          <DialogTrigger
+          <DrawerTrigger
             render={
               <Button
                 variant="ghost"
@@ -248,21 +248,34 @@ export function CalcAssumptions({
             }
           >
             <Pencil className="size-4" aria-hidden />
-          </DialogTrigger>
+          </DrawerTrigger>
         </div>
       )}
 
-      <DialogContent className="rounded-card border border-route-strong/15 bg-surface p-4 text-text-strong shadow-route-md">
-        <DialogHeader>
-          <DialogTitle className="text-text-strong">기준 수정</DialogTitle>
-        </DialogHeader>
-        <div className="flex flex-col gap-3">
+      <DrawerContent className="h-auto rounded-t-card border-route-strong/15 bg-surface sm:mx-auto sm:max-w-md">
+        <DrawerHeader className="flex min-h-16 flex-row items-center justify-between border-b border-border bg-surface px-4 pb-3 pt-4 text-left">
+          <DrawerTitle className="text-text-strong">기준 수정</DrawerTitle>
+          <DrawerClose
+            render={
+              <button
+                type="button"
+                aria-label="기준 수정 닫기"
+                className="-my-1 flex size-11 items-center justify-center rounded-control-sm text-text-body hover:bg-route-sky hover:text-route-blue focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-route-blue/30"
+              />
+            }
+          >
+            <X className="size-6" aria-hidden />
+          </DrawerClose>
+        </DrawerHeader>
+
+        <div className="flex flex-col gap-3 bg-surface px-4 pb-5 pt-4">
           <label className="flex flex-col gap-1.5 text-sm font-medium text-text-strong">
             연비 (km/L)
             <input
               type="number"
               step="0.1"
               min="1"
+              inputMode="decimal"
               className="rounded-control-sm border border-border bg-surface px-3 py-2.5 text-text-strong outline-none placeholder:text-text-muted focus:border-brand-amber-strong focus:ring-2 focus:ring-brand-amber/30"
               value={draft.efficiency}
               onChange={(e) =>
@@ -276,6 +289,7 @@ export function CalcAssumptions({
               type="number"
               step="1"
               min="1"
+              inputMode="numeric"
               className="rounded-control-sm border border-border bg-surface px-3 py-2.5 text-text-strong outline-none placeholder:text-text-muted focus:border-brand-amber-strong focus:ring-2 focus:ring-brand-amber/30"
               value={draft.refuelAmount}
               onChange={(e) =>
@@ -285,11 +299,12 @@ export function CalcAssumptions({
           </label>
         </div>
 
-        <DialogFooter className="border-border bg-surface-quiet/70">
-          <DialogClose
+        <DrawerFooter className="border-t border-border bg-surface-quiet/70 p-4 pt-3">
+          <DrawerClose
             render={
               <Button
-                className="bg-brand-amber text-brand-amber-foreground hover:bg-brand-amber-strong"
+                size="xl"
+                className="w-full bg-brand-amber text-brand-amber-foreground hover:bg-brand-amber-strong"
                 disabled={!canApply}
                 onClick={() => {
                   if (!canApply) return;
@@ -297,15 +312,14 @@ export function CalcAssumptions({
                     efficiency: draftEfficiency,
                     refuelAmount: draftRefuelAmount,
                   });
-                  setOpen(false);
                 }}
               />
             }
           >
             적용
-          </DialogClose>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+          </DrawerClose>
+        </DrawerFooter>
+      </DrawerContent>
+    </Drawer>
   );
 }
