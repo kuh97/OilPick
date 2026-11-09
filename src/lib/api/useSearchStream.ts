@@ -45,7 +45,7 @@ export interface SearchStreamInput {
   vehicle: WireVehicle;
   mode: Mode;
   avoidHighway: boolean;
-  /** 사용자가 접힌 우회 섹션을 펼쳤는가 — STAGE 2 실행 여부 (PRODUCT.md §6.6) */
+  /** 사용자가 우회 거리 옵션을 선택했는가 — 경로상 0건이면 false여도 기본 5km로 확장 (§6.6) */
   includeDetour?: boolean;
   /** "허용 우회 거리"(km). 표시 필터가 아니라 검색 파라미터 */
   maxDetourDistanceKm?: number;

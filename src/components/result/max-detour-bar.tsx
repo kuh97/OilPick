@@ -17,15 +17,19 @@ import {
 } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { DETOUR_DISTANCE_OPTIONS_KM } from "@/domain/params";
 
-export const DETOUR_DISTANCE_STEPS_KM = [3, 5, 10, 15] as const;
+export const DETOUR_DISTANCE_STEPS_KM = DETOUR_DISTANCE_OPTIONS_KM;
+type DetourDistanceValue = number | null;
 
 export function DetourDistanceBar({
   value,
+  allowNone = true,
   onChange,
 }: {
-  value: number;
-  onChange: (distanceKm: number) => void;
+  value: DetourDistanceValue;
+  allowNone?: boolean;
+  onChange: (distanceKm: DetourDistanceValue) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [draftValue, setDraftValue] = useState(value);
@@ -53,7 +57,7 @@ export function DetourDistanceBar({
           허용 우회 거리
         </span>
         <span className="shrink-0 text-sm font-semibold tabular-nums text-route-blue">
-          {value}km 이내
+          {value == null ? "없음" : `${value}km 이내`}
         </span>
         <ChevronRight
           className="size-5 shrink-0 text-text-body"
@@ -83,6 +87,22 @@ export function DetourDistanceBar({
             aria-label="허용 우회 거리 선택"
             className="grid grid-cols-2 gap-3"
           >
+            {allowNone ? (
+              <button
+                type="button"
+                aria-label="우회 안 함"
+                aria-pressed={draftValue == null}
+                onClick={() => setDraftValue(null)}
+                className={cn(
+                  "col-span-2 flex min-h-14 items-center justify-center rounded-control-sm border px-4 py-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-route-blue/30",
+                  draftValue == null
+                    ? "border-route-blue/50 bg-route-sky text-route-blue shadow-route-sm"
+                    : "border-route-strong/15 bg-surface text-text-body hover:border-route-blue/40 hover:bg-route-sky hover:text-route-blue",
+                )}
+              >
+                없음 <span className="ml-1 text-text-body">(경로상만)</span>
+              </button>
+            ) : null}
             {DETOUR_DISTANCE_STEPS_KM.map((step) => {
               const selected = step === draftValue;
 

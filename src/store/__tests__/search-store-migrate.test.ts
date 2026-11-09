@@ -68,10 +68,10 @@ describe("search-store — persist 마이그레이션", () => {
     expect(useSearchStore.getState().efficiencyTouched).toBe(true);
   });
 
-  it("이전 버전에 저장된 허용 우회 거리는 새 경로 기본값으로 되돌린다", async () => {
+  it("이전 버전에 저장된 허용 우회 거리는 제거한다", async () => {
     seed(1, "GASOLINE", DEFAULT_EFFICIENCY.GASOLINE, 10);
     const useSearchStore = await loadStore();
 
-    expect(useSearchStore.getState().maxDetourDistanceKm).toBe(5);
+    expect("maxDetourDistanceKm" in useSearchStore.getState()).toBe(false);
   });
 });

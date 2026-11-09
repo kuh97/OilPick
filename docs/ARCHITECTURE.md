@@ -541,7 +541,7 @@ interface SearchResult {
   refPriceSource: RefPriceSource | null;
   candidates: Candidate[];
   warnings: Warning[];
-  stage: "ON_ROUTE" | "DETOUR"; // STAGE 1 경로상 목록 또는 STAGE 2 우회 목록
+  stage: "ON_ROUTE" | "DETOUR"; // 경로상만 조회 또는 사용자 선택으로 STAGE 2까지 실행
   distanceNeededForOneResultKm: number | null; // STAGE 2 0건일 때 다음 검색에 필요한 실제 우회거리(km)
 }
 
@@ -556,7 +556,7 @@ interface Warning {
 }
 ```
 
-> `expansion`은 "경로상에서 찾지 못해 우회 범위로 넓혀 찾았다"는 결과 배너용 신호입니다.
+> `expansion`은 사용자가 선택한 우회 범위에서 실제 우회 후보가 남았다는 결과 배너용 신호입니다.
 > `triggered`는 STAGE 2 최종 목록에 🟡우회 후보가 남았는지로 결정합니다. `T2_MAX`는 기준가
 > 표본 경계이며, 범위 확장 여부를 가르는 경계가 아닙니다.
 
@@ -577,6 +577,7 @@ interface Warning {
   },
   "vehicle": { "efficiency": 8.5, "refuelAmount": 45, "timeValue": 200 },
   "mode": "balanced",
+  "includeDetour": true,
   "maxDetourDistanceKm": 5
 }
 ```
@@ -584,8 +585,11 @@ interface Warning {
 검색 API의 `filters` 필드는 계약상 유지한다. 다만 결과 화면은 시설·브랜드·품질인증·셀프
 필터를 검색 요청에 넣지 않고 빈 필터로 전체 후보를 받은 뒤, `WireCandidate`의 시설·브랜드·
 `kpetro`·`isSelf` 값을 사용해 브라우저에서 목록만 다시 계산한다. 이 필터를 바꿀 때는
-`/api/search`를 재호출하지 않는다. `maxDetourDistanceKm`은 DB 후보 범위와 실제 우회 판정을
-바꾸므로 별도 거리 컨트롤에서 변경하면 재검색하며, 새 결과에도 현재 화면 필터를 적용한다.
+`/api/search`를 재호출하지 않는다. 경로상 후보가 있으면 우회 거리 기본값은 `없음`이며
+`includeDetour=false`로 STAGE 1만 반환한다. 경로상 후보가 0곳이면 서버가 기존 기본값 5km로
+STAGE 2를 자동 실행한다. 3·5·10·15km를 선택하면 `includeDetour=true`와
+`maxDetourDistanceKm`을 함께 보내며, DB 후보 범위와 실제 우회 판정이 바뀌므로 재검색한다.
+새 결과에도 현재 화면 필터를 적용한다.
 
 **Response** `Content-Type: text/event-stream`
 
@@ -627,7 +631,7 @@ data: {"searchId":"...","baseRoute":{...},"baseRoutes":[...],"candidates":[...],
 
 | 필드                       | 값                                 | 의미                                                                                                                                   |
 | -------------------------- | ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| `progress(EXPAND).radiusM` | `min(선택 거리+3km, T3_MAX)`        | **STAGE 1에 경로상 후보가 없어 확장하는 DB 탐색 반경.** 후보 평가 전이라 실제 결과를 모름                                                                     |
+| `progress(EXPAND).radiusM` | `min(적용 거리+3km, T3_MAX)`        | **경로상 0곳 또는 사용자 선택으로 확장하는 DB 탐색 반경.** 명시 선택이 없으면 적용 거리는 5km. 후보 평가 전이라 실제 결과를 모름                                                                     |
 | `expansion.finalRadiusM`   | 채택된 🟡우회 후보의 최대 `d_perp` | **어디서 찾았는가.** 결과 배너에 쓰는 값. 배지(`ΔT`)로 우회인 후보 중 가장 먼 기하 거리 — STAGE 1만으로 끝나면 배너 자체가 없다 (§6.4) |
 
 두 값이 다른 것은 정상입니다. 로딩 UI는 상한인 `radiusM`을 숫자로 노출하지 않고 범위를 넓히는
@@ -1077,27 +1081,27 @@ recommendation-service
   ├─▶ Valhalla trace_route + route                                      ── STEP 6
   │      기본 폴리라인 전체를 map-match하고 후보별 경유 경로를 계산
   │      `ΔT ≤ ON_ROUTE_MAX_S` AND `ΔD ≤ ON_ROUTE_MAX_D` → ON_ROUTE
-  │      ├─ onRoute ≥1곳 → 같은 주유소를 실제 총 시간·거리 기준으로 합쳐 반환 (STAGE 2 미실행, 배너 OFF)
-  │      └─ 0곳           → STAGE 2 로
+  │      경로상 후보 있음 + 우회 거리=없음 → 실제 총 시간·거리 기준으로 합쳐 반환
+  │      경로상 후보 0곳 → 기본 5km로 STAGE 2 자동 실행
   │  └──────────────────────────────────────────────────────────────┘
   │
-  │  ┌─ STAGE 2 ─ 우회 탐색 (모든 고유 기본 경로에서 경로상 0곳) ────┐
-  │   ═══▶ SSE: progress(EXPAND, radiusM=min(선택 거리+3km,T3_MAX))
-  ├─▶ station-service.collectStations (선택 거리+3km)       ── STEP 7 전
+  │  ┌─ STAGE 2 ─ 우회 탐색 (경로상 0곳 또는 거리 선택) ──────────┐
+  │   ═══▶ SSE: progress(EXPAND, radiusM=min(적용 거리+3km,T3_MAX))
+  ├─▶ station-service.collectStations (적용 거리+3km)       ── STEP 7 전
   │      detourPool = 거리 여유를 포함한 DB 후보
   ├─▶ domain/pricing (실측 거리·순절감액·안전 cap 판정)          ── STEP 7
   │      실제 ΔD > maxDetourDistanceKm → 제거. 내부 안전 cap 초과 → 제거
   │      STAGE 2 후보는 모두 DETOUR로 표시
-  │      NetSaving > 0 → 추천 후보 우선, 그 밖은 참고 후보로 보존
+  │      STAGE 1 경로상 주유소와 중복되면 경로상 버전 하나만 보존
   │
-  ├─▶ 실제 후보 정렬·상한 적용 (모드별 점수 → MAX_RESULTS)       ── STEP 9
+  ├─▶ 경로상·우회 후보 전체 모드 정렬, 우회에만 MAX_RESULTS 적용 ── STEP 9
   │
   ├─▶ domain/pricing 1차 스코어링                         ── STEP 8
   │   ═══▶ SSE: partial  (Valhalla 실측 중간 결과 — Kakao 확인 전 precise:false)
   │
   │  └─ 검색 결과는 Valhalla 실측을 사용하지만 precise:false. 최종 Kakao 확인은 상세 `/api/detour`에서 1곳만 계산
-  │      최종 목록 = STAGE 2 실제 측정 결과. 같은 주유소는 더 나은 경로 버전 하나만 보존
-  │      추천 후보를 먼저 정렬하고, 참고 후보를 뒤에 배치한 뒤 MAX_RESULTS개까지 표시
+  │      최종 목록 = STAGE 1 경로상 + STAGE 2 실제 우회 결과. 같은 주유소는 한 번만 표시
+  │      티어 우선순위 없이 현재 모드 점수로 정렬하고 경로상 후보는 전부 보존
   │   ═══▶ SSE: result
   │
   └─▶ event-service.logSearch (비동기 · Phase 11)
@@ -1520,8 +1524,8 @@ Client → domain/deeplink.build(app, origin, station, destination)
 
 **Phase 0의 넷(②③⑪⑬)이 코드 작성 전 필수였습니다.** 샘플링 수집이 없어지면서
 `FEATURE_EXPANSION_ENABLED`·`MIN_CANDIDATES`·`OFFSET`·`SAMPLE_INTERVAL`도 함께 제거됐습니다 —
-후보 수집은 STAGE 1의 300m 회랑 bbox와, 경로상 후보가 없을 때만 실행하는 STAGE 2의
-`min(선택 거리+3km, T3_MAX)` 회랑 bbox로 나뉩니다.
+후보 수집은 STAGE 1의 300m 회랑 bbox와, 경로상 후보가 0곳이거나 사용자가 우회 거리를 선택했을
+때 실행하는 STAGE 2의 `min(적용 거리+3km, T3_MAX)` 회랑 bbox로 나뉩니다.
 
 **⑤ 부분 확인 (2026-08-28)** — 카카오맵·네이버지도 딥링크에 경유지를 넣어 실기기에서 열어본 결과 **양쪽 모두 경유지가 경로에 정상 반영**되었습니다. 두 앱의 경유지 파라미터는 **공식 문서에 명시된 것**입니다 — 카카오 `vp`(최대 5개, KakaoMaps SDK URL Scheme), 네이버 `v1lat`·`v1lng`·`v1name`(최대 5개, NAVER Cloud Platform Maps URL Scheme). **§5.5의 "주유소를 경유지로 포함한 경로를 열어준다"는 전제가 실기기로 확인되었습니다.** 다만 ⑤는 **미해결로 유지**합니다 — 확인한 것은 실기기 1대의 스킴 동작뿐이고, iOS/Android/카카오톡 인앱 브라우저 매트릭스와 SSE 폴백은 Phase 10 과제로 남아 있습니다.
 
@@ -1531,7 +1535,7 @@ Client → domain/deeplink.build(app, origin, station, destination)
 
 **샘플링 관련 미해결 항목(`SAMPLE_INTERVAL` 재조정, `MIN_CANDIDATES`·`OFFSET` 확정)은
 소멸했습니다.** 후보 수집이 폴리라인 회랑 bbox 쿼리로 바뀌어 샘플 간격 개념은 없습니다.
-현재는 경로상 후보가 없을 때만 선택 거리+3km(최대 `T3_MAX`) 회랑으로 넓히는 2단계 탐색을 사용합니다
+현재는 경로상 후보가 0곳이면 기본 5km, 사용자가 우회 거리를 선택하면 선택값+3km(최대 `T3_MAX`) 회랑으로 넓히는 2단계 탐색을 사용합니다
 (MIGRATION-DB.md §7 Phase C). 해당 샘플링 파라미터·함수(`samplePolyline`·`normalOffsets`·
 `needsExpansion`)는 제거됐습니다.
 

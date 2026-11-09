@@ -358,23 +358,14 @@ function finalizeCandidates(
       .map((item, index) => [item.ic.station.id, index + 1]),
   );
   const sorted = [...withScores].sort((a, b) => {
-    const aOnRoute = a.ic.tier === "ON_ROUTE";
-    const bOnRoute = b.ic.tier === "ON_ROUTE";
-    if (aOnRoute !== bOnRoute) return Number(bOnRoute) - Number(aOnRoute);
-    // 우회 후보는 실제로 갈 수 있는 후보를 모두 남기되, 이득이 있는 후보를 먼저 보여준다.
-    // 손해·절감 없음 후보는 삭제하지 않고 참고 후보로 뒤에 둔다.
-    if (!aOnRoute && !bOnRoute && priceRefWon != null) {
-      const aRecommended = a.netSavingWon > 0;
-      const bRecommended = b.netSavingWon > 0;
-      if (aRecommended !== bRecommended) {
-        return Number(bRecommended) - Number(aRecommended);
-      }
-    }
+    const byMode =
+      priceRefWon == null
+        ? a.ic.price - b.ic.price
+        : scoreByMode(a.scores, mode) - scoreByMode(b.scores, mode);
+    if (byMode !== 0) return byMode;
     const byPrecise = Number(b.ic.precise) - Number(a.ic.precise);
     if (byPrecise !== 0) return byPrecise;
-    return priceRefWon == null
-      ? a.ic.price - b.ic.price
-      : scoreByMode(a.scores, mode) - scoreByMode(b.scores, mode);
+    return a.ic.station.id.localeCompare(b.ic.station.id);
   });
   return sorted.map((item, index) => ({
     station: item.ic.station,
@@ -544,8 +535,23 @@ async function measureCandidates(
   });
 }
 
-function finalRadiusM(items: ReadonlyArray<{ dPerp: number }>): number {
-  return items.length ? Math.max(...items.map((item) => item.dPerp)) : 0;
+function finalDetourRadiusM(
+  items: ReadonlyArray<{ dPerp: number; tier: Tier }>,
+): number {
+  const detours = items.filter((item) => item.tier === "DETOUR");
+  return detours.length
+    ? Math.max(...detours.map((item) => item.dPerp))
+    : 0;
+}
+
+/** 경로상 후보는 전부 보존하고, 우회 후보에만 화면 상한을 적용한다. */
+function limitDetourCandidates(candidates: Candidate[]): Candidate[] {
+  let detourCount = 0;
+  return candidates.filter((candidate) => {
+    if (candidate.tier === "ON_ROUTE") return true;
+    detourCount += 1;
+    return detourCount <= MAX_RESULTS;
+  });
 }
 
 interface CachedBaseRoute {
@@ -740,7 +746,7 @@ export async function search(
     onProgress?.({ type: "warning", data: warning });
   };
 
-  // 어느 기본 경로에서든 실제 ΔT·ΔD가 모두 기준 안인 후보가 있으면 우회 탐색은 하지 않는다.
+  // STAGE 1 경로상 후보는 우회 옵션과 무관하게 항상 보존한다.
   const onRoute = dedupeByStation(
     measured.filter((item) => item.tier === "ON_ROUTE"),
   );
@@ -757,12 +763,14 @@ export async function search(
     ),
     referencePrice,
     refPriceSource,
-    expansion: { triggered: false, finalRadiusM: T2_MAX },
+    expansion: { triggered: false, finalRadiusM: 0 },
     warnings,
     stage: "ON_ROUTE",
     distanceNeededForOneResultKm: null,
   });
-  if (onRoute.length > 0) {
+  const selectedDetourDistanceKm =
+    input.includeDetour === true ? input.maxDetourDistanceKm : undefined;
+  if (onRoute.length > 0 && selectedDetourDistanceKm == null) {
     const stage1FailureCount =
       baselineResults.filter((result) => result.route == null).length +
       dedupeByCandidateKey(stage1Internal).length -
@@ -783,12 +791,13 @@ export async function search(
   }
 
   const maxDetourDistanceKm =
-    input.maxDetourDistanceKm ?? DEFAULT_MAX_DETOUR_DISTANCE_KM;
+    selectedDetourDistanceKm ?? DEFAULT_MAX_DETOUR_DISTANCE_KM;
   const maxDetourDistanceM = maxDetourDistanceKm * 1000;
   const detourSearchRadiusMValue = detourSearchRadiusM(maxDetourDistanceM);
 
-  // 경로상 후보가 없어서 STAGE 2에 진입하면 선택 거리 + 3km까지만 넓힌다.
-  // 실제 허용 우회거리는 Valhalla의 ΔD로 최종 확인한다.
+  // 사용자가 우회 거리를 선택했거나 경로상 후보가 없으면 선택 거리 + 3km까지 넓힌다.
+  // 경로상 후보가 없고 명시 선택도 없으면 기존 기본값 5km를 적용한다.
+  // STAGE 1 측정값은 재사용하고, 새 후보만 Valhalla로 추가 측정한다.
   onProgress?.({ type: "progress", step: "EXPAND", radiusM: detourSearchRadiusMValue });
 
   const expandedInternal = await collectInternalCandidates(baseRoutes, {
@@ -799,9 +808,9 @@ export async function search(
     now,
     db,
   });
-  const measuredKeys = new Set(measured.map(candidateKey));
+  const stage1AttemptedKeys = new Set(stage1Internal.map(candidateKey));
   const expansionInternal = expandedInternal.filter(
-    (item) => !measuredKeys.has(candidateKey(item)),
+    (item) => !stage1AttemptedKeys.has(candidateKey(item)),
   );
   const expansionMeasuredResults = await measureCandidates(
     expansionInternal,
@@ -836,14 +845,20 @@ export async function search(
   emitValhallaWarning(failureCount, measured.length);
   onProgress?.({ type: "progress", step: "PRECISE" });
 
+  const onRouteStationIds = new Set(onRoute.map((item) => item.station.id));
   const distanceDropped = measured.filter(
-    (item) => item.detourDistanceM > maxDetourDistanceM,
+    (item) =>
+      item.tier === "DETOUR" &&
+      !onRouteStationIds.has(item.station.id) &&
+      item.detourDistanceM > maxDetourDistanceM,
   );
   // 실제 허용 거리 안에 있고 안전 상한을 넘지 않는 후보는 모두 남긴다.
-  // NetSaving은 추천순 정렬과 카드의 이득/손해 표시 기준이지, 후보 삭제 기준이 아니다.
+  // NetSaving은 카드의 이득/손해 표시 기준이지, 후보 삭제나 티어 우선 정렬 기준이 아니다.
   const detourPool = measured.filter(
     (item) =>
-      item.tier === "DETOUR" && item.detourDistanceM <= maxDetourDistanceM,
+      item.tier === "DETOUR" &&
+      !onRouteStationIds.has(item.station.id) &&
+      item.detourDistanceM <= maxDetourDistanceM,
   );
   const finalDetours = dedupeByStation(detourPool).filter(
     (item) =>
@@ -855,13 +870,16 @@ export async function search(
       }),
   );
   const partialCandidates = finalizeCandidates(
-    finalDetours,
+    dedupeByStation([...onRoute, ...finalDetours]),
     referencePrice,
     input.vehicle,
     input.mode,
     filters.facilities.length > 0,
   );
-  const partialRadiusM = finalRadiusM(partialCandidates);
+  const partialRadiusM = finalDetourRadiusM(partialCandidates);
+  const hasPartialDetourCandidates = partialCandidates.some(
+    (candidate) => candidate.tier === "DETOUR",
+  );
   onProgress?.({
     type: "partial",
     data: {
@@ -869,14 +887,17 @@ export async function search(
       referencePrice,
       refPriceSource,
       expansion: {
-        triggered: partialCandidates.length > 0,
+        triggered: hasPartialDetourCandidates,
         finalRadiusM: partialRadiusM,
       },
       baseRoutes,
     },
   });
-  const candidates = partialCandidates.slice(0, MAX_RESULTS);
-  const radius = finalRadiusM(candidates);
+  const candidates = limitDetourCandidates(partialCandidates);
+  const radius = finalDetourRadiusM(candidates);
+  const hasDetourCandidates = candidates.some(
+    (candidate) => candidate.tier === "DETOUR",
+  );
   const result: SearchResult = {
     searchId: crypto.randomUUID(),
     baseRoute,
@@ -884,7 +905,7 @@ export async function search(
     candidates,
     referencePrice,
     refPriceSource,
-    expansion: { triggered: candidates.length > 0, finalRadiusM: radius },
+    expansion: { triggered: hasDetourCandidates, finalRadiusM: radius },
     warnings,
     stage: "DETOUR",
     distanceNeededForOneResultKm:

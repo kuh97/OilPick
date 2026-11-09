@@ -26,7 +26,10 @@ import {
   filterCandidates,
   recomputeAndSort,
 } from "@/lib/recompute-candidates";
-import { DETOUR_DISTANCE_OPTIONS_KM } from "@/domain/params";
+import {
+  DEFAULT_MAX_DETOUR_DISTANCE_KM,
+  DETOUR_DISTANCE_OPTIONS_KM,
+} from "@/domain/params";
 import {
   distanceMToKm,
   durationSToMin,
@@ -221,11 +224,9 @@ export default function ResultPage() {
   const filters = useSearchStore((s) => s.filters);
   const avoidHighway = useSearchStore((s) => s.avoidHighway);
   const vehicle = useSearchStore((s) => s.vehicle);
-  const maxDetourDistanceKm = useSearchStore((s) => s.maxDetourDistanceKm);
   const mode = useSearchStore((s) => s.mode);
   const setFilters = useSearchStore((s) => s.setFilters);
   const setVehicle = useSearchStore((s) => s.setVehicle);
-  const setMaxDetourDistanceKm = useSearchStore((s) => s.setMaxDetourDistanceKm);
   const setMode = useSearchStore((s) => s.setMode);
   const detourIntent = useSearchStore((s) => s.detourIntent);
   const setDetourIntent = useSearchStore((s) => s.setDetourIntent);
@@ -360,17 +361,25 @@ export default function ResultPage() {
     );
   }, [result, partial, filters, vehicle, referencePrice, mode]);
 
-  // 어느 비교 경로에서든 경로상 후보가 있으면 우회 거리는 적용 대상이 아니다.
-  const isOnRouteStage = result?.stage === "ON_ROUTE";
-
   const hasActiveFilters =
     filters.facilities.length > 0 ||
     filters.brands.length > 0 ||
     filters.kpetroOnly ||
     filters.selfOnly;
+  const resultCandidates = result?.candidates ?? partial?.candidates ?? [];
+  const hasOnRouteCandidates = resultCandidates.some(
+    (candidate) => candidate.tier === "ON_ROUTE",
+  );
+  const canDisableDetour =
+    result?.stage === "ON_ROUTE" || hasOnRouteCandidates;
+  const activeDetourDistanceKm =
+    detourIntent?.maxDetourDistanceKm ??
+    (result?.stage === "DETOUR" ? DEFAULT_MAX_DETOUR_DISTANCE_KM : null);
   const nextDetourDistanceKm =
     DETOUR_DISTANCE_OPTIONS_KM.find(
-      (distanceKm) => distanceKm > maxDetourDistanceKm,
+      (distanceKm) =>
+        activeDetourDistanceKm == null ||
+        distanceKm > activeDetourDistanceKm,
     ) ?? null;
   if (!origin || !destination) {
     return (
@@ -504,15 +513,17 @@ export default function ResultPage() {
                     검색 결과 {displayCandidates.length}곳
                   </span>
                 </div>
-                {!isOnRouteStage && (
-                  <DetourDistanceBar
-                    value={maxDetourDistanceKm}
-                    onChange={(distanceKm) => {
-                      setMaxDetourDistanceKm(distanceKm);
+                <DetourDistanceBar
+                  value={activeDetourDistanceKm}
+                  allowNone={canDisableDetour}
+                  onChange={(distanceKm) => {
+                    if (distanceKm == null) {
+                      setDetourIntent(null);
+                    } else {
                       setDetourIntent({ maxDetourDistanceKm: distanceKm });
-                    }}
-                  />
-                )}
+                    }
+                  }}
+                />
                 <div className="flex items-center justify-between gap-2">
                   <ModeTabs value={mode} onChange={setMode} />
                   {renderFilterSheet()}
@@ -536,13 +547,13 @@ export default function ResultPage() {
                   ) : nextDetourDistanceKm != null ? (
                     <>
                       <p className="text-sm text-text-body">
-                        허용 우회 거리({maxDetourDistanceKm}km) 안에 드는 주유소가
-                        없습니다.
+                        {activeDetourDistanceKm == null
+                          ? "경로상에서 주유소를 찾지 못했습니다. 우회 범위를 선택해 더 찾아볼 수 있습니다."
+                          : `허용 우회 거리(${activeDetourDistanceKm}km) 안에 드는 주유소가 없습니다.`}
                       </p>
                       <Button
                         variant="outline"
                         onClick={() => {
-                          setMaxDetourDistanceKm(nextDetourDistanceKm);
                           setDetourIntent({
                             maxDetourDistanceKm: nextDetourDistanceKm,
                           });

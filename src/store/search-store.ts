@@ -13,7 +13,6 @@ import {
   DEFAULT_EFFICIENCY,
   DEFAULT_REFUEL_AMOUNT,
   V_TIME,
-  DEFAULT_MAX_DETOUR_DISTANCE_KM,
 } from "@/domain/params";
 import type {
   Fuel,
@@ -60,8 +59,6 @@ interface SearchState {
   /** 연비를 사용자가 직접 고쳐둔 상태인지 — true면 연료를 바꿔도 연비를 덮어쓰지 않는다.
    * "현재 연료의 기본 연비와 다른가"로 판정하므로, 기본값으로 되돌리면 다시 자동 추종한다. */
   efficiencyTouched: boolean;
-  /** 사용자가 현재 경로에서 허용하는 최대 우회 거리(km) — 새 경로에서는 기본값으로 시작한다. */
-  maxDetourDistanceKm: number;
   mode: Mode;
   /**
    * 고속도로·자동차전용도로 회피 — persist(홈 화면 설정, `fuel`과 같은 부류). 바뀌면
@@ -104,7 +101,6 @@ interface SearchState {
   setFuel: (fuel: Fuel) => void;
   setFilters: (filters: WireFilters) => void;
   setVehicle: (vehicle: Partial<WireVehicle>) => void;
-  setMaxDetourDistanceKm: (distanceKm: number) => void;
   setMode: (mode: Mode) => void;
   setAvoidHighway: (avoid: boolean) => void;
   setDetourIntent: (intent: { maxDetourDistanceKm: number } | null) => void;
@@ -168,7 +164,6 @@ export const useSearchStore = create<SearchState>()(
       filters: DEFAULT_FILTERS,
       vehicle: defaultVehicleFor("GASOLINE"),
       efficiencyTouched: false,
-      maxDetourDistanceKm: DEFAULT_MAX_DETOUR_DISTANCE_KM,
       mode: "balanced",
       avoidHighway: false,
       detourIntent: null,
@@ -191,14 +186,12 @@ export const useSearchStore = create<SearchState>()(
         set({
           origin: p,
           nearbyOrigin: null,
-          maxDetourDistanceKm: DEFAULT_MAX_DETOUR_DISTANCE_KM,
           detourIntent: null,
         }),
       setDestination: (p) =>
         set({
           destination: p,
           nearbyOrigin: null,
-          maxDetourDistanceKm: DEFAULT_MAX_DETOUR_DISTANCE_KM,
           detourIntent: null,
         }),
       setNearbyOrigin: (p) => set({ nearbyOrigin: p }),
@@ -212,7 +205,6 @@ export const useSearchStore = create<SearchState>()(
         const next = { ...get().vehicle, ...vehicle };
         set({ vehicle: next, efficiencyTouched: next.efficiency !== DEFAULT_EFFICIENCY[get().fuel] });
       },
-      setMaxDetourDistanceKm: (distanceKm) => set({ maxDetourDistanceKm: distanceKm }),
       setMode: (mode) => set({ mode }),
       setAvoidHighway: (avoid) => set({ avoidHighway: avoid }),
       setDetourIntent: (intent) => set({ detourIntent: intent }),
@@ -265,7 +257,6 @@ export const useSearchStore = create<SearchState>()(
           streamWarnings: [],
           error: null,
           detourIntent: null,
-          maxDetourDistanceKm: DEFAULT_MAX_DETOUR_DISTANCE_KM,
           nearbyOrigin: null,
           lastSearchKey: null,
         }),
@@ -277,7 +268,6 @@ export const useSearchStore = create<SearchState>()(
           destination: null,
           nearbyOrigin: null,
           detourIntent: null,
-          maxDetourDistanceKm: DEFAULT_MAX_DETOUR_DISTANCE_KM,
           isJsonFallback: false,
         }),
     }),

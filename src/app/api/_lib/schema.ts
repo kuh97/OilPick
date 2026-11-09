@@ -33,20 +33,32 @@ export const FiltersSchema = z.object({
   selfOnly: z.boolean(),
 });
 
-export const SearchRequestSchema = z.object({
-  origin: PointSchema,
-  destination: PointSchema,
-  fuel: FuelSchema,
-  filters: FiltersSchema,
-  vehicle: VehicleSchema,
-  mode: ModeSchema,
-  /** 고속도로·자동차전용도로 회피 — 경로 자체가 바뀌는 검색 조건 (PRODUCT.md §5.1) */
-  avoidHighway: z.boolean().default(false),
-  /** 기존 클라이언트 호환 필드 — 서버는 경로상 후보가 없으면 STAGE 2를 실행한다 (§6.6) */
-  includeDetour: z.boolean().default(false),
-  /** "허용 우회 거리"(km) — 검색 파라미터, STAGE 2 전용 */
-  maxDetourDistanceKm: z.union([z.literal(3), z.literal(5), z.literal(10), z.literal(15)]).optional(),
-});
+export const SearchRequestSchema = z
+  .object({
+    origin: PointSchema,
+    destination: PointSchema,
+    fuel: FuelSchema,
+    filters: FiltersSchema,
+    vehicle: VehicleSchema,
+    mode: ModeSchema,
+    /** 고속도로·자동차전용도로 회피 — 경로 자체가 바뀌는 검색 조건 (PRODUCT.md §5.1) */
+    avoidHighway: z.boolean().default(false),
+    /** 사용자가 우회 거리 옵션을 선택했는가. false여도 경로상 0건이면 기본 5km로 확장한다 (§6.6) */
+    includeDetour: z.boolean().default(false),
+    /** "허용 우회 거리"(km) — includeDetour=true일 때 사용하는 검색 파라미터 */
+    maxDetourDistanceKm: z
+      .union([z.literal(3), z.literal(5), z.literal(10), z.literal(15)])
+      .optional(),
+  })
+  .superRefine((value, context) => {
+    if (value.includeDetour && value.maxDetourDistanceKm == null) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["maxDetourDistanceKm"],
+        message: "우회 탐색에는 허용 우회 거리가 필요합니다.",
+      });
+    }
+  });
 export type SearchRequest = z.infer<typeof SearchRequestSchema>;
 
 /**

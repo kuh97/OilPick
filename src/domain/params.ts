@@ -16,7 +16,7 @@ export const ON_ROUTE_PREFILTER_MAX_M = 300; // m
 export const T2_MAX = 3_000; // m — P_ref 표본 정의 전용 (§6.4)
 export const T3_MAX = 15_000; // m — 우회 탐색 상한 (회랑 bbox 마진)
 export const DETOUR_DISTANCE_OPTIONS_KM = [3, 5, 10, 15] as const;
-export const DEFAULT_MAX_DETOUR_DISTANCE_KM = 5;
+export const DEFAULT_MAX_DETOUR_DISTANCE_KM = 5; // km — 경로상 후보가 없을 때 자동 적용
 export const DETOUR_SEARCH_BUFFER_M = 3_000; // m — 실제 허용 거리 밖 후보 누락 방지 여유
 
 // ─── 기준가 (§6.5) ─────────────────────────────────────────────────────────

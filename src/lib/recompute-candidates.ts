@@ -86,8 +86,9 @@ export function recomputeCandidate(
  * 재계산 + 모드 기준 재정렬까지 한 번에. referencePrice가 없으면(A14) 가격순.
  *
  * 서버(`recommendation-service.finalizeCandidates`)와 **같은 정렬 규칙**이어야 한다.
- * 현재 검색 결과는 모두 `precise:false`로 시작하지만, 이미 실측값을 가진 호출자가
- * 이 함수를 재사용할 때도 실측 후보 우선 정렬을 유지한다.
+ * 경로상·우회 티어는 배지로만 표시하고, 전체 후보를 선택한 모드 점수로 정렬한다.
+ * 현재 검색 결과는 모두 `precise:false`로 시작하지만, 점수가 같을 때는 이미 Kakao로
+ * 확인된 후보를 안정적인 보조 기준으로 먼저 보여준다.
  */
 export function recomputeAndSort(
   candidates: WireCandidate[],
@@ -99,14 +100,13 @@ export function recomputeAndSort(
     recomputeCandidate(c, vehicle, referencePrice),
   );
   return [...recomputed].sort((a, b) => {
-    // 실측으로 확인된 경로상 후보가 함께 들어온 경우에만 비용과 무관하게 먼저 보여준다.
-    const aOnRoute = a.tier === "ON_ROUTE";
-    const bOnRoute = b.tier === "ON_ROUTE";
-    if (aOnRoute !== bOnRoute) return Number(bOnRoute) - Number(aOnRoute);
+    const byMode =
+      referencePrice == null
+        ? a.price - b.price
+        : scoreByMode(a.scores, mode) - scoreByMode(b.scores, mode);
+    if (byMode !== 0) return byMode;
     const byPrecise = Number(b.detour.precise) - Number(a.detour.precise);
     if (byPrecise !== 0) return byPrecise;
-    return referencePrice == null
-      ? a.price - b.price
-      : scoreByMode(a.scores, mode) - scoreByMode(b.scores, mode);
+    return a.id.localeCompare(b.id);
   });
 }

@@ -64,6 +64,7 @@ console.log(`출발  ${origin.name} (${origin.address})`);
 console.log(`도착  ${destination.name} (${destination.address})`);
 console.log(`기본경로  ${(base.distanceM / 1000).toFixed(1)}km / ${(base.durationS / 60).toFixed(0)}분`);
 
+// 경로상 후보가 없을 때 자동 적용하는 기본 5km를 대표 표본으로 검증한다.
 const searchRadiusM = detourSearchRadiusM(DEFAULT_MAX_DETOUR_DISTANCE_KM * 1000);
 
 const collected = await collectStations({

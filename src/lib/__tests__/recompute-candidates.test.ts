@@ -120,9 +120,8 @@ describe("recomputeAndSort", () => {
   });
 });
 
-// 서버(recommendation-service.finalizeCandidates)와 같은 규칙이어야 한다 —
-// 여기서만 빠뜨리면 모드 탭을 누르는 순간 추정치가 다시 실측치를 이긴다.
-describe("recomputeAndSort — 실측군 우선 (AGENTS.md §5 불변식 4)", () => {
+// 서버(recommendation-service.finalizeCandidates)와 같은 규칙이어야 한다.
+describe("recomputeAndSort — 전체 후보 모드 정렬", () => {
   const measuredButPricey = candidate({
     id: "MEASURED",
     price: 1800,
@@ -135,26 +134,35 @@ describe("recomputeAndSort — 실측군 우선 (AGENTS.md §5 불변식 4)", ()
   });
   const vehicle = { efficiency: 12, refuelAmount: 45, timeValue: 200 };
 
-  it("점수가 나빠도 실측 후보가 추정 후보보다 위에 온다", () => {
-    for (const mode of ["balanced", "minCost", "minDistance"] as const) {
-      const sorted = recomputeAndSort([estimatedAndCheap, measuredButPricey], vehicle, 1900, mode);
-      expect(sorted.map((c) => c.id)).toEqual(["MEASURED", "ESTIMATED"]);
-    }
+  it("실측 여부보다 선택한 모드 점수를 먼저 적용한다", () => {
+    const sorted = recomputeAndSort(
+      [measuredButPricey, estimatedAndCheap],
+      vehicle,
+      1900,
+      "minCost",
+    );
+    expect(sorted.map((c) => c.id)).toEqual(["ESTIMATED", "MEASURED"]);
   });
 
-  it("referencePrice가 없어(A14) 가격순으로 갈 때도 실측군이 먼저다", () => {
+  it("referencePrice가 없으면 실측 여부와 무관하게 가격순이다", () => {
     const sorted = recomputeAndSort([estimatedAndCheap, measuredButPricey], vehicle, null, "balanced");
-    expect(sorted.map((c) => c.id)).toEqual(["MEASURED", "ESTIMATED"]);
+    expect(sorted.map((c) => c.id)).toEqual(["ESTIMATED", "MEASURED"]);
   });
 
-  it("같은 군 안에서는 모드 점수 순으로 정렬한다", () => {
-    const cheap = candidate({ id: "CHEAP", price: 1600, detour: { precise: true, distanceM: 0, durationS: 0 } });
-    const pricey = candidate({ id: "PRICEY", price: 1800, detour: { precise: true, distanceM: 0, durationS: 0 } });
-    const sorted = recomputeAndSort([pricey, cheap], vehicle, 1900, "minCost");
-    expect(sorted.map((c) => c.id)).toEqual(["CHEAP", "PRICEY"]);
+  it("점수가 같을 때만 Kakao 확인 후보를 보조 기준으로 먼저 둔다", () => {
+    const measured = candidate({
+      id: "MEASURED_TIE",
+      detour: { precise: true, distanceM: 0, durationS: 0 },
+    });
+    const estimated = candidate({
+      id: "ESTIMATED_TIE",
+      detour: { precise: false, distanceM: 0, durationS: 0 },
+    });
+    const sorted = recomputeAndSort([estimated, measured], vehicle, 1900, "minCost");
+    expect(sorted.map((c) => c.id)).toEqual(["MEASURED_TIE", "ESTIMATED_TIE"]);
   });
 
-  it("경로상 후보는 더 싼 우회 후보보다 먼저 보여준다", () => {
+  it("최소비용은 티어와 무관하게 더 싼 우회 후보를 먼저 보여준다", () => {
     const onRoute = candidate({
       id: "ON_ROUTE",
       price: 1900,
@@ -169,7 +177,23 @@ describe("recomputeAndSort — 실측군 우선 (AGENTS.md §5 불변식 4)", ()
     });
 
     const sorted = recomputeAndSort([cheapDetour, onRoute], { efficiency: 10, refuelAmount: 45, timeValue: 200 }, 1900, "minCost");
-    expect(sorted.map((c) => c.id)).toEqual(["ON_ROUTE", "CHEAP_DETOUR"]);
+    expect(sorted.map((c) => c.id)).toEqual(["CHEAP_DETOUR", "ON_ROUTE"]);
+  });
+
+  it("최단거리는 티어 강제가 없어도 우회량이 작은 경로상 후보가 먼저다", () => {
+    const onRoute = candidate({
+      id: "ON_ROUTE",
+      tier: "ON_ROUTE",
+      detour: { precise: false, distanceM: 0, durationS: 0 },
+    });
+    const detour = candidate({
+      id: "DETOUR",
+      tier: "DETOUR",
+      detour: { precise: false, distanceM: 3000, durationS: 300 },
+    });
+
+    const sorted = recomputeAndSort([detour, onRoute], vehicle, 1900, "minDistance");
+    expect(sorted.map((c) => c.id)).toEqual(["ON_ROUTE", "DETOUR"]);
   });
 });
 

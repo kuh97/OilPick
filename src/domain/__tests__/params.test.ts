@@ -16,7 +16,7 @@ describe("params — 상수 불변식", () => {
     expect(P.P_REF_MIN_BASE).toBeLessThanOrEqual(P.T3_MAX);
   });
 
-  it("우회 거리 선택지는 3·5·10·15km이고 기본값은 5km이다", () => {
+  it("우회 거리 선택지는 3·5·10·15km이다", () => {
     expect(P.DETOUR_DISTANCE_OPTIONS_KM).toEqual([3, 5, 10, 15]);
     expect(P.DEFAULT_MAX_DETOUR_DISTANCE_KM).toBe(5);
     expect(P.DETOUR_SEARCH_BUFFER_M).toBe(3_000);

@@ -160,7 +160,7 @@ export interface ExpansionInfo {
   finalRadiusM: number; // 최종 목록에 남은 우회 후보의 최대 d_perp (없으면 0)
 }
 
-/** `ON_ROUTE` = STAGE 1에서 종료(배너 OFF), `DETOUR` = STAGE 2까지 감 (§6.6). */
+/** `ON_ROUTE` = 경로상만 조회, `DETOUR` = 사용자 선택으로 우회 탐색까지 실행 (§6.6). */
 export type SearchStage = "ON_ROUTE" | "DETOUR";
 
 export interface SearchResult {
@@ -212,8 +212,8 @@ export interface SearchInput {
    * 다시 조회해야 한다 (PRODUCT.md §5.1).
    */
   avoidHighway: boolean;
-  /** 이전 요청과의 호환 필드. 경로상 후보가 하나라도 있으면 STAGE 2는 실행하지 않는다. */
+  /** 사용자가 우회 거리 옵션을 선택했는가. false여도 경로상 0건이면 기본 5km로 확장한다. */
   includeDetour?: boolean;
-  /** "허용 우회 거리"(km) — 표시 필터가 아니라 검색 파라미터. STAGE 2 전용. */
+  /** "허용 우회 거리"(km) — includeDetour=true일 때 사용하는 검색 파라미터. */
   maxDetourDistanceKm?: number;
 }

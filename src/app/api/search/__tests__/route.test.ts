@@ -66,6 +66,13 @@ describe("POST /api/search — 요청 검증", () => {
     expect(body.code).toBe("INVALID_REQUEST");
     expect(searchMock).not.toHaveBeenCalled();
   });
+
+  it("우회 탐색을 요청하면서 거리를 생략하면 400을 반환한다", async () => {
+    const res = await POST(request({ ...validBody(), includeDetour: true }));
+
+    expect(res.status).toBe(400);
+    expect(searchMock).not.toHaveBeenCalled();
+  });
 });
 
 describe("POST /api/search — Accept: application/json 폴백", () => {
@@ -96,6 +103,27 @@ describe("POST /api/search — Accept: application/json 폴백", () => {
     searchMock.mockResolvedValue(fakeResult());
     await POST(request({ ...validBody(), avoidHighway: true }, "application/json"));
     expect(searchMock.mock.calls.at(-1)![0].avoidHighway).toBe(true);
+  });
+
+  it("선택한 우회 거리와 우회 탐색 의도를 그대로 전달한다", async () => {
+    searchMock.mockResolvedValue(fakeResult());
+    await POST(
+      request(
+        {
+          ...validBody(),
+          includeDetour: true,
+          maxDetourDistanceKm: 10,
+        },
+        "application/json",
+      ),
+    );
+
+    expect(searchMock.mock.calls.at(-1)![0]).toEqual(
+      expect.objectContaining({
+        includeDetour: true,
+        maxDetourDistanceKm: 10,
+      }),
+    );
   });
 
   it("에러는 500을 반환한다", async () => {

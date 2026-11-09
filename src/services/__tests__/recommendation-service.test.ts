@@ -101,6 +101,14 @@ function baseInput(overrides: Partial<SearchInput> = {}): SearchInput {
   };
 }
 
+function detourInput(overrides: Partial<SearchInput> = {}): SearchInput {
+  return baseInput({
+    includeDetour: true,
+    maxDetourDistanceKm: 5,
+    ...overrides,
+  });
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   FAKE_DEPS.redis = fakeRedis();
@@ -162,7 +170,30 @@ describe("search — Valhalla map-match와 후보 경로", () => {
     ]);
   });
 
-  it("경로상 후보가 없을 때만 T3 범위로 확장한다", async () => {
+  it("우회 거리를 선택하지 않아도 경로상 후보가 없으면 기본 5km로 자동 확장한다", async () => {
+    const margins: number[] = [];
+    collectStationsMock.mockImplementation(async ({ marginM }) => {
+      margins.push(marginM);
+      if (marginM === 8_000) {
+        return {
+          stations: [
+            collected({ id: "AUTO_DETOUR", location: wgs84(37.05, 127.15), price: 1500 }),
+          ],
+        };
+      }
+      return { stations: [] };
+    });
+
+    const result = await search(baseInput(), undefined, FAKE_DEPS);
+
+    expect(margins).toEqual([ON_ROUTE_PREFILTER_MAX_M, T2_MAX, 8_000]);
+    expect(result.stage).toBe("DETOUR");
+    expect(result.candidates.map((candidate) => candidate.station.id)).toEqual([
+      "AUTO_DETOUR",
+    ]);
+  });
+
+  it("우회 거리를 선택하면 T3 범위로 확장한다", async () => {
     const margins: number[] = [];
     collectStationsMock.mockImplementation(async ({ marginM }) => {
       margins.push(marginM);
@@ -176,13 +207,114 @@ describe("search — Valhalla map-match와 후보 경로", () => {
       return { stations: [] };
     });
 
-    const result = await search(baseInput(), undefined, FAKE_DEPS);
+    const result = await search(detourInput(), undefined, FAKE_DEPS);
 
     expect(margins).toEqual([ON_ROUTE_PREFILTER_MAX_M, T2_MAX, 8_000]);
     expect(result.stage).toBe("DETOUR");
     expect(result.candidates.map((candidate) => candidate.station.id)).toEqual([
       "EXPANDED",
     ]);
+  });
+
+  it("경로상 측정값은 재사용하고 새 우회 후보만 측정해 한 목록으로 합친다", async () => {
+    const onRoute = collected({
+      id: "ON_ROUTE",
+      location: wgs84(37.0, 127.15),
+      price: 1900,
+    });
+    const detour = collected({
+      id: "DETOUR",
+      location: wgs84(37.05, 127.15),
+      price: 1500,
+    });
+    collectStationsMock.mockImplementation(async ({ marginM }) => ({
+      stations: marginM === 8_000 ? [onRoute, detour] : [onRoute],
+    }));
+
+    const result = await search(
+      detourInput({ mode: "minCost" }),
+      undefined,
+      FAKE_DEPS,
+    );
+
+    expect(fetchValhallaRouteMock).toHaveBeenCalledTimes(2);
+    expect(
+      fetchValhallaRouteMock.mock.calls.map(([options]) => options.waypoint),
+    ).toEqual([onRoute.station.location, detour.station.location]);
+    expect(result.stage).toBe("DETOUR");
+    expect(result.candidates).toHaveLength(2);
+    expect(result.candidates.map((candidate) => candidate.station.id)).toEqual([
+      "DETOUR",
+      "ON_ROUTE",
+    ]);
+    expect(result.candidates.map((candidate) => candidate.tier)).toEqual([
+      "DETOUR",
+      "ON_ROUTE",
+    ]);
+  });
+
+  it("STAGE 1에서 이미 시도한 후보는 측정 실패 후 확장 단계에서 중복 측정하지 않는다", async () => {
+    const attempted = collected({ id: "ATTEMPTED" });
+    collectStationsMock.mockResolvedValue({ stations: [attempted] });
+    fetchValhallaRouteMock.mockRejectedValue(new Error("route unavailable"));
+
+    const result = await search(detourInput(), undefined, FAKE_DEPS);
+
+    expect(fetchValhallaRouteMock).toHaveBeenCalledTimes(1);
+    expect(result.candidates).toEqual([]);
+  });
+
+  it("우회 후보가 없으면 partial 우회 배너 플래그를 켜지 않는다", async () => {
+    collectStationsMock.mockResolvedValue({
+      stations: [collected({ id: "ON_ROUTE" })],
+    });
+    const events: ProgressEvent[] = [];
+
+    const result = await search(
+      detourInput(),
+      (event) => events.push(event),
+      FAKE_DEPS,
+    );
+
+    const partial = events.find((event) => event.type === "partial");
+    expect(partial).toMatchObject({
+      type: "partial",
+      data: {
+        expansion: { triggered: false, finalRadiusM: 0 },
+      },
+    });
+    expect(result.expansion).toEqual({ triggered: false, finalRadiusM: 0 });
+  });
+
+  it("혼합 목록에서도 경로상 후보는 전부 보존하고 우회 후보에만 상한을 적용한다", async () => {
+    const onRoute = [
+      collected({ id: "ON_1", location: wgs84(37.0, 127.1), price: 1900 }),
+      collected({ id: "ON_2", location: wgs84(37.0, 127.2), price: 1910 }),
+    ];
+    const detours = Array.from({ length: 16 }, (_, index) =>
+      collected({
+        id: `DETOUR_${index}`,
+        location: wgs84(37.05, 127.05 + index * 0.01),
+        price: 1500 + index,
+      }),
+    );
+    collectStationsMock.mockImplementation(async ({ marginM }) => ({
+      stations: marginM === 8_000 ? [...onRoute, ...detours] : onRoute,
+    }));
+
+    const result = await search(
+      detourInput({ mode: "minCost" }),
+      undefined,
+      FAKE_DEPS,
+    );
+
+    expect(result.candidates.filter((candidate) => candidate.tier === "DETOUR"))
+      .toHaveLength(15);
+    expect(
+      result.candidates
+        .filter((candidate) => candidate.tier === "ON_ROUTE")
+        .map((candidate) => candidate.station.id),
+    ).toEqual(["ON_1", "ON_2"]);
   });
 
   it("STAGE 2 후보는 Valhalla ΔT·ΔD가 작아도 우회로 표시한다", async () => {
@@ -205,7 +337,7 @@ describe("search — Valhalla map-match와 후보 경로", () => {
       durationS: BASE_ROUTE.durationS + 60,
     });
 
-    const result = await search(baseInput(), undefined, FAKE_DEPS);
+    const result = await search(detourInput(), undefined, FAKE_DEPS);
 
     expect(result.stage).toBe("DETOUR");
     expect(result.expansion.triggered).toBe(true);
@@ -221,7 +353,7 @@ describe("search — Valhalla map-match와 후보 경로", () => {
       stations: [collected({ id: "DETOUR", location: wgs84(37.003, 127.15) })],
     });
 
-    const result = await search(baseInput(), undefined, FAKE_DEPS);
+    const result = await search(detourInput(), undefined, FAKE_DEPS);
 
     expect(result.stage).toBe("DETOUR");
     expect(result.candidates[0]).toMatchObject({
@@ -243,7 +375,7 @@ describe("search — Valhalla map-match와 후보 경로", () => {
       },
     ]);
 
-    const result = await search(baseInput(), undefined, FAKE_DEPS);
+    const result = await search(detourInput(), undefined, FAKE_DEPS);
 
     expect(result.stage).toBe("DETOUR");
     expect(result.candidates).toHaveLength(1);
@@ -335,7 +467,11 @@ describe("search — STAGE 2 실제 우회 게이트", () => {
       durationS: BASE_ROUTE.durationS + 1_800,
     });
 
-    const result = await search(baseInput({ maxDetourDistanceKm: 3 }), undefined, FAKE_DEPS);
+    const result = await search(
+      detourInput({ maxDetourDistanceKm: 3 }),
+      undefined,
+      FAKE_DEPS,
+    );
 
     expect(result.stage).toBe("DETOUR");
     expect(result.candidates).toEqual([]);
@@ -347,7 +483,7 @@ describe("search — STAGE 2 실제 우회 게이트", () => {
       stations: [collected({ id: "EXPENSIVE", location: wgs84(37.05, 127.15), price: 2500 })],
     });
 
-    const result = await search(baseInput(), undefined, FAKE_DEPS);
+    const result = await search(detourInput(), undefined, FAKE_DEPS);
 
     expect(fetchValhallaRouteMock).toHaveBeenCalledTimes(1);
     expect(result.candidates).toHaveLength(1);
@@ -366,21 +502,29 @@ describe("search — STAGE 2 실제 우회 게이트", () => {
       durationS: BASE_ROUTE.durationS + 600,
     });
 
-    const result = await search(baseInput({ maxDetourDistanceKm: 10 }), undefined, FAKE_DEPS);
+    const result = await search(
+      detourInput({ maxDetourDistanceKm: 10 }),
+      undefined,
+      FAKE_DEPS,
+    );
 
     expect(result.candidates).toHaveLength(1);
     expect(result.candidates[0].netSaving).toBeLessThan(0);
   });
 
-  it("순절감액이 양수인 우회 후보를 손해 후보보다 먼저 보여준다", async () => {
+  it("우회 후보도 티어·추천 게이트 없이 선택 모드 점수로 정렬한다", async () => {
     collectStationsMock.mockResolvedValue({
       stations: [
-        collected({ id: "CHEAP", price: 1700 }),
-        collected({ id: "EXPENSIVE", price: 2500 }),
+        collected({ id: "CHEAP", location: wgs84(37.05, 127.1), price: 1700 }),
+        collected({ id: "EXPENSIVE", location: wgs84(37.05, 127.2), price: 2500 }),
       ],
     });
 
-    const result = await search(baseInput({ maxDetourDistanceKm: 10 }), undefined, FAKE_DEPS);
+    const result = await search(
+      detourInput({ maxDetourDistanceKm: 10, mode: "minCost" }),
+      undefined,
+      FAKE_DEPS,
+    );
 
     expect(result.candidates.map((candidate) => candidate.station.id)).toEqual([
       "CHEAP",
@@ -428,8 +572,8 @@ describe("search — 기존 API·진행 계약", () => {
       stations: [collected({ id: "A1", location: wgs84(37.05, 127.15), price: 1500 })],
     });
 
-    const withCallback = await search(baseInput(), () => {}, FAKE_DEPS);
-    const withoutCallback = await search(baseInput(), undefined, FAKE_DEPS);
+    const withCallback = await search(detourInput(), () => {}, FAKE_DEPS);
+    const withoutCallback = await search(detourInput(), undefined, FAKE_DEPS);
     const { searchId: searchIdA, ...a } = withCallback;
     const { searchId: searchIdB, ...b } = withoutCallback;
     void searchIdA;
@@ -444,7 +588,7 @@ describe("search — 기존 API·진행 계약", () => {
     });
     const events: ProgressEvent[] = [];
 
-    await search(baseInput(), (event) => events.push(event), FAKE_DEPS);
+    await search(detourInput(), (event) => events.push(event), FAKE_DEPS);
 
     expect(events.filter((event) => event.type === "progress").map((event) => event.step)).toEqual([
       "ROUTE",
