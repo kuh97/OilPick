@@ -134,8 +134,8 @@ function FeedbackCard({
                     type="button"
                     role="menuitemradio"
                     aria-checked={feedback.status === option.value}
-                    className={`flex w-full items-center rounded-lg px-3 py-2 text-left text-sm transition-colors hover:bg-muted ${
-                      feedback.status === option.value ? "bg-muted font-semibold text-foreground" : "text-muted-foreground"
+                    className={`flex w-full items-center rounded-lg px-3 py-2 text-left text-sm transition-colors hover:bg-route-sky ${
+                      feedback.status === option.value ? "bg-route-sky font-semibold text-route-strong" : "text-muted-foreground"
                     }`}
                     onClick={() => {
                       setIsStatusMenuOpen(false);

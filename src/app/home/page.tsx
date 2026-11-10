@@ -312,7 +312,7 @@ export default function HomePage() {
                   >
                     <button
                       type="button"
-                      className="flex min-w-0 max-w-full w-full items-center gap-3 px-4 py-3 text-left text-sm transition-colors hover:bg-muted/40 active:bg-muted/60"
+                      className="flex min-w-0 max-w-full w-full items-center gap-3 px-4 py-3 text-left text-sm transition-colors hover:bg-route-sky active:bg-route-sky"
                       onClick={() => applyRecent(entry)}
                     >
                       <HistoryIcon

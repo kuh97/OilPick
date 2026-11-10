@@ -156,7 +156,7 @@ export function NearbyMap({
     return (
       <div
         className={cn(
-          "flex h-72 items-center justify-center bg-muted text-sm text-muted-foreground",
+          "flex h-72 items-center justify-center bg-route-sky/60 text-sm text-muted-foreground",
           className,
         )}
       >
@@ -169,7 +169,7 @@ export function NearbyMap({
     return (
       <div
         className={cn(
-          "flex h-72 items-center justify-center bg-muted px-4 text-center text-sm text-destructive",
+          "flex h-72 items-center justify-center bg-route-sky/60 px-4 text-center text-sm text-destructive",
           className,
         )}
       >
@@ -238,7 +238,7 @@ export function NearbyMap({
         type="button"
         aria-label="내 위치로 돌아가기"
         onClick={recenterMap}
-        className="absolute bottom-3 right-3 z-10 flex size-10 items-center justify-center rounded-full border border-border bg-background text-foreground shadow-route-md transition-colors hover:bg-muted active:scale-95"
+        className="absolute bottom-3 right-3 z-10 flex size-10 items-center justify-center rounded-full border border-border bg-surface text-foreground shadow-route-md transition-colors hover:bg-route-sky hover:text-route-strong active:scale-95"
       >
         <LocateFixed className="size-5" aria-hidden="true" />
       </button>

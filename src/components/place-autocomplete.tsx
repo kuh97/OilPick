@@ -71,7 +71,7 @@ export function PlaceAutocompleteInput({
     <div
       className={cn(
         "relative",
-        bare && "transition-colors hover:bg-muted/40 focus-within:bg-muted/40",
+        bare && "transition-colors hover:bg-route-sky/60 focus-within:bg-route-sky/60",
         barePosition === "top" && "rounded-t-[calc(var(--radius-card)-1px)]",
         barePosition === "bottom" && "rounded-b-[calc(var(--radius-card)-1px)]",
       )}
@@ -159,7 +159,7 @@ export function PlaceAutocompleteInput({
             <li key={`${p.lat}-${p.lng}-${p.name}`}>
               <button
                 type="button"
-                className="block w-full px-3 py-2 text-left hover:bg-muted"
+                className="block w-full px-3 py-2 text-left hover:bg-route-sky"
                 onMouseDown={(e) => e.preventDefault()} // blur보다 먼저 click이 먹도록
                 onClick={() => {
                   onChange({ lat: p.lat, lng: p.lng, name: p.name });

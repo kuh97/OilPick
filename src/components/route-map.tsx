@@ -63,7 +63,7 @@ export function RouteMap({
     return (
       <div
         className={cn(
-          "flex h-56 items-center justify-center rounded-lg bg-muted text-sm text-muted-foreground",
+          "flex h-56 items-center justify-center rounded-lg bg-route-sky/60 text-sm text-muted-foreground",
           className,
         )}
       >
@@ -75,7 +75,7 @@ export function RouteMap({
     return (
       <div
         className={cn(
-          "flex h-56 items-center justify-center rounded-lg bg-muted text-sm text-destructive",
+          "flex h-56 items-center justify-center rounded-lg bg-route-sky/60 text-sm text-destructive",
           className,
         )}
       >

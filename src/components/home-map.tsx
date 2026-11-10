@@ -207,7 +207,7 @@ export function HomeMap({
     return (
       <div
         className={cn(
-          "flex items-center justify-center rounded-lg bg-muted text-sm text-muted-foreground",
+          "flex items-center justify-center rounded-lg bg-route-sky/60 text-sm text-muted-foreground",
           className,
         )}
       >
@@ -219,7 +219,7 @@ export function HomeMap({
     return (
       <div
         className={cn(
-          "flex items-center justify-center rounded-lg bg-muted text-sm text-destructive",
+          "flex items-center justify-center rounded-lg bg-route-sky/60 text-sm text-destructive",
           className,
         )}
       >
@@ -291,7 +291,7 @@ export function HomeMap({
           aria-label="내 현재 위치 보기"
           disabled={locating}
           onClick={locateMe}
-          className="absolute bottom-2 right-2 z-10 flex size-8 items-center justify-center rounded-full border border-border bg-background shadow-sm disabled:opacity-50"
+          className="absolute bottom-2 right-2 z-10 flex size-8 items-center justify-center rounded-full border border-border bg-surface shadow-sm transition-colors hover:bg-route-sky disabled:opacity-50"
         >
           <LocateFixed className="size-4" />
         </button>

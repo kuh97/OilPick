@@ -116,9 +116,9 @@ html[data-mobile-ua] [data-desktop-only] {
   --oilpick-route-amber: var(--oilpick-warning);
 
   /* Neutral and semantic colors */
-  --oilpick-canvas: #f4f5f7;
+  --oilpick-canvas: #ffffff;
   --oilpick-surface: #ffffff;
-  --oilpick-surface-quiet: #f1f5f9;
+  --oilpick-surface-quiet: #ffffff;
   --oilpick-border: #e2e8f0;
   --oilpick-text-strong: #0f172a;
   --oilpick-text-body: #64748b;
@@ -164,12 +164,12 @@ html[data-mobile-ua] [data-desktop-only] {
   --popover-foreground: var(--oilpick-text-strong);
   --primary: var(--oilpick-brand-amber);
   --primary-foreground: var(--oilpick-brand-amber-foreground);
-  --secondary: var(--oilpick-surface-quiet);
-  --secondary-foreground: var(--oilpick-text-strong);
+  --secondary: var(--oilpick-route-sky);
+  --secondary-foreground: var(--oilpick-route-strong);
   --muted: var(--oilpick-surface-quiet);
   --muted-foreground: var(--oilpick-text-body);
-  --accent: var(--oilpick-surface-quiet);
-  --accent-foreground: var(--oilpick-text-strong);
+  --accent: var(--oilpick-route-sky);
+  --accent-foreground: var(--oilpick-route-strong);
   --destructive: var(--oilpick-danger);
   --destructive-foreground: var(--oilpick-surface);
   --border: var(--oilpick-border);
@@ -199,19 +199,18 @@ html[data-mobile-ua] [data-desktop-only] {
   --warning-foreground: var(--oilpick-warning);
 }
 
-/* Product pages share one quiet top-to-canvas transition; the onboarding hero stays separate. */
+/* Product pages use a white canvas; the onboarding hero stays separate. */
 body {
   background:
     radial-gradient(
       ellipse 78% 24rem at 50% 0%,
-      color-mix(in srgb, var(--oilpick-brand-amber) 9%, transparent),
+      color-mix(in srgb, var(--oilpick-brand-amber) 14%, transparent),
       transparent 72%
     ),
     linear-gradient(
       180deg,
       var(--oilpick-surface) 0,
-      var(--oilpick-canvas) 26rem,
-      var(--oilpick-canvas) 100%
+      var(--oilpick-surface) 100%
     );
   background-color: var(--oilpick-canvas);
   background-repeat: no-repeat;

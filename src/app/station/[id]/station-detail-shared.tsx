@@ -123,7 +123,7 @@ function CopyAddressButton({ address }: { address: string }) {
       aria-label="주소 복사"
       title="주소 복사"
       onClick={() => void handleCopy()}
-      className="inline-flex h-7 shrink-0 items-center gap-1 rounded-control-sm border border-border bg-surface px-2 text-xs font-medium text-text-body transition-colors hover:border-route-strong hover:bg-route-sky hover:text-route-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route-blue/50"
+      className="inline-flex h-7 shrink-0 items-center gap-1 rounded-control-sm border border-border bg-surface px-2 text-xs font-medium text-text-body transition-colors hover:border-route-blue/40 hover:bg-route-sky hover:text-route-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route-blue/50"
     >
       <Copy className="size-3.5" aria-hidden />
       <span>복사</span>
@@ -261,7 +261,7 @@ export function StationNaviButtons({
           key={app}
           variant="outline"
           size="lg"
-          className="h-12 gap-2 border-route-strong/25 bg-surface text-text-strong hover:border-route-strong hover:bg-route-sky hover:text-text-strong"
+          className="h-12 gap-2 border-border bg-surface text-text-strong hover:border-route-blue/40 hover:bg-route-sky hover:text-route-strong"
           onClick={() => onClick(app, appName)}
         >
           <Image

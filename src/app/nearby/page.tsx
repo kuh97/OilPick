@@ -64,7 +64,7 @@ function NearbyStationSummary({
   return (
     <Link
       href={`/station/${station.id}`}
-      className="group block rounded-card border border-route-strong/20 bg-surface p-4 shadow-route-sm transition-all hover:border-route-cyan hover:shadow-route-md active:scale-[0.99] md:p-5"
+      className="group block rounded-card border border-border bg-surface p-4 shadow-route-sm transition-all hover:border-route-blue/40 hover:shadow-route-md active:scale-[0.99] md:p-5"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
