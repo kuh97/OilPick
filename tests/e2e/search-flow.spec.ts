@@ -170,8 +170,12 @@ test("검색 → SSE 지연 시 JSON 폴백 → 상세 → 카카오맵 딥링�
   await expectPreparationCompletes(page, "loading-json-preparation");
   expect((await sseRequest).headers().accept).toContain("text/event-stream");
   await jsonFallbackRequest;
-  await expect(page.getByText("오일픽 테스트 주유소")).toBeVisible();
-  await page.getByRole("link", { name: /오일픽 테스트 주유소/ }).click();
+  const stationLink = page.getByRole("link", {
+    name: "오일픽 테스트 주유소 상세 보기",
+    exact: true,
+  });
+  await expect(stationLink).toBeVisible();
+  await stationLink.click();
   await expect(page).toHaveURL(/\/station\/STATION-1$/);
   await expect(page.getByRole("heading", { name: "추천 이유" })).toBeVisible();
   await expect(page.getByText("1,700원/L")).toBeVisible();
@@ -184,7 +188,7 @@ test("검색 → SSE 지연 시 JSON 폴백 → 상세 → 카카오맵 딥링�
   await popup.close();
 });
 
-test("후보 0건 → 다른 경로로 다시 찾기 대안", async ({ page }) => {
+test("후보 0건 → 우회 범위 확장 안내", async ({ page }) => {
   await blockExternalMap(page);
   await page.route("**/api/search", async (route) => {
     await route.fulfill({
@@ -200,6 +204,16 @@ test("후보 0건 → 다른 경로로 다시 찾기 대안", async ({ page }) =
 
   await chooseRoute(page);
   await expectPreparationCompletes(page, "loading-skipped-preparation");
-  await expect(page.getByText("이 경로에서는 조건에 맞는 주유소를 찾지 못했습니다.")).toBeVisible();
-  await expect(page.getByRole("button", { name: "다른 경로로 다시 찾기" })).toBeVisible();
+  await expect(
+    page.getByText(
+      "경로상에서 주유소를 찾지 못했습니다. 우회 범위를 선택해 더 찾아볼 수 있습니다.",
+      { exact: true },
+    ),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", {
+      name: "우회 범위를 3km로 넓혀 다시 찾기",
+      exact: true,
+    }),
+  ).toBeVisible();
 });
