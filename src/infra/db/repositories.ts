@@ -1,10 +1,9 @@
 /**
- * refuel_point · sigungu_avg_price 리포지토리.
+ * refuel_point 리포지토리.
  * ARCHITECTURE.md §7·§10 Phase 6.
  *
  * 순수 변환 함수(to___/from___ 접두사)와 DB 접근 함수를 분리합니다 — 전자는 DB 없이,
- * 후자는 주입된 db(기본값 getDb())로 테스트합니다 (opinet/budget.ts의
- * BudgetStore 주입 패턴과 동일).
+ * 후자는 주입된 db(기본값 getDb())로 테스트합니다.
  */
 
 import { and, avg, count, desc, eq, gt, gte, inArray, isNull, lt, lte, like, ne, or, sql } from "drizzle-orm";
@@ -492,7 +491,7 @@ export async function findRefuelPointsInBbox(
 
 // ─── P_ref 시군구/시도/전국 평균 — refuel_point 실시간 집계 (§7 Phase C) ──────
 //
-// 예전엔 오피넷 avgSigunPrice.do를 일 1회 배치로 긁어 sigungu_avg_price에 저장해뒀다가
+// 예전엔 오피넷 avgSigunPrice.do를 일 1회 배치로 긁어 별도 테이블에 저장해뒀다가
 // 조회했지만, 이제 refuel_point 자체가 전국 실가격 마스터라 그때그때 집계하면 된다
 // (배치·오피넷 호출 불필요 — MIGRATION-DB.md §2 "일 배치 오피넷 호출 0회").
 // price-service.ts는 이 세 함수를 이름·시그니처 그대로 호출하므로 변경이 없다.

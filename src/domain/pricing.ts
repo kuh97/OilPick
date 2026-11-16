@@ -40,7 +40,7 @@ export function effectiveDetourDistanceM(detourDistanceM: number, detourDuration
  * 순절감액 (원, 정수).
  * NetSaving = (P_ref − P_s) × Q − (ΔD / 1000 / E) × P_s
  *
- * 음수 가능 (T1·T2는 음수여도 목록 유지, T3는 음수면 제거).
+ * 음수 가능. 경로상·우회 후보 모두 목록에 남기며, 우회 후보의 손해 여부는 화면에 표시한다.
  */
 export function netSaving(args: {
   priceRefWon: number;       // P_ref (원/L)
@@ -146,9 +146,9 @@ export function median(prices: number[]): number {
 }
 
 /**
- * T1+T2 풀에서 이상치(±OUTLIER_SIGMA σ)를 제거한 후 P_ref 계산.
+ * 경로에서 가까운 후보(d_perp ≤ T2_MAX)의 가격 풀에서 이상치(±OUTLIER_SIGMA σ)를 제거한 후 P_ref 계산.
  *
- * @param t1t2Prices T1+T2 주유소 가격 배열 (원/L)
+ * @param t1t2Prices 경로 근처 주유소 가격 배열 (원/L; 기존 인자명은 API 계약)
  * @param sigunguAvg 시군구 평균가 폴백 (없으면 undefined)
  * @returns { price, source }
  */

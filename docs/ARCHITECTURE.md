@@ -178,7 +178,7 @@ oilpick/
 | ------------------------- | ---------------------------------------------------------------------------------------------------- |
 | `route-service`           | 기본 경로·경유 경로 조회, 폴리라인 정규화, 경로 캐시. 카카오 응답을 도메인 타입으로 변환             |
 | `station-service`         | 경로 폴리라인 bbox(회랑) 계산 → `refuel_point` 후보 조회 → 필터 적용. 외부 호출 없음                 |
-| `price-service`           | 이상치 제거, **`P_ref` 산출** — T1+T2 중앙값, 부족하면 `refuel_point` 시군구→시도→전국 가중평균      |
+| `price-service`           | 이상치 제거, **`P_ref` 산출** — `d_perp ≤ T2_MAX` 후보 중앙값, 부족하면 `refuel_point` 시군구→시도→전국 가중평균 |
 | `recommendation-service`  | 기본 경로 3종 조회 → Valhalla map-match → 단계별 DB 후보 수집 → 후보별 Valhalla 경유 경로 측정 → 실측 티어·거리·순절감액·정렬 |
 | `price-import-service`    | 유가 CSV 임포트 오케스트레이션 (decode→parse→게이트→지오코딩→스테이징→원자 스왑). cron·스크립트 공유 |
 | `detail-backfill-service` | 시설 정보 백필 (큐 조회→상세 API 병렬 호출→시설 컬럼 UPDATE). cron·스크립트 공유                     |
@@ -949,7 +949,7 @@ pnpm data:import-nodelink -- "/path/to/[2026-10-14]NODELINKDATA"
 
 ### 7.2 `P_ref` 폴백 — `refuel_point` 실시간 집계
 
-`P_ref`(기준가)는 T1+T2 후보의 중앙값을 우선 씁니다. 후보가 `P_REF_MIN_BASE` 미만이면
+`P_ref`(기준가)는 `d_perp ≤ T2_MAX`(3km) 후보의 중앙값을 우선 씁니다. 후보가 `P_REF_MIN_BASE` 미만이면
 시군구→시도→전국 순으로 폴백하며, 각 단계 평균은 `refuel_point`에서 그때그때 집계합니다:
 
 ```sql
@@ -1008,11 +1008,11 @@ CREATE INDEX idx_search_event_expand  ON search_event (expansion_triggered, crea
 **지표 산출**
 
 ```sql
--- T3 발동률
+-- 우회 후보가 포함된 검색 비율 (DB의 기존 컬럼명은 t3_count)
 SELECT avg(CASE WHEN t3_count > 0 THEN 1.0 ELSE 0 END) FROM search_event;
 
--- T3 발동/미발동 검색의 내비 연결률 비교
-SELECT s.t3_count > 0 AS has_t3,
+-- 우회 후보 포함/미포함 검색의 내비 연결률 비교
+SELECT s.t3_count > 0 AS has_detour,
        count(DISTINCT n.search_id)::float / count(DISTINCT s.id) AS click_rate
 FROM search_event s LEFT JOIN navi_click_event n ON n.search_id = s.id
 GROUP BY 1;
@@ -1184,7 +1184,7 @@ Client → domain/deeplink.build(app, origin, station, destination)
 
 **주요 작업**
 
-- Next.js(App Router) + TS + Tailwind + shadcn 4개 + pnpm
+- Next.js(App Router) + TS + Tailwind + 승인된 shadcn 6개 + pnpm
 - **ESLint 레이어 경계 규칙** ([`../AGENTS.md`](../AGENTS.md) §17.1)
 - Vitest + MSW 세팅, Phase 0 픽스처 연결
 - CI(GitHub Actions): 타입 체크 · 린트 · 테스트 → **PR 머지 조건**
@@ -1206,7 +1206,7 @@ Client → domain/deeplink.build(app, origin, station, destination)
 | -------- | ---------------------------------------------------------------- |
 | **목적** | **제품 신뢰도의 근간.** 여기가 틀리면 나머지가 전부 무의미       |
 | **선행** | Phase 1                                                          |
-| **범위** | `geo` → `tier` → `pricing` → `cache-ttl` → `reason` → `deeplink` |
+| **범위** | `geo` → `tier` → `pricing` → `reason` → `deeplink` |
 
 **이 순서인 이유** — `tier`는 `geo`의 `d_perp`를, `pricing`은 `tier` 분류를, `reason`은 `pricing` 결과를 씁니다. 역순으로 만들면 목을 만들어야 합니다.
 
@@ -1265,7 +1265,7 @@ Client → domain/deeplink.build(app, origin, station, destination)
 | 스크립트              | 확정할 것                                                              |
 | --------------------- | ---------------------------------------------------------------------- |
 | `verify:coverage` (⑫) | 회랑 bbox 수집이 전수 스캔 대비 후보를 누락하지 않는가                 |
-| `verify:t3-rate`      | **T3 발동률·게이트 통과율**                                            |
+| `verify:t3-rate`      | 현재 회랑 후보 수·P_ref 표본·기준가 폴백 상태                           |
 | `verify:uturn` (④)    | Valhalla 실제 경유 경로와 경로 API의 유턴 반영 여부                   |
 | `verify:detour` (⑭)   | `DETOUR_TIME_CAP_RATIO` + 실측 `ΔT` 분포·`ΔD=0` 비율 (Phase 10에 추가) |
 
@@ -1290,7 +1290,7 @@ Client → domain/deeplink.build(app, origin, station, destination)
 **완료 기준**
 
 - 파라미터 확정 → `params.ts` 반영 → [`PRODUCT.md`](PRODUCT.md) §9.1 갱신
-- **LPG T3 발동률이 20% 미만이면 개발을 멈추고 기획 재검토 안건을 제기** ([`PRODUCT.md`](PRODUCT.md) §11.3)
+- **우회 후보가 실제 검색에서 충분히 남는지** 확인하고, 적으면 `PRODUCT.md` §11.3의 재검토 기준을 적용
 - 유턴 미반영이면 대안 논의 후 진행
 
 ---
@@ -1301,15 +1301,15 @@ Client → domain/deeplink.build(app, origin, station, destination)
 | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **목적** | **시설 필터 N+1 제거** + `P_ref` 폴백 확보                                                                                                                                                                |
 | **선행** | Phase 0 ② (조인 키 확인)                                                                                                                                                                                  |
-| **범위** | Drizzle 스키마 · 마이그레이션 · `refuel_point` upsert/조회 · 시군구 평균가 동기화(오피넷 `avgSigunPrice.do`/`areaCode.do` → `sigungu_avg_price`) — 표준데이터 임포트는 폴백 C 채택으로 **범위 밖** (§7.1) |
+| **범위** | Drizzle 스키마 · 마이그레이션 · `refuel_point` upsert/조회 · CSV 임포트 중 지역명→시군구 코드 매핑(`areaCode.do`/`avgSigunPrice.do`) — 별도 평균가 테이블은 제거됨 |
 
 **완료 기준 — 완료 (2026-08-31)**
 
 - 임포트 후 `UNI_ID`로 오피넷 응답과 **조인 성공** — `upsertRefuelPointFromDetail` → `findRefuelPointsByIds` 라운드트립을 실제 오피넷 상세 API + Neon(dev)으로 검증
 - 시설 컬럼이 채워짐 → **시설 필터의 상세 조회 호출이 0으로 떨어짐** — 컬럼·리포지토리까지 준비됨. 반경검색 결과와의 조인 자체는 station-service(Phase 7) 몫
 - 테이블·컬럼이 `refuel_point`/`energy_type` 등 일반 개념 유지 (§9 변경 원칙)
-- cron 인증 동작 (`CRON_SECRET`) — `POST /api/cron/sync-sigungu`, `Authorization` 불일치 시 401
-- `sigungu_avg_price`는 실제 오피넷 API(시도 16개 순회)로 동기화 검증 — 682행 upsert 확인
+- CSV 임포트가 `refuel_point`의 가격·시설·시군구 코드를 채우고, 검색 중 기준가는 이 테이블에서 집계
+- 오피넷 평균가 API는 임포트 중 지역 코드 매핑을 보조할 때만 사용
 
 `search_event`/`navi_click_event`(§7.3)는 Phase 6 범위가 아닙니다 — Phase 11에서 구현했습니다.
 
@@ -1325,16 +1325,16 @@ Client → domain/deeplink.build(app, origin, station, destination)
 
 **완료 기준 — MSW 통합 테스트 4경로 — 완료 (2026-08-31)**
 
-1. 확장 미발동 (T1+T2 충분)
-2. 확장 발동
-3. **예산 소진** → `skippedReason: "QUOTA"` / 기본 수집까지 소진 시 즉시 안내
-4. 부분 실패 → 성공 구간으로 진행 + `warning`
+1. 경로상 후보가 있는 검색은 기본적으로 STAGE 1 결과만 반환
+2. 경로상 후보가 없거나 사용자가 거리를 선택하면 STAGE 2 우회 후보를 추가
+3. 기준가가 없으면 A14 경고 후 가격순으로 폴백
+4. 일부 Valhalla 실패 → 성공 후보로 진행 + `warning`
 
 추가로 **`onProgress` 콜백이 각 STEP에서 방출되는지**, 그리고 **콜백 없이 호출해도 동일한 `SearchResult`가 나오는지** 확인합니다 (§6.2.1 폴백의 전제).
 
 **구현 중 발견 — `domain/types.ts`가 §6.1 API Contract와 어긋나 있었음.** `SearchResult`에 `searchId`가 없고 `referencePrice`/`refPriceSource`가 non-null이었으며 `warnings`가 `string[]`(§6.1의 `Warning{code,message}[]`가 아님)이었고, `SearchInput.filters`엔 `kpetroOnly`가 없었습니다. Phase 2 당시 API Contract가 확정되기 전에 먼저 작성된 코드가 이후 갱신을 반영하지 못한 것으로 보입니다. AGENTS.md §1 원칙("코드와 문서가 다르면 코드를 고치는 것이 기본")에 따라 `domain/types.ts`를 §6.1에 맞게 수정했습니다 — 이 타입을 참조하는 코드가 아직 없어 다른 곳에 영향은 없었습니다.
 
-**`route-service`/`station-service`의 캐시·예산 접근은 `RedisLike` 인터페이스로 주입받습니다**(기본값 `getRedis()`) — `opinet/budget.ts`의 `BudgetStore` 주입 패턴과 동일한 이유(테스트 용이성)입니다. `price-service`는 PRODUCT.md §8의 "시군구 가중평균"(시군구→시도→전국 폴백)을 구현하기 위해 `db/repositories.ts`에 `findSidoAvgPrice`·`findNationalAvgPrice`를 추가했습니다.
+**`route-service`의 캐시 접근은 `RedisLike` 인터페이스로 주입받습니다**(기본값 `getRedis()`). 테스트에서 외부 캐시를 바꿔 끼울 수 있게 하기 위해서입니다. `price-service`는 PRODUCT.md §8의 "시군구 가중평균"(시군구→시도→전국 폴백)을 구현하기 위해 `db/repositories.ts`에 `findSidoAvgPrice`·`findNationalAvgPrice`를 추가했습니다.
 
 ---
 
@@ -1369,7 +1369,7 @@ Client → domain/deeplink.build(app, origin, station, destination)
 
 **완료 기준 — UI 불변식 8개 체크리스트 — 완료 (2026-08-31)** ([`../AGENTS.md`](../AGENTS.md) §6)
 
-확장 고지 배너 / 가격 기준시각 / `오래된 정보` 배지 / 계산 전제 표시 / 면책 문구 / 전화번호 / 티맵 안내 / 후보 0건 대안
+확장 고지 배너 / 가격 기준일자 / 계산 전제 표시 / 면책 문구 / 전화번호 / 티맵 안내 / 후보 0건 대안
 
 추가로
 
@@ -1378,7 +1378,7 @@ Client → domain/deeplink.build(app, origin, station, destination)
 - **추정치와 실측치가 시각적으로 구분됨** (`약 N km ▸`)
 - 스토어가 빈 상태로 `/station/:id` 직접 진입 시 "검색 컨텍스트 없음" 화면
 
-**구현 중 발견 — `Candidate.priceUpdatedAt`이 항상 비어 있었음.** "가격 기준시각" 표시(§6.1, 위 불변식)는 이 필드에 의존하는데, Phase 7 `recommendation-service.finalizeCandidates`가 이 필드를 채우지 않고 있었습니다(옵셔널이라 타입 오류로도 드러나지 않음). `domain/cache-ttl.approximateLastUpdateTime(now)`(Phase 2에 이미 존재 — 오피넷이 실제 기준시각을 안 줄 때의 근사치)를 채우도록 고쳤습니다.
+**구현 중 발견 — 가격 날짜의 출처가 예전 설명과 달랐음.** 현재 `recommendation-service`는 CSV의 `pricedOn`을 `Candidate.priceUpdatedAt`으로 변환합니다. 오피넷 갱신 시각을 추정하지 않고, CSV 기준일자가 없을 때만 날짜를 비워 둡니다.
 
 **구현 중 발견 — Upstash Redis 클라이언트의 자동 역직렬화가 캐시 전체를 깨뜨리고 있었음(심각).** 실제 `OPINET_CERT_KEY`·`KAKAO_REST_API_KEY`·`DATABASE_URL`을 채운 뒤 브라우저에서 실제 검색을 돌려보고서야 발견됨 — 그 전까지 모든 테스트는 `fakeRedis()` 목(mock)으로만 검증돼 이 버그를 잡을 수 없었습니다.
 

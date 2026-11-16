@@ -16,9 +16,9 @@ import { getDb, type Db } from "@/infra/db/client";
 import type { Fuel, RefPriceSource } from "@/domain/types";
 
 export interface ComputeReferencePriceOptions {
-  /** MEDIAN_T1T2 후보 가격 (T1+T2, 필터 적용 후) */
+  /** MEDIAN_T1T2 후보 가격 (d_perp ≤ T2_MAX, 필터 적용 후; 이름은 API 계약) */
   t1t2Prices: number[];
-  /** 필터 적용 후 T1+T2+T3 전체 — 시군구 가중평균 계산용 */
+  /** 필터 적용 후 회랑 전체 후보 — 시군구 가중평균 계산용 */
   pool: Array<{ sigunCd?: string }>;
   fuel: Fuel;
   db?: Db;

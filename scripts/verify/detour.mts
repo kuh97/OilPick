@@ -103,7 +103,7 @@ for (let i = 0; i < targets.length; i += CONCURRENCY) {
       getRoute({
         origin: origin.location,
         destination: destination.location,
-        waypoint: t.c.location,
+        waypoint: t.location,
         fuel,
         retries: 0,
       }),

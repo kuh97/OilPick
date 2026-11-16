@@ -2,7 +2,7 @@
  * verify:coverage — 회랑 bbox 수집이 후보를 누락하지 않는지 검증 [§12 ⑫]
  *
  * ⑫는 이미 "해결됨"으로 표시되어 있습니다(ARCHITECTURE.md §12) — 회랑 bbox 쿼리가
- * T1~T3를 한 번에 덮으므로 "샘플 간격이 후보를 놓친다"는 옛 질문 자체가 지금 코드에
+ * 15km 회랑을 한 번에 덮으므로 "샘플 간격이 후보를 놓친다"는 옛 질문 자체가 지금 코드에
  * 성립하지 않습니다. 이 스크립트가 예전에 비교하던 두 표본(성긴 SAMPLE_INTERVAL vs
  * 촘촘한 DENSE_INTERVAL_M)은 더 이상 존재하지 않습니다(MIGRATION-DB.md §7 Phase C·§10).
  *
@@ -13,7 +13,7 @@
  * 후보가 사라질 수 있습니다.
  *
  * 방법: 전국을 덮는 bbox로 refuel_point를 통째로 읽어(findRefuelPointsInBbox, "정답")
- * 각 행의 d_perp·티어를 직접 계산한 뒤, 실제 검색 경로가 쓰는 collectStations()
+ * 각 행의 d_perp를 직접 계산한 뒤, 실제 검색 경로가 쓰는 collectStations()
  * (회랑 bbox)의 결과와 비교합니다. 회랑 bbox는 원래 실제 회랑보다 넓게 잡히도록
  * 설계되어(station-service.ts 주석 — "후보를 놓치는 대신 더 주는 쪽으로 안전하게
  * 설계") 항상 정답의 상위집합이어야 하므로, 정답에는 있는데 bbox 결과에 없는 후보가
@@ -30,7 +30,6 @@ import { fetchDirections } from "@/infra/kakao/mobility";
 import { collectStations } from "@/services/station-service";
 import { findRefuelPointsInBbox } from "@/infra/db/repositories";
 import { wgs84ToProjected, pointToPolylineDistanceM } from "@/domain/geo";
-import { classifyTier } from "@/domain/tier";
 import { T3_MAX } from "@/domain/params";
 import type { ProjectedPoint, RefuelPoint } from "@/domain/types";
 
@@ -51,15 +50,13 @@ info(`카카오 호출 ${routeIndexes.length * fuels.length}회(조합당 기본
 interface Row {
   id: string;
   dPerp: number;
-  tier: string;
 }
 
 function classify(stations: Array<{ station: RefuelPoint }>, polyline: ProjectedPoint[]): Row[] {
   const rows: Row[] = [];
   for (const { station } of stations) {
     const dPerp = pointToPolylineDistanceM(wgs84ToProjected(station.location), polyline);
-    const tier = classifyTier(dPerp);
-    if (tier) rows.push({ id: station.id, dPerp, tier });
+    if (dPerp <= T3_MAX) rows.push({ id: station.id, dPerp });
   }
   return rows;
 }
@@ -88,7 +85,7 @@ for (const idx of routeIndexes) {
     const bboxedIds = new Set(bboxed.map((r) => r.id));
     const missing = truthRows.filter((r) => !bboxedIds.has(r.id));
 
-    info(`전수 스캔 후보(T1~T3) ${truthRows.length}곳 / 회랑 bbox 후보 ${bboxed.length}곳`);
+    info(`전수 스캔 후보(15km 회랑) ${truthRows.length}곳 / 회랑 bbox 후보 ${bboxed.length}곳`);
 
     const label = `${route.label} × ${fuel}`;
     if (missing.length === 0) {
@@ -96,7 +93,7 @@ for (const idx of routeIndexes) {
       passed.push(label);
     } else {
       warn(`${label}: ${missing.length}건 누락 — station-service.computeBbox 또는 좌표 변환을 의심하십시오.`);
-      missing.slice(0, 5).forEach((m) => warn(`  누락: id=${m.id} tier=${m.tier} d_perp=${m.dPerp.toFixed(0)}m`));
+      missing.slice(0, 5).forEach((m) => warn(`  누락: id=${m.id} d_perp=${m.dPerp.toFixed(0)}m`));
       failed.push(label);
     }
   }

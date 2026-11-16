@@ -84,9 +84,9 @@
 | 캐시            | **Upstash Redis (REST)**                             | 경로·장소 검색·시군구 매핑만 캐시. 서버리스에서 커넥션 풀 불필요                |
 | 프로비저닝      | **Vercel 마켓플레이스** 경유                         | 접속 정보가 환경변수로 자동 주입                                                |
 | 클라이언트 상태 | **Zustand** (+ `persist`)                            | §7.5                                                                            |
-| 서버 상태       | **라이브러리 없음.** TanStack Query 보류             | 도입 신호는 §16.4                                                               |
+| 서버 상태       | **사용자 검색 흐름은 라이브러리 없음.** 관리자 화면은 TanStack Query 사용 | 사용자 검색에 도입하는 신호는 §16.4                         |
 | 스타일링        | **Tailwind CSS**                                     |                                                                                 |
-| UI 컴포넌트     | **shadcn/ui — Drawer · Tabs · Switch · Dialog 넷만** | §7.5                                                                            |
+| UI 컴포넌트     | **shadcn/ui — Drawer · Tabs · Switch · Dialog · Badge · Alert 여섯만** | §7.5                                                               |
 | 스키마 검증     | **zod** — `infra/`·`app/api/` 경계 전용              | 도메인·컴포넌트에 들어가지 않음                                                 |
 | 테스트          | **Vitest + MSW + Playwright**                        | §10                                                                             |
 | 린트·포맷       | **ESLint + Prettier**                                | 레이어 경계 규칙 집행 (§17)                                                     |
@@ -345,7 +345,7 @@ shadcn/ui에서 가져오는 것 (이 여섯만): Drawer · Tabs · Switch · Di
 | `reason.ts`                                          | Vitest                      | 템플릿 6개 분기 전부                                                                                             |
 | `infra/` 응답 파싱                                   | Vitest + **실 응답 픽스처** | 픽스처가 zod 스키마를 통과하는지                                                                                 |
 | `infra/csv` 게이트                                   | Vitest                      | G1~G8 각각 통과/탈락 케이스. 컬럼 소유권 SET 절 검증                                                             |
-| `recommendation-service`                             | Vitest + MSW                | 회랑 수집 → T3 게이트 → 정밀 계산 경로. `P_ref` 폴백·부분 실패 포함                                              |
+| `recommendation-service`                             | Vitest + MSW                | 회랑 수집 → STAGE 2 실제 거리·안전 cap → 정밀 계산 경로. `P_ref` 폴백·부분 실패 포함                      |
 | `POST /api/search`                                   | Vitest                      | **이벤트 순서 계약** — `base_route` 최초, `result` 최종, `error` 이후 무발신. **JSON 폴백이 같은 결과를 내는지** |
 | 딥링크 생성                                          | Vitest                      | URL 문자열 스냅샷                                                                                                |
 | 핵심 사용자 흐름                                     | Playwright                  | **2개만** — ① 검색→결과→상세→딥링크 ② 후보 0건 폴백                                                              |
@@ -392,7 +392,7 @@ shadcn/ui에서 가져오는 것 (이 여섯만): Drawer · Tabs · Switch · Di
 - ❌ `recommendation-service`의 진행 콜백 인터페이스 제거 (§3.3 — 폴백 경로가 사라짐)
 - ❌ 컴포넌트에서 직접 `fetch` 호출 (§7.5 — `lib/api/` 훅 경유)
 - ❌ Zustand `persist`에 검색 결과 저장 (오래된 가격이 되살아남)
-- ❌ shadcn/ui 컴포넌트를 승인 없이 다섯 번째부터 추가
+- ❌ 승인 목록 밖의 shadcn/ui 컴포넌트를 사용자 승인 없이 추가
 - ❌ zod를 `domain/`이나 컴포넌트에서 사용 (경계 전용)
 - ❌ `EventSource` 사용 (자동 재연결이 서버 자원을 잠식 — `fetch` + `ReadableStream`을 쓴다)
 - ❌ ESLint 경계 규칙을 `eslint-disable`로 우회

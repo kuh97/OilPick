@@ -64,7 +64,7 @@ pnpm verify:upstash
 
 ```bash
 pnpm verify:coverage   -- --route=all --yes
-pnpm verify:t3-rate    -- --fuel=LPG --yes
+pnpm verify:t3-rate    -- --fuel=LPG
 pnpm verify:uturn      -- --route=0 --yes
 ```
 
@@ -78,8 +78,8 @@ pnpm verify:uturn      -- --route=0 --yes
 | `verify:standard-data` | **0회** | DB 마스터 전략 / 시설 필터 구현 방식 |
 | `verify:price-time` | **2~3회** | UI 불변식 "가격 기준시각" 구현 방식 |
 | `verify:upstash` | **~20회** (Redis) | 캐시 전략 유지 여부 |
-| `verify:coverage` (Phase 5) | 노선당 수십 회 — 실행 전 출력됨 | `SAMPLE_INTERVAL`·`OFFSET`·`T2_MAX`·`T3_MAX` |
-| `verify:t3-rate` (Phase 5) | 조합당 최대 수십 회 — 실행 전 출력됨 | `MIN_CANDIDATES`, T3 발동률·게이트 통과율 |
+| `verify:coverage` (Phase 5) | 카카오 1회 + DB 조회 | 회랑 bbox가 전국 전수 스캔의 후보를 빠뜨리지 않는지 |
+| `verify:t3-rate` (Phase 5) | 카카오 1회 + DB 조회·평균가 집계 | 현재 회랑 후보 수와 `P_ref` 기준가 폴백 상태 |
 | `verify:uturn` (Phase 5) | 1회 (카카오는 여러 회, 쿼터 넉넉함) | 직선거리와 실제 우회거리 편차 확인 |
 
 ---
@@ -140,9 +140,9 @@ curl "https://apis-navi.kakaomobility.com/v1/directions?..." \
 
 ### 가격 기준시각 없음
 
-`ARCHITECTURE.md §5.1`의 두 번째 경로를 채택합니다:
-오피넷 갱신 스케줄(1·2·9·12·16·19시)로 "최근 갱신 시각"을 역산합니다.
-`domain/cache-ttl.ts`의 `priceTtlSeconds` 함수가 이 로직을 담당합니다.
+`ARCHITECTURE.md §5.1`의 CSV 경로를 확인합니다. 현재 가격은 오피넷의
+전국 CSV 스냅샷 기준일자(`priced_on`)를 사용하며, 별도의 갱신 시각을 추정하지
+않습니다. CSV 임포트가 실패하면 마지막으로 성공한 DB 스냅샷이 유지됩니다.
 
 ---
 

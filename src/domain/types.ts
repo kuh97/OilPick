@@ -102,7 +102,7 @@ export interface Candidate {
   totalCost: number; // 원 (정수)
   scores: Scores;
   reason: string; // domain/reason.ts 생성 문구
-  priceUpdatedAt?: Date; // 오피넷 갱신 스케줄 기반 근사
+  priceUpdatedAt?: Date; // CSV 기준일자에서 만든 날짜. 기준일자가 없으면 비어 있음
   /** 이 후보를 평가한 기본 경로 버전. 실제 경유 경로는 상세에서 계산한다. */
   routePriority?: RoutePriority;
 }

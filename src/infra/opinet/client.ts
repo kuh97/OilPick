@@ -212,7 +212,8 @@ export interface FetchAvgSigunPriceOptions {
 }
 
 /**
- * 시도 내 시군구별 평균가격 조회 (§7.2 `sigungu_avg_price` 동기화 원본).
+ * CSV 임포트 중 지역명과 시군구 코드 매핑을 보조하는 오피넷 원본 조회.
+ * 검색 시 기준가는 refuel_point에서 집계하므로 이 함수가 검색마다 호출되지는 않는다.
  * `sigun`을 생략하면 해당 시도의 전체 시군구가 반환됩니다.
  */
 export async function fetchAvgSigunPrice(

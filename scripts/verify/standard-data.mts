@@ -18,11 +18,11 @@
  *   행안부 공공데이터포털(data.go.kr) 또는 오피넷 사이트에서
  *   "전국주유소정보표준데이터" CSV/XLS를 내려받아 경로를 지정하십시오.
  *
- *   npx tsx scripts/verify/standard-data.ts [파일경로]
+ *   pnpm exec tsx scripts/verify/standard-data.mts [파일경로]
  *
  *   파일경로 생략 시 기본값: ./data/full_oil_standard.csv
  *
- * 의존: csv-parse (pnpm add -D csv-parse)
+ * 의존: 루트 프로젝트에 설치된 csv-parse
  */
 
 import fs from 'node:fs';

@@ -1,9 +1,9 @@
 # 오피넷 API → DB 기반 전환 계획
 
-> **상태: 코드·문서 작업 완료, 배포 대기** — 2026-09-05 작성, 2026-09-07 갱신
+> **상태: 전환 코드 구현 완료** — 마지막 문서 점검 2026-11-16
 >
-> Phase A~E, §9.1~§9.4, §10 삭제 대상 코드, §11.3 문서 갱신(ARCHITECTURE·PRODUCT·AGENTS·
-> README) 모두 완료. 남은 건 **배포·운영**(§11)과 백필 크론의 34일 무인 완주뿐이다.
+> Phase A~E와 검색 경로 전환은 코드에 반영되었습니다. 실제 운영 배포와 시설 정보 백필 완료 여부는
+> 이 저장소만으로 확정할 수 없으므로 `data:backfill-details --status`와 운영 로그로 확인합니다.
 >
 > 이 문서는 검색 경로의 오피넷 실시간 호출을 **일 1회 CSV 임포트 + DB 조회**로 바꾸는
 > 작업의 실행 문서입니다. 작업 중에 옆에 켜두고 단계별로 체크하십시오.
@@ -227,13 +227,14 @@ CREATE TABLE csv_import_log (
 );
 ```
 
-### 5.3 `sigungu_avg_price` — 삭제 예정
+### 5.3 `sigungu_avg_price` — 테이블 제거 완료
 
-`P_ref` 폴백이 **전수 가격에서 직접 집계**로 바뀌므로 테이블과 일 17회 배치가 불필요해집니다.
-단, **`sigun_cd` 매핑이 11,785건 전부 채워진 것을 확인한 뒤** 제거하십시오 (§7 Phase C 완료 기준).
+`P_ref` 폴백은 `refuel_point`의 전국 가격에서 직접 집계합니다. 따라서 별도 평균가 테이블과
+일 17회 배치는 제거되었습니다.
 
-삭제 대상: `sigungu_avg_price` 테이블 · `scripts/sync-sigungu-avg.ts` ·
-`POST /api/cron/sync-sigungu` · `findSigunguAvgPrice` / `findSidoAvgPrice` / `findNationalAvgPrice`.
+`findSigunguAvgPrice`·`findSidoAvgPrice`·`findNationalAvgPrice`라는 함수 이름은
+`price-service` 호출 계약을 유지하기 위해 남아 있지만, 모두 `refuel_point`를 집계합니다.
+`avgSigunPrice.do`는 CSV 임포트 중 지역명→시군구 코드 매핑을 보조할 때만 호출됩니다.
 
 ### 5.4 `road_node`·`road_link`·`road_turn` — 방향 필터 보조 데이터
 
@@ -332,7 +333,7 @@ export async function bulkUpsertFromCsv(rows: CsvRow[], db: Db = getDb()) {
 ### Phase B — 스키마 · 마이그레이션
 
 §5의 DDL을 `drizzle/`에 마이그레이션으로 추가하고 `src/infra/db/schema.ts`를 갱신합니다.
-`sigungu_avg_price` 삭제는 여기서 하지 말고 Phase C 완료 후로 미룹니다.
+별도 평균가 테이블 삭제는 Phase C에서 완료되었습니다(마이그레이션 `drizzle/0002`).
 
 ### Phase C — 검색 경로 교체 ★ (핵심)
 
@@ -355,13 +356,13 @@ export async function bulkUpsertFromCsv(rows: CsvRow[], db: Db = getDb()) {
 
 - STEP0 예산 가드 삭제
 - STEP5 확장 게이트 · STEP6 확장 수집 삭제 (회랑 쿼리가 T3까지 한 번에 덮음)
-- STEP7 `P_ref`: `sigungu_avg_price` 조회 → **회랑 후보의 시군구 실제 중앙값**으로 교체
+- STEP7 `P_ref`: 별도 평균가 테이블 조회 → **회랑 후보의 시군구·시도·전국 평균 폴백**으로 교체
 - STEP9~11의 가격·추정 게이트는 유지합니다. 검색 중 후보별 카카오 경유 경로 호출은
   제거하고, 실제 경유 경로는 주유소 상세 화면의 `/api/detour`에서 호출합니다.
 
 **완료 기준**
 - 검색 1건의 오피넷 호출 = 0 (Redis 예산 카운터가 증가하지 않을 것)
-- `sigun_cd IS NULL`인 행 0건 → 확인 후 `sigungu_avg_price` 제거
+- `sigun_cd`가 없는 행도 임포트·조회에서 안전하게 처리하며, 기준가를 구할 수 없으면 A14 가격순 폴백을 사용
 - 기존 테스트(`recommendation-service.test.ts` 등) 통과 또는 명시적 갱신
 
 ### Phase D — 일일 갱신 파이프라인 ✅ (2026-09-06 완료)
@@ -487,27 +488,21 @@ NetFunnel) 뒤에 있고 서버 생성에 시간이 걸립니다. 순수 HTTP로
 
 ## 9. 함께 고쳐야 하는 것
 
-### 9.1 `PRICE_STALE_HOURS` — 시간 기준 배지 완전 제거 ★ (2026-09-05 결정으로 최종 확정)
+### 9.1 가격 오래됨 배지 — 날짜만 표시하도록 정리 완료 ★ (2026-09-05 결정)
 
 ```
-src/domain/params.ts:33   PRICE_STALE_HOURS = 6
+과거에는 `PRICE_STALE_HOURS`라는 시간 기준을 사용하려 했습니다.
 ```
 
-일 1회 스냅샷은 **항상 6시간보다 오래됐습니다.** 그대로 두면
-`result-card.tsx`와 `station/[id]/page.tsx`가 **모든 카드에 "오래된 정보" 배지**를 답니다.
+일 1회 스냅샷은 실시간 가격이 아니므로, 화면에는 CSV 기준일자를 함께 표시합니다.
 
-처음엔 `isPriceStale(date, now, hours)` → `isPriceStale(pricedOn, today, days)`로 바꿔
-일자 기준(2일 초과 시 경고)으로 교체했으나, **제품 결정으로 "오래된 정보" 경고 문구 자체를
-없앴습니다** — 날짜(`"2026-09-04 기준"`)만 그대로 보여주고 별도 낙인 문구는 달지 않습니다.
-`isPriceStale`·`PRICE_STALE_DAYS`·`cache-ttl.ts`는 이제 안 씁니다(삭제).
-`AGENTS.md` §6의 "오래된 정보 배지" 행도 이 결정에 맞춰 제거했습니다.
+별도의 "오래된 정보" 낙인이나 추정 시각은 표시하지 않습니다. `pricedOn`이 없으면
+기준일자 미상으로 표시합니다.
 
 ### 9.2 `approximateLastUpdateTime` 제거
 
-`cache-ttl.ts`는 오피넷 갱신 스케줄(1·2·9·12·16·19시)에서 **추정한 시각**을 화면에 띄우고 있었습니다
-(`recommendation-service.ts`, `stations/nearby/route.ts`).
-CSV의 실제 `priced_on`으로 교체해 추정을 없앴고, 표시 형식도 날짜형(`"2026-09-04 기준"`)으로
-바꿨습니다 (§9.1 결정에 따라 경과일 표시는 넣지 않음).
+과거에는 오피넷 갱신 스케줄로 시각을 추정했지만, 현재는 CSV의 실제 `priced_on`으로
+교체했습니다. 표시 형식도 날짜형(`"2026-09-04 기준"`)입니다.
 
 ### 9.3 시설 필터 의미 명시 ✅ (2026-09-07 구현)
 
@@ -559,7 +554,7 @@ filter-sheet.tsx 토글 → WireFilters.selfOnly → FiltersSchema(zod)
 | 확장 수집 | `recommendation-service` STEP5·6, `geo.samplePolyline`·`geo.normalOffsets`, `tier.needsExpansion` | Phase C + 잔재 정리 (`a62602b`) |
 | 확장 관련 타입 | `ExpansionInfo.skippedReason`, `WarningCode.QUOTA_EXCEEDED` | `a62602b` |
 | 파라미터 | `params.MIN_CANDIDATES`, `params.OFFSET`, `params.SAMPLE_INTERVAL` | `a62602b` |
-| 시군구 평균가 | `sigungu_avg_price` 테이블(`drizzle/0002`), `sync-sigungu-avg.ts`, `POST /api/cron/sync-sigungu` — `findSigunguAvgPrice`/`findSido`/`findNational`은 이름 유지한 채 `refuel_point` 집계로 재구현 | Phase C |
+| 시군구 평균가 | 별도 `sigungu_avg_price` 테이블·동기화 크론은 `drizzle/0002`에서 제거. `findSigunguAvgPrice`/`findSido`/`findNational`은 이름을 유지한 채 `refuel_point` 집계로 재구현 | Phase C |
 | 환경변수 | `OPINET_DAILY_BUDGET`, `FEATURE_EXPANSION_ENABLED` | Phase C + `a62602b` |
 
 `fetchRadius`(`opinet/client.ts`)와 `tier.isOutOfRange`는 **남겨뒀습니다** (전자는 §7 Phase E

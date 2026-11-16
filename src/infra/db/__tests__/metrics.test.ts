@@ -25,7 +25,7 @@ function fakeDb() {
 }
 
 describe("getSuccessMetrics", () => {
-  it("T3 발동률과 T3 유무별 내비 연결률을 반환한다", async () => {
+  it("우회 후보 포함 비율과 우회 유무별 내비 연결률을 반환한다", async () => {
     const { db } = fakeDb();
 
     await expect(getSuccessMetrics(db)).resolves.toEqual({
