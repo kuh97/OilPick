@@ -1,5 +1,8 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "git": {
+    "deploymentEnabled": false
+  },
   "regions": ["icn1"],
   "crons": [
     { "path": "/api/cron/import-prices", "schedule": "40 20 * * *" },
