@@ -16,6 +16,10 @@ import type { FeedbackSource } from "@/lib/api/useFeedback";
 
 export const OILPICK_FAQ_URL =
   "https://bouncy-servant-ff6.notion.site/OilPick-FAQ-dff8837e6bef824b8c7381e6056b1278";
+export const OILPICK_TERMS_URL =
+  "https://app.notion.com/p/41b8837e6bef817980c2e908a220780f?pvs=204";
+export const OILPICK_PRIVACY_URL =
+  "https://app.notion.com/p/41b8837e6bef8147b349d9ef5447f172?pvs=204";
 
 export function HelpDrawer({
   feedbackSource,
@@ -114,6 +118,28 @@ export function HelpDrawer({
                 aria-hidden
               />
             </button>
+
+            <div className="flex flex-col gap-3">
+              <div className="border-t border-border" aria-hidden="true" />
+              <div className="grid grid-cols-2 gap-2">
+                <a
+                  href={OILPICK_TERMS_URL}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex min-h-11 items-center justify-center rounded-control-sm border border-border bg-surface px-3 text-sm font-medium text-text-strong transition-colors hover:border-route-blue/40 hover:bg-route-sky focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-route-blue/30"
+                >
+                  이용약관
+                </a>
+                <a
+                  href={OILPICK_PRIVACY_URL}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex min-h-11 items-center justify-center rounded-control-sm border border-border bg-surface px-3 text-sm font-medium text-text-strong transition-colors hover:border-route-blue/40 hover:bg-route-sky focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-route-blue/30"
+                >
+                  개인정보 처리방침
+                </a>
+              </div>
+            </div>
           </div>
         </DrawerContent>
       </Drawer>
