@@ -1,4 +1,4 @@
-/** 사용자 문의 저장 — docs/ADMIN-DASHBOARD.md §4.1·§7. */
+/** 사용자 문의 저장 — docs/ARCHITECTURE.md §5.6·§6.4·§7.4. */
 
 import { getRedis } from "@/infra/cache/redis";
 import { env } from "@/infra/env";

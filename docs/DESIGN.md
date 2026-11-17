@@ -1,6 +1,6 @@
 # OilPick Design System v2
 
-> Route Atlas 방향을 기준으로 정리한 OilPick 고유 디자인시스템이다. 이 문서는 화면의 시각 언어와 컴포넌트 계약을 정의하며, 실제 CSS 토큰 구현은 다음 단계에서 `src/app/globals.css`에 연결한다.
+> Route Atlas 방향을 기준으로 정리한 OilPick 고유 디자인시스템이다. 이 문서는 화면의 시각 언어와 컴포넌트 계약을 정의하며, 실제 CSS 토큰은 `src/app/globals.css`에 연결되어 있다.
 
 ## 1. Product identity
 
@@ -47,7 +47,7 @@ UI의 기본 문법은 **도로의 선, 경로의 분기, 탐색 범위**다. �
 
 ### Color palette and roles
 
-색상 이름은 용도 기준으로 부르고, 컴포넌트에서 직접 색상 값을 반복하지 않는다. 다음 단계에서 이 값을 CSS custom property와 Tailwind semantic token으로 연결한다.
+색상 이름은 용도 기준으로 부르고, 컴포넌트에서 직접 색상 값을 반복하지 않는다. 아래 값은 `src/app/globals.css`의 CSS custom property와 Tailwind semantic token으로 연결한다.
 
 #### Brand and route colors
 
@@ -191,7 +191,7 @@ OilPick 전용 기본 컴포넌트다.
 
 - 기본 경로와 후보 경유 경로의 차이를 같은 단위로 비교한다.
 - 실선/점선, 소요 시간, 거리, 절감액을 함께 사용한다.
-- 경로상 후보가 있으면 우회 후보와 허용 우회 거리를 목록에 섞지 않는다.
+- 경로상 후보가 있으면 최초 결과는 경로상 후보만 보여준다. 사용자가 허용 우회 거리를 선택해 재검색한 뒤에는 경로상·우회 후보를 한 목록에서 선택 모드 점수로 정렬하고, 티어는 배지로 구분한다.
 
 ### Expansion range panel
 
@@ -294,7 +294,7 @@ OilPick은 운전자에게 결정을 대신 강요하지 않고, 선택에 필�
 - 문구 원문·도메인 규칙: `docs/PRODUCT.md`
 - API·레이어·데이터 계약: `docs/ARCHITECTURE.md`
 - 색·타이포·컴포넌트·레이아웃 계약: 이 문서
-- 구현 토큰: 다음 단계의 `src/app/globals.css` 및 관련 UI 토큰
+- 구현 토큰: `src/app/globals.css` 및 관련 UI 토큰
 
 ## 8. Governance
 

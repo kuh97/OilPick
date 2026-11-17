@@ -1,4 +1,4 @@
-/** 관리자 문의 조회 — docs/ADMIN-DASHBOARD.md §4.3·§7. */
+/** 관리자 문의 조회 — docs/ARCHITECTURE.md §6.4·§7.4. */
 
 import {
   countAdminFeedbackByStatus,

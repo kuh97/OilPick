@@ -15,7 +15,7 @@ services:
       - "127.0.0.1:${VALHALLA_PORT:-8002}:8002"
     volumes:
       - ${VALHALLA_DATA_DIR:-./data/valhalla}:/custom_files
-      - ${VALHALLA_OSM_PBF_DIR:-/Users/kim-uihyeon/Desktop}:/osm:ro
+      - ${VALHALLA_OSM_PBF_DIR:-./data/osm}:/osm:ro
     environment:
       OSM_PBF_NAME: ${VALHALLA_OSM_PBF_NAME:-south-korea-261103.osm.pbf}
       tile_urls: ""

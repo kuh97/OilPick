@@ -6,14 +6,14 @@
  *   2. SET / GET / DEL 기본 동작
  *   3. INCRBY + EXPIRE — 오피넷 예산 카운터 패턴
  *   4. 응답 지연 (서버리스 환경에서 허용 가능한지)
- *   5. 무료 티어 일일 명령 수 한도 확인 방법 안내
+ *   5. 무료 티어 월간 명령 수 한도 확인 방법 안내
  *      (API로 직접 조회는 불가. 콘솔 + 수동 계산으로 안내)
  *
  * 결론이 영향을 주는 것
  *   - 캐시 전략 유지 여부 (ARCHITECTURE.md §8)
  *   - 무료 티어 초과 위험 시 캐시 TTL 재설계
  *
- * 실행: npx tsx scripts/verify/upstash.ts
+ * 실행: pnpm verify:upstash
  * 필요: UPSTASH_REDIS_REST_URL, UPSTASH_REDIS_REST_TOKEN 환경변수
  */
 
@@ -182,15 +182,12 @@ header('③ 예산 카운터 패턴 (INCRBY · EXPIRE)');
   }
 }
 
-// 4. 파이프라인 — 검색 1건의 실제 호출 패턴
-header('④ 파이프라인 성능 (검색 1건 ≈ 여러 캐시 조회)');
+// 4. 파이프라인 — 여러 캐시 조회의 왕복 성능
+header('④ 파이프라인 성능 (여러 캐시 조회)');
 {
   /*
-   * 실제 검색 1건의 Redis 호출 (캐시 미스 가정):
-   *   GET stn:{grid1}  GET stn:{grid2}  ...  (샘플 수 × 2 방향)
-   *   INCRBY budget
-   *   SETEX stn:{grid1} ...
-   *   총 ~30회 명령
+   * 실제 검색은 기본 경로·장소·Valhalla 경로 캐시를 사용하며 후보 수와 적중률에 따라
+   * 명령 수가 달라집니다. 여기서는 10회 파이프라인 자체의 왕복 동작만 확인합니다.
    *
    * 여기서는 10회 파이프라인으로 지연을 측정합니다.
    */
@@ -228,41 +225,43 @@ header('④ 파이프라인 성능 (검색 1건 ≈ 여러 캐시 조회)');
   }
 }
 
-// ─── 일일 명령 수 한도 안내 ─────────────────────────────────────────────
-header('⑤ 무료 티어 일일 명령 수 한도 안내 (자동 측정 불가)');
+// ─── 월간 명령 수 한도 안내 ─────────────────────────────────────────────
+header('⑤ 무료 티어 월간 명령 수 한도 안내 (자동 측정 불가)');
 
 info('Upstash REST API로 사용량을 프로그래매틱하게 조회하는 방법이 없습니다.');
 info('아래 방법으로 직접 확인하십시오.\n');
 console.log('  1. https://console.upstash.com 로그인');
 console.log('  2. 데이터베이스 선택 → "Usage" 탭');
-console.log('  3. "Daily Commands" 항목의 한도 확인\n');
-console.log('  무료 티어 기준값 (2024년 확인, 변경될 수 있음):');
+console.log('  3. 월간 명령 사용량과 현재 플랜 한도 확인\n');
+console.log('  무료 티어 기준값 (2026-11 공식 가격표, 변경될 수 있음):');
 console.log('  ┌───────────────────────────────────────────────────┐');
-console.log('  │  일 10,000 명령 (무료)                            │');
+console.log('  │  월 500,000 명령 (무료)                           │');
 console.log('  └───────────────────────────────────────────────────┘\n');
 
 // 예상 명령 수 계산
-const SEARCHES_PER_DAY  = 38; // 확장 발동 시 하루 상한
-const REDIS_PER_SEARCH  = 30; // 캐시 미스 가정: GET×13 + SET×13 + INCRBY + 기타
+const SEARCHES_PER_DAY  = 38; // 소규모 베타 부하 예시
+const REDIS_PER_SEARCH  = 30; // 후보 수가 중간 정도인 검색의 보수적 예시
 const REDIS_PER_SEARCH_HIT = 5; // 캐시 히트 가정
 const HIT_RATE          = 0.5; // 초기 히트율 50% 가정
 
 const expectedCmds = SEARCHES_PER_DAY *
   (REDIS_PER_SEARCH * (1 - HIT_RATE) + REDIS_PER_SEARCH_HIT * HIT_RATE);
+const expectedMonthlyCmds = expectedCmds * 30;
 
 console.log('  예상 하루 명령 수 계산:');
 console.log(`  ┌────────────────────────────────────────────────────`);
 console.log(`  │  검색 ${SEARCHES_PER_DAY}건/일 × [캐시 미스 ${REDIS_PER_SEARCH}회 × ${(1-HIT_RATE)*100}%`);
 console.log(`  │              + 캐시 히트 ${REDIS_PER_SEARCH_HIT}회 × ${HIT_RATE*100}%]`);
 console.log(`  │  = 약 ${Math.ceil(expectedCmds).toLocaleString()}회/일`);
+console.log(`  │  = 30일 기준 약 ${Math.ceil(expectedMonthlyCmds).toLocaleString()}회/월`);
 console.log(`  └────────────────────────────────────────────────────`);
 
-if (expectedCmds < 8_000) {
-  ok(`예상 명령 수 ${Math.ceil(expectedCmds)}회 < 무료 한도 10,000회 — 여유 있음`);
+if (expectedMonthlyCmds < 400_000) {
+  ok(`예상 명령 수 ${Math.ceil(expectedMonthlyCmds)}회/월 < 무료 한도 500,000회/월 — 여유 있음`);
   info('단, 캐시 히트율이 낮거나 검색 건수가 늘면 초과할 수 있습니다.');
   info('콘솔에서 실제 사용량을 주기적으로 모니터링하십시오.');
 } else {
-  warn(`예상 명령 수 ${Math.ceil(expectedCmds)}회 — 무료 한도에 근접하거나 초과할 수 있습니다.`);
+  warn(`예상 명령 수 ${Math.ceil(expectedMonthlyCmds)}회/월 — 무료 한도에 근접하거나 초과할 수 있습니다.`);
   warn('캐시 TTL을 늘리거나 파이프라인을 적극 사용해 명령 수를 줄이십시오.');
 }
 
@@ -275,7 +274,7 @@ if (allPassed) {
   info('infra/cache/redis.ts 구현 시 UPSTASH_REDIS_REST_URL + TOKEN 환경변수를 사용하십시오.');
   info('예산 카운터는 INCRBY + EXPIRE(26시간) 패턴을 그대로 사용하면 됩니다.');
 } else {
-  warn('실패한 항목을 해결한 뒤 Phase 3(infra: 오피넷) 착수 전 다시 실행하십시오.');
+  warn('실패한 항목을 해결한 뒤 관련 Redis 캐시·예산 카운터를 변경하기 전에 다시 실행하십시오.');
 }
 
 process.exit(allPassed ? 0 : 1);

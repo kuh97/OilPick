@@ -573,7 +573,7 @@ export async function getLastSuccessfulImport(
   return { pricedOn: row.pricedOn, oilRows: row.oilRows ?? 0, lpgRows: row.lpgRows ?? 0 };
 }
 
-/** 가장 최근 임포트 이력 1건 (상태 무관) — 결과 화면 "가격 기준일자" 배너용. */
+/** 가장 최근 임포트 이력 1건 (상태 무관) — 관리자 대시보드 상태 표시용. */
 export async function getLatestImportLog(
   db: Db = getDb(),
 ): Promise<{

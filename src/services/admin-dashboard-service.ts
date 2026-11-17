@@ -1,4 +1,4 @@
-/** 관리자 운영·검색 지표 조회 — docs/ADMIN-DASHBOARD.md §5·§7. */
+/** 관리자 운영·검색 지표 조회 — docs/ARCHITECTURE.md §6.4. */
 
 import { getDetailBackfillProgress, getLatestImportLog } from "@/infra/db/repositories";
 import { getAdminSearchMetrics, type AdminSearchMetrics } from "@/infra/db/admin-metrics";

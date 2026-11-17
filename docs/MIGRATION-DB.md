@@ -1,21 +1,23 @@
-# 오피넷 API → DB 기반 전환 계획
+# 오피넷 API → DB 기반 전환 기록
 
-> **상태: 전환 코드 구현 완료** — 마지막 문서 점검 2026-11-16
+> **상태: 전환 코드 구현 완료** — 마지막 문서 점검 2026-11-17
 >
 > Phase A~E와 검색 경로 전환은 코드에 반영되었습니다. 실제 운영 배포와 시설 정보 백필 완료 여부는
 > 이 저장소만으로 확정할 수 없으므로 `data:backfill-details --status`와 운영 로그로 확인합니다.
 >
-> 이 문서는 검색 경로의 오피넷 실시간 호출을 **일 1회 CSV 임포트 + DB 조회**로 바꾸는
-> 작업의 실행 문서입니다. 작업 중에 옆에 켜두고 단계별로 체크하십시오.
+> 이 문서는 검색 경로의 오피넷 실시간 호출을 **일 1회 CSV 임포트 + DB 조회**로 바꾼
+> 배경·검증·적용 순서를 보존하는 완료 기록입니다. 현재 제품·API·DB 계약은
+> [`PRODUCT.md`](PRODUCT.md)와 [`ARCHITECTURE.md`](ARCHITECTURE.md)가 소유하며, 이 문서가
+> 두 문서를 덮어쓰지 않습니다.
 >
-> 여기서 내린 결정은 [`ARCHITECTURE.md`](ARCHITECTURE.md)의 §5.3.1 · §5.3.2 · §7.1 · §7.2 · §12 ①을
-> 대체합니다. **작업 완료 후** 해당 섹션들을 갱신하십시오 (§10 배포 후 절차).
+> 아래의 “전환 전”·“전환 당시” 수치와 단계는 역사 기록입니다. 현재 검색 알고리즘은
+> [`PRODUCT.md`](PRODUCT.md) §6.6과 [`ARCHITECTURE.md`](ARCHITECTURE.md) §9.1을 따릅니다.
 
 ---
 
 ## 1. 왜 바꾸는가
 
-[`ARCHITECTURE.md`](ARCHITECTURE.md) §5.3.1이 확인한 제약이 그대로 남아 있습니다.
+전환 전 [`ARCHITECTURE.md`](ARCHITECTURE.md) §5.3.1에서 확인했던 제약은 다음과 같습니다.
 
 ```
 오피넷 일일 한도 300회 (OPINET_DAILY_BUDGET=280)
@@ -179,7 +181,7 @@ DB에 이미 있는 오피넷 실좌표를 정답지로 놓고 오차를 측정�
 | 카카오 로컬 API 쿼터 | 일 100,000건 → 하루에 전량 처리 가능 |
 | 1순위 | `/v2/local/search/address.json` (주소검색) |
 | 2순위 | `/v2/local/search/keyword.json` (`{시군구} {상호}`) — 주소검색 실패 시 |
-| 실패 시 | `lat`/`lng` NULL 유지 → 검색 후보에서 자동 제외 + 로그 |
+| 실패 시 | 해당 행을 이번 임포트에서 제외하고 `data/csv/geocode-failures.json`에 기록. `refuel_point.lat/lng`는 `NOT NULL` 유지 |
 
 `coord_source` 컬럼에 `OPINET` / `KAKAO_ADDR` / `KAKAO_KEYWORD` 중 하나를 남깁니다.
 **오피넷 좌표가 있으면 지오코딩하지 않습니다** (§6 소유권 규칙).
@@ -206,8 +208,8 @@ CREATE INDEX idx_refuel_point_latlng ON refuel_point (lat, lng);
 CREATE INDEX idx_refuel_point_seen   ON refuel_point (last_seen_on);
 ```
 
-기존 `last_price` / `last_price_prod`는 **유종별 컬럼으로 대체**되므로 Phase C 완료 후 제거합니다.
-`GET /api/stations/:id`(`route.ts:32`)가 `lastPrice`를 쓰고 있으니 함께 옮겨야 합니다.
+`last_price` / `last_price_prod` / `price_traded_at`은 상세 API로만 발견된 레거시 행의 가격
+폴백을 위해 현재도 남겨 둡니다. CSV에 포함된 행은 유종별 컬럼과 `priced_on`을 우선 사용합니다.
 
 > **가격 이력 테이블은 만들지 않습니다.** 최신 스냅샷만 덮어씁니다 (§11 결정 ③).
 
@@ -272,7 +274,7 @@ CREATE TABLE road_turn (
 | `name` `brand_code` `address_road` `sigun_cd` | CSV | ✅ 덮어씀 |
 | `is_self` `priced_on` `last_seen_on` | CSV | ✅ 덮어씀 |
 | `price_gasoline` `price_diesel` `price_lpg` `price_premium` `price_kerosene` | CSV | ✅ 덮어씀 |
-| `lat` `lng` `coord_source` | 지오코딩 | ⚠️ **NULL일 때만** |
+| `lat` `lng` `coord_source` | 지오코딩 | 신규 행 생성 시 채움. 기존 행의 좌표는 CSV 재임포트로 덮지 않음 |
 | `has_car_wash` `has_maintenance` `has_cvs` | detail API | ❌ SET 절에 넣지 않음 |
 | `is_kpetro` `tel` `detail_synced_at` | detail API | ❌ SET 절에 넣지 않음 |
 
@@ -294,7 +296,7 @@ export async function bulkUpsertFromCsv(rows: CsvRow[], db: Db = getDb()) {
         priceGasoline: sql`excluded.price_gasoline`,
         priceDiesel:   sql`excluded.price_diesel`,
         priceLpg:      sql`excluded.price_lpg`,
-        // 좌표는 없을 때만 — 오피넷 실좌표를 지오코딩 값으로 덮지 않기 위함
+        // 기존 좌표 우선 — 오피넷 실좌표를 새 지오코딩 값으로 덮지 않기 위함
         lat: sql`coalesce(${refuelPoint.lat}, excluded.lat)`,
         lng: sql`coalesce(${refuelPoint.lng}, excluded.lng)`,
         // has_car_wash / has_maintenance / has_cvs / is_kpetro / tel — 의도적으로 없음
@@ -305,7 +307,7 @@ export async function bulkUpsertFromCsv(rows: CsvRow[], db: Db = getDb()) {
 
 ---
 
-## 7. 작업 단계
+## 7. 적용된 작업 단계 (역사 기록)
 
 ### Phase A — 마스터 1회 구축
 
@@ -326,7 +328,8 @@ export async function bulkUpsertFromCsv(rows: CsvRow[], db: Db = getDb()) {
 
 **완료 기준**
 - `refuel_point` 11,785행 ± 신규분
-- `lat IS NULL` 행이 전체의 1% 미만
+- 좌표 확보 실패 행은 임포트에서 제외되고 `geocode-failures.json`에 기록
+- 적재된 `refuel_point.lat/lng`는 모두 `NOT NULL`
 - 기존 1,207건의 `coord_source='OPINET'` 유지 (지오코딩으로 덮이지 않았을 것)
 - 기존 879건의 시설정보(`has_car_wash` 등) 무손실 — **임포트 전후 카운트 비교**
 
@@ -340,8 +343,8 @@ export async function bulkUpsertFromCsv(rows: CsvRow[], db: Db = getDb()) {
 **`station-service.collectStations()`**
 
 ```
-현재 : 샘플점 N개 × aroundAll.do → dedupe → DB 조인 → 필터
-변경 : 폴리라인 bbox 프리필터 → 후보 전량 조회 → d_perp 계산 → 필터
+전환 전   : 샘플점 N개 × aroundAll.do → dedupe → DB 조인 → 필터
+전환 당시 : 폴리라인 bbox 프리필터 → 후보 전량 조회 → d_perp 계산 → 필터
 
   SELECT * FROM refuel_point
    WHERE lat BETWEEN :minLat AND :maxLat        -- 폴리라인 bbox + T3_MAX 마진
@@ -351,6 +354,10 @@ export async function bulkUpsertFromCsv(rows: CsvRow[], db: Db = getDb()) {
 ```
 
 `d_perp` 계산은 기존 `pointToPolylineDistanceM`을 그대로 씁니다 — **도메인 로직은 손대지 않습니다.**
+
+> 이후 다중 기본 경로와 STAGE 1·2 정책이 추가되었습니다. 현재 후보 수집·Valhalla 측정·정렬
+> 순서는 [`PRODUCT.md`](PRODUCT.md) §6.6과 [`ARCHITECTURE.md`](ARCHITECTURE.md) §9.1이
+> 정본이며, 위 의사코드는 오피넷 실시간 호출을 DB 조회로 바꾼 당시의 범위만 설명합니다.
 
 **`recommendation-service.search()`**
 
@@ -437,23 +444,28 @@ NetFunnel) 뒤에 있고 서버 생성에 시간이 걸립니다. 순수 HTTP로
 
 **큐 우선순위**
 
-1. ~~검색 결과에 노출됐는데 `detail_synced_at IS NULL`~~ — 노출 이력 컬럼 필요, **미구현(TODO)**
-2. ~~고속도로 · 주요 국도 인접~~ — 도로 지오메트리 필요, **미구현(TODO)**
-3. 현재 구현: `ORDER BY last_seen_on DESC, id` — 최근까지 CSV에 등장한(= 현재 영업 중,
-   검색에 잡힐 가능성 높은) 곳을 먼저.
+전환 당시 검색 결과 노출 이력과 고속도로·주요 국도 인접도를 우선순위로 검토했지만 채택하지
+않았습니다. 전자는 별도 노출 이력 계약이, 후자는 도로 지오메트리와 효과 검증이 필요하며 현재
+제품 요구사항이 아닙니다.
+
+현재 구현은 `ORDER BY last_seen_on DESC, id`입니다. 최근까지 CSV에 등장한(= 현재 영업 중,
+검색에 잡힐 가능성 높은) 곳을 먼저 처리합니다.
 
 큐가 `WHERE detail_synced_at IS NULL AND energy_type <> 'LPG' LIMIT 280`이므로 **대상이
 없으면 저절로 멈춥니다.** 이후엔 CSV가 발견한 신규 주유소만 처리하며, 개·폐업률
 연 3~5% 기준 **하루 1~2건** 수준입니다.
 
-> **Vercel Hobby 크론 한도.** 이 크론을 더해 일일 크론이 2개가 됩니다(import-prices +
-> backfill-details) — Hobby 상한과 같습니다. 세 번째 크론이 필요하면 하나를 GitHub
-> Actions로 옮기십시오(Phase D 다운로드처럼).
+> **Vercel Cron 수.** 현재 프로젝트에는 `import-prices`와 `backfill-details` 두 개가 있습니다.
+> Vercel은 2026-01-20부터 모든 플랜에서 프로젝트당 100개까지 허용하므로 두 개가 한도는
+> 아닙니다. 새 크론을 추가할 때는 [Vercel 최신 한도](https://vercel.com/docs/limits)를 다시
+> 확인하고, 실행 시간·함수 사용량·외부 API 쿼터를 함께 검토하십시오.
 
 > **남는 예산은 비워두십시오.** 다운로드 자동화는 언젠가 깨집니다.
-> CSV 임포트가 2일 이상 연속 실패하면, 사용자가 지나가는 시군구의 가격만
-> 오피넷 API로 부분 갱신하는 비상 경로로 쓸 수 있습니다. 주기적 재검증 루프는
-> 세차기·정비소가 몇 년 단위로만 바뀌므로 실익이 없습니다.
+> 현재는 CSV 실패 시 `aroundAll.do`로 부분 갱신하는 자동 폴백이 없습니다. 남는 호출량은
+> 지역코드 캐시 초기화·소량 수동 진단과 장애 조사 여유로 보존합니다. 자동 부분 갱신을
+> 도입하려면 먼저 `PRODUCT.md`·`ARCHITECTURE.md`에 실패 조건, 갱신 범위, 사용자 표시 계약을
+> 확정하고 테스트를 추가해야 합니다. 시설 정보의 주기적 전수 재검증은 변경 주기에 비해
+> 실익이 작으므로 현재 수행하지 않습니다.
 
 ---
 
@@ -480,8 +492,9 @@ NetFunnel) 뒤에 있고 서버 생성에 시간이 걸립니다. 순수 HTTP로
 ```
 1. 스테이징 롤백 (refuel_point 무변경)
 2. csv_import_log 에 status='GATE_FAILED', failed_gate='G4' 기록
-3. 사용자 화면 배너: "가격 정보가 2026-09-04 기준입니다 (2일 전)"
-4. 3일 연속 실패 시 배너를 경고 톤으로 승격
+3. 마지막 성공 스냅샷으로 검색 계속
+4. 모든 가격 옆에 저장된 priced_on 기준일자 유지
+5. 관리자 대시보드에서 실패 상태·게이트·상세 원인 확인
 ```
 
 ---
@@ -557,8 +570,8 @@ filter-sheet.tsx 토글 → WireFilters.selfOnly → FiltersSchema(zod)
 | 시군구 평균가 | 별도 `sigungu_avg_price` 테이블·동기화 크론은 `drizzle/0002`에서 제거. `findSigunguAvgPrice`/`findSido`/`findNational`은 이름을 유지한 채 `refuel_point` 집계로 재구현 | Phase C |
 | 환경변수 | `OPINET_DAILY_BUDGET`, `FEATURE_EXPANSION_ENABLED` | Phase C + `a62602b` |
 
-`fetchRadius`(`opinet/client.ts`)와 `tier.isOutOfRange`는 **남겨뒀습니다** (전자는 §7 Phase E
-비상 경로 후보, 후자는 확장과 무관한 유틸).
+`fetchRadius`(`opinet/client.ts`)와 `tier.isOutOfRange`는 **남겨뒀습니다**. 전자는 회귀 테스트·
+수동 진단용 호환 함수로 운영 검색·임포트에서 호출하지 않고, 후자는 확장과 무관한 유틸입니다.
 
 ---
 
@@ -584,9 +597,10 @@ Redis 예산 카운터(`{prefix}:opinet:budget:{date}`)가 **검색으로는 증
 
 ### 11.2 롤백
 
-Phase C까지는 `collectStations`의 구현만 바뀌므로, 이전 구현을 남겨두고
-환경변수로 전환하면 즉시 되돌릴 수 있습니다. `refuel_point`는 컬럼 추가만 했으므로
-스키마 롤백이 필요 없습니다.
+이전 `aroundAll.do` 검색 구현은 현재 코드에 남아 있지 않습니다. 문제가 생기면 Vercel의
+직전 정상 배포로 롤백하고, DB 마이그레이션은 additive이므로 새 컬럼·테이블을 즉시 삭제하지
+않습니다. 데이터 복구가 필요하면 마지막 성공 CSV archive와 `csv_import_log`를 기준으로
+재임포트합니다.
 
 ### 11.3 문서 갱신 ✅ 완료 (2026-09-07)
 
@@ -615,36 +629,40 @@ Phase C까지는 `collectStations`의 구현만 바뀌므로, 이전 구현을 �
 | ⑤ | 즉석 상세조회 | **채택 안 함** | 검색당 13~14회가 들어 현재 한도(하루 20건)가 그대로 재현됨. 초반 커버리지 부족은 감수 |
 | ⑥ | 시설 필터 의미 | **정보 확인된 곳만 노출** + 배너 명시 | 미확인 주유소를 통과시키면 가서 보면 없을 수 있음 |
 | ⑦ | 지원 유종 | **3종 유지** (휘발유·경유·LPG) | 고급휘발유·등유는 DB 적재만 하고 UI 미노출 |
-| ⑧ | 실패 알림 | **사용자 화면 배너** | 별도 관리 도구 불필요 |
+| ⑧ | 실패 확인 | **가격별 기준일자 + 관리자 대시보드** | 사용자에게 구현되지 않은 장애 상태를 추정해 표시하지 않고, 실제 가격 날짜와 운영 로그를 각각 제공 |
 | ⑨ | 공간 인덱스 | `refuel_point`는 `(lat, lng)` B-tree + bbox, 도로 링크는 **PostGIS GiST** | 주유소 마스터는 소규모지만 표준 링크 156만 건은 선분 거리·방위각 조회가 필요 |
 
 ---
 
-## 13. 부수 발견 (이번 전환과 별개)
+## 13. 부수 발견과 해결 기록
 
-CSV로 대조하는 과정에서 나온 기존 버그 2건입니다. **이 작업과 무관하게** 고쳐야 합니다.
+CSV로 대조하는 과정에서 발견했고 전환 작업 중 해결한 버그 2건입니다. 현재 동작을 설명하는
+계약이 아니라 회귀 원인을 남기는 역사 기록입니다.
 
-### 13.1 `LPG_YN` 매핑 오류
+### 13.1 `LPG_YN` 매핑 오류 — 해결됨
 
 ```ts
-// src/infra/opinet/mapper.ts:76
-return lpgYn === "Y" ? "BOTH" : "OIL";
+// 현재 src/infra/opinet/mapper.ts
+if (lpgYn === "Y") return "LPG";
+if (lpgYn === "C") return "BOTH";
+return "OIL";
 ```
 
 CSV로 검증한 결과, `energy_type='BOTH'`인 328건 중 **주유소 CSV에 있는 건 0건,
 충전소 CSV에 251건**입니다. 즉 `Y`는 겸업이 아니라 **LPG 전용**이고, 겸업은 `C`입니다
 ([`ARCHITECTURE.md`](ARCHITECTURE.md) §7.1 스키마 주석 `LPG_YN: N/Y/C`와도 일치).
 
-현재 `EnergyType`에 `'LPG'`가 한 건도 쌓이지 않고 있습니다.
+현재 매퍼 단위 테스트가 `N→OIL`, `Y→LPG`, `C→BOTH` 세 분기를 고정합니다.
 
-### 13.2 브랜드 코드 오타
+### 13.2 브랜드 코드 오타 — 해결됨
 
 ```ts
-// src/domain/types.ts:59
-RTE: "자영알뜰",
+// 현재 src/domain/types.ts
+RTO: "자영알뜰",
 ```
 
-DB 실데이터는 `RTO`입니다(26건 관측). `brandName("RTO")`가 "RTO"를 그대로 화면에 노출합니다.
+DB 실데이터와 CSV 매퍼 모두 `RTO`를 사용하며, 필터에서는 `RTO`·`RTX`를 “알뜰” 한 그룹으로
+묶습니다. 파서·필터 테스트가 이 매핑을 고정합니다.
 
 ---
 

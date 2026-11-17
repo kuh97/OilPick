@@ -1,4 +1,4 @@
-/** 관리자 인증 — docs/ADMIN-DASHBOARD.md §3. */
+/** 관리자 인증 — docs/ARCHITECTURE.md §6.4. */
 
 import { createHmac, randomBytes, scrypt, timingSafeEqual } from "node:crypto";
 import { getRedis } from "@/infra/cache/redis";

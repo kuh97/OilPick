@@ -1,4 +1,4 @@
-/** 관리자 대시보드용 익명 집계 쿼리 — docs/ADMIN-DASHBOARD.md §5·§7. */
+/** 관리자 대시보드용 익명 집계 쿼리 — docs/ARCHITECTURE.md §6.4·§7.3. */
 
 import { and, eq, gte, sql } from "drizzle-orm";
 import { getDb, type Db } from "./client";

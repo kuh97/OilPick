@@ -47,8 +47,8 @@
 | 프레임워크     | Next.js (App Router) · TypeScript                                                    |
 | 플랫폼         | 모바일 웹 (반응형 SPA)                                                               |
 | 패키지 매니저  | pnpm                                                                                 |
-| 상태           | Zustand (+ `persist` → `localStorage`). 로그인 없음                                  |
-| 스타일 · UI    | Tailwind CSS + shadcn/ui (Drawer · Tabs · Switch · Dialog · Badge · Alert **여섯만**) |
+| 상태           | Zustand (+ `persist` → `localStorage`). 일반 사용자 로그인 없음 (`/admin` 운영자 인증은 별도) |
+| 스타일 · UI    | Tailwind CSS + shadcn/ui (Button · Drawer · Tabs · Switch · Dialog · Badge · Alert · Sonner **여덟만**) |
 | 검색 API       | SSE 스트리밍 + 인앱 브라우저용 JSON 폴백                                             |
 | DB             | Neon (PostgreSQL) + **Drizzle ORM** — 전국 주유소 마스터(`refuel_point`), 임포트 이력, 익명 이벤트 로그 |
 | 캐시           | Upstash Redis (REST) — 경로·장소 검색 응답, 시군구 코드 매핑                         |
@@ -98,8 +98,8 @@ oilpick/
 
 ### 요구사항
 
-- Node.js 20 이상
-- pnpm 9 이상
+- Node.js 24.15 이상 (CI는 Node 24 사용; 현재 `jsdom` 개발 의존성 요구사항)
+- pnpm 11.24.0 (`packageManager` 필드로 고정)
 - Neon PostgreSQL · Upstash Redis (Vercel 마켓플레이스로 프로비저닝 권장)
 - 오피넷 인증키 · 카카오 개발자 앱 키
 
@@ -136,8 +136,8 @@ pnpm dev                      # http://localhost:3000
 
 검색 단계의 후보 경로 검증은 로컬 Valhalla Docker를 사용합니다. 한국 OSM PBF와
 생성된 타일은 Git에 커밋하지 않습니다. 기본 PBF 경로는
-`/Users/kim-uihyeon/Desktop/south-korea-261103.osm.pbf`이며, 다른 경로를 쓰면
-`VALHALLA_OSM_PBF_DIR`와 `VALHALLA_OSM_PBF_NAME`으로 바꿉니다.
+`./data/osm/south-korea-261103.osm.pbf`이며, 다른 경로를 쓰면 `VALHALLA_OSM_PBF_DIR`와
+`VALHALLA_OSM_PBF_NAME`으로 바꿉니다.
 
 첫 실행 때 PBF를 `data/valhalla/`에 한 번 복사해 Valhalla 입력과 생성 타일을
 같은 영속 디렉터리에서 관리합니다. 이후 컨테이너 재시작 때는 기존 파일 해시와
@@ -187,18 +187,18 @@ pnpm test:e2e                 # Playwright
 
 ### 검증 스크립트
 
-**코드를 쓰기 전에 실행하십시오.** 결과에 따라 알고리즘과 스키마가 달라집니다. 각 항목의 실패 시 영향은 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) §12에 있습니다.
+아래 스크립트는 초기 구축 때 아키텍처 결정을 검증하는 데 사용했고, 지금은 관련 외부 연동·데이터 형식·튜닝 파라미터를 바꿀 때 재검증합니다. 각 항목의 실패 시 영향은 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) §12에 있습니다.
 
 ```bash
-# Phase 0 — 코드 작성 전 필수 (전부 완료됨, 재실행 시 참고)
+# Phase 0 — 초기 필수 검증(완료, 관련 변경 시 재실행)
 pnpm verify:coord             # ③ KATEC↔WGS84 왕복 변환 오차 (50m 이내여야 함)
 pnpm verify:standard-data     # ② 표준데이터의 좌표·시설 컬럼 + UNI_ID 조인 키
 pnpm verify:price-time        # ⑪ 오피넷 응답에 가격 기준시각이 오는가
-pnpm verify:upstash           # ⑬ Upstash 무료 티어 일일 명령 수 한도
+pnpm verify:upstash           # ⑬ Upstash 연결·원자성·무료 티어 월간 명령 수 점검
 
 # Phase 5 — 파라미터 실측 (회랑 bbox 수집 기준으로 재작성됨, 2026-09-08)
 pnpm verify:coverage          # ⑫ 회랑 bbox 수집이 전수 스캔 대비 후보를 누락하지 않는지
-pnpm verify:t3-rate           # 현재 회랑 후보·기준가(P_ref) 점검 (노선 4개 × 연료)
+pnpm verify:t3-rate           # 노선 4개 × LPG 점검(기본값). 전체 유종은 -- --fuel=all
 pnpm verify:uturn             # ④ 경로 API가 유턴·중앙분리대를 반영하는지 (실측 편차 확인)
 
 # Phase 10 — 우회 실측
@@ -247,6 +247,23 @@ pnpm data:backfill-details [--status|N] # 시설 정보 백필 실행 / 현황 �
 | `OPINET_BACKFILL_LIMIT`     | —    | 시설 백필 1회 처리량 (기본 `280`)                                                                                                                                                                             |
 | `CACHE_BYPASS`              | —    | 디버깅용 캐시 우회. 기본 `false`. 운영에서 켜지 마십시오                                                                                                                                                      |
 
+`OPINET_BASE_URL`·`KAKAO_MOBILITY_BASE_URL`·`KAKAO_LOCAL_BASE_URL`은 MSW를 쓰지 않는
+경계 테스트나 로컬 프록시에서만 쓰는 선택적 엔드포인트 오버라이드입니다. 기본값은 각 공식 API
+주소이며 운영에서 바꾸지 않습니다. `E2E_ADMIN_BYPASS_TOKEN`은 비운영 Playwright 전용이고,
+프로덕션에서는 코드가 무시합니다. 로컬 Valhalla도 환경변수 검증과 요청 헤더 생성을 위해
+비어 있지 않은 `VALHALLA_API_KEY`가 필요하지만, Docker 컨테이너 자체는 이 헤더를 검사하지 않습니다.
+
+로컬 Valhalla Docker 설정은 다음 변수를 사용합니다.
+
+| 변수                       | 기본값                                  | 설명                              |
+| -------------------------- | --------------------------------------- | --------------------------------- |
+| `VALHALLA_OSM_PBF_DIR`     | `./data/osm`                            | 호스트의 PBF 디렉터리             |
+| `VALHALLA_OSM_PBF_NAME`    | `south-korea-261103.osm.pbf`            | 컨테이너가 읽을 PBF 파일명        |
+| `VALHALLA_DATA_DIR`        | `./data/valhalla`                       | 타일·설정 영속 디렉터리           |
+| `VALHALLA_PORT`            | `8002`                                  | localhost 바인딩 포트             |
+| `VALHALLA_SERVER_THREADS`  | `4`                                     | Valhalla 서버 스레드 수           |
+| `VALHALLA_IMAGE`           | `ghcr.io/valhalla/valhalla-scripted:latest` | Docker 이미지 오버라이드      |
+
 ### 키 발급
 
 | 키     | 발급처                                                                         | 주의                                                                                                                                        |
@@ -261,11 +278,13 @@ pnpm data:backfill-details [--status|N] # 시설 정보 백필 실행 / 현황 �
 1. [`AGENTS.md`](AGENTS.md)를 읽습니다. **먼저 읽으십시오.** 임의로 바꾸면 안 되는 것들이 정리되어 있습니다.
 2. [`docs/PRODUCT.md`](docs/PRODUCT.md)에서 만들 기능의 정의와 계산식을 확인합니다.
 3. [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)에서 어느 모듈에 코드를 둘지 확인합니다.
-4. `ARCHITECTURE.md` §10의 **권장 개발 순서**를 따릅니다.
+4. 변경 범위에 해당하는 테스트·검증 항목을 `ARCHITECTURE.md` §10·§12에서 확인합니다.
 
-### 개발 순서 (요약)
+### 최초 구축 순서 (역사 기록)
 
-주차가 아니라 **의존성**으로 끊었습니다. 각 Phase의 목적·선행 조건·완료 기준은 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) §10에 있습니다.
+아래 Phase는 현재 남은 TODO 목록이 아니라 저장소를 처음 구축한 의존성 순서입니다. 새 기능은
+관련 계약과 테스트를 확인하되 Phase 0부터 다시 진행하지 않습니다. 각 Phase의 목적·선행 조건·
+완료 기준은 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) §10에 남겨 둡니다.
 
 ```
 Phase 0   사전 검증 + 픽스처 저장          ← 코드보다 먼저
@@ -299,7 +318,7 @@ Phase 12  예외 전수 + 배포
 | [`AGENTS.md`](AGENTS.md)                       | 코드를 쓰기 전에. 규칙·금지사항·불변식                                 |
 | [`docs/PRODUCT.md`](docs/PRODUCT.md)           | 무엇을 만드는지 알아야 할 때. 기능·도메인 규칙·계산식·파라미터         |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | 어떻게 만드는지 알아야 할 때. 구조·모듈·API Contract·DB·외부 연동·배포 |
-| [`docs/MIGRATION-DB.md`](docs/MIGRATION-DB.md) | 검색 데이터 경로(유가 CSV 임포트·시설 백필)의 정본                     |
+| [`docs/MIGRATION-DB.md`](docs/MIGRATION-DB.md) | 오피넷 실시간 검색에서 CSV·DB로 전환한 배경과 운영 점검 기록            |
 | [`docs/DESIGN.md`](docs/DESIGN.md)             | 색·타이포·간격·컴포넌트 사이즈 토큰                                   |
 
 같은 정보를 여러 문서에 중복해서 쓰지 않습니다. 찾는 정보가 없으면 [`AGENTS.md`](AGENTS.md) §11을 따르십시오.

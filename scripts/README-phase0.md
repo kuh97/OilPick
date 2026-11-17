@@ -1,7 +1,13 @@
 # Phase 0 — 사전 검증 스크립트
 
-**코드를 쓰기 전에 반드시 실행하십시오.** 이 스크립트들의 결과가
-`domain/types.ts`, DB 스키마, UI 불변식 구현 방식을 결정합니다.
+> **상태: 초기 검증 완료 · 현재는 재검증용**
+>
+> 이 문서는 저장소를 처음 구축할 때 수행한 Phase 0의 실행 기록입니다. 관련 외부 API,
+> 좌표 변환, 데이터 형식 또는 튜닝 파라미터를 바꿀 때만 필요한 스크립트를 다시 실행합니다.
+> 현재 개발을 Phase 1부터 다시 시작하라는 뜻이 아닙니다.
+
+초기 구축 당시 이 스크립트들의 결과가 `domain/types.ts`, DB 스키마, UI 불변식 구현 방식을
+결정했습니다.
 
 ---
 
@@ -43,7 +49,7 @@ REDIS_KEY_PREFIX=dev
 
 ### 3. 실행 (루트에서)
 
-**Phase 0 — 반드시 이 순서로 실행하십시오.**
+**재검증할 때는 아래 순서로 실행하십시오.**
 
 ```bash
 # ① 좌표 변환 정확도 (가장 먼저 — 오피넷 호출 없음)
@@ -56,7 +62,7 @@ pnpm verify:standard-data ./data/full_oil_standard.csv
 # ③ 오피넷 가격 기준시각 (오피넷 2~3회 호출)
 pnpm verify:price-time
 
-# ④ Upstash Redis 연결·한도 (Upstash 여러 회 호출)
+# ④ Upstash Redis 연결·원자성·월간 한도 (Upstash 여러 회 호출)
 pnpm verify:upstash
 ```
 
@@ -146,17 +152,17 @@ curl "https://apis-navi.kakaomobility.com/v1/directions?..." \
 
 ---
 
-## Phase 0 완료 후 해야 하는 것
+## 재검증 후 해야 하는 것
 
-모든 스크립트가 통과하면:
+관련 스크립트를 다시 실행했다면:
 
-1. **결과를 문서에 반영합니다**
-   - `ARCHITECTURE.md §12`의 ②③⑪⑬을 "해결됨"으로 표시
-   - 가격 기준시각 결과에 따라 `§5.1`과 `AGENTS.md §6` 갱신
+1. **기존 검증 결과와 비교합니다**
+   - `ARCHITECTURE.md §12`의 해결된 항목이 다시 깨지지 않았는지 확인
+   - 결과가 달라졌다면 `PRODUCT.md`·`ARCHITECTURE.md`·`AGENTS.md`의 소유 범위에 맞춰 갱신
 
-2. **픽스처를 커밋합니다**
-   - `tests/fixtures/opinet-*.json`
+2. **외부 응답 형식이 바뀌었을 때만 픽스처를 갱신합니다**
+   - `tests/fixtures/opinet-*.json` 등 해당 실 응답 픽스처
 
-3. **Phase 1로 진행합니다**
-   - Next.js 초기화 + ESLint 경계 규칙 + CI
+3. **관련 단위·통합 테스트를 실행합니다**
+   - 변경한 외부 경계·도메인 계산·서비스 흐름에 해당하는 현재 테스트
 

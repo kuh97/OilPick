@@ -111,8 +111,8 @@ export const refuelPointStaging = pgTable("refuel_point_staging", {
 
 // ─── csv_import_log — 임포트 이력 (docs/MIGRATION-DB.md §5.2·§8) ────────────────
 //
-// G3(기준일자 신규성)·G4(행 수 ±10%)가 직전 성공분을 참조하고, 결과 화면 배너가
-// "가격 정보가 YYYY-MM-DD 기준입니다"를 여기서 읽습니다.
+// G3(기준일자 신규성)·G4(행 수 ±10%)가 직전 성공분을 참조하고, 관리자 대시보드가
+// 최근 임포트 상태·실패 게이트·상세 원인을 여기서 읽습니다.
 
 export const csvImportLog = pgTable("csv_import_log", {
   id: serial("id").primaryKey(),
@@ -243,7 +243,7 @@ export const naviClickEvent = pgTable("navi_click_event", {
   detourDistanceM: integer("detour_distance_m"),
 });
 
-// ─── admin_feedback — 사용자 문의 (docs/ADMIN-DASHBOARD.md §6) ───────────────
+// ─── admin_feedback — 사용자 문의 (docs/ARCHITECTURE.md §7.4) ────────────────
 //
 // 이메일과 문의 내용이 들어가므로 익명 이벤트 테이블과 분리합니다.
 // station_id/search_id는 화면에서 자동으로 붙인 참고 정보이며, 오래된 검색이나

@@ -71,7 +71,7 @@
 | 주유소·가격   | **오피넷** — "과거 판매가격" CSV(전국 전수) + 상세정보 API(시설 백필) |
 | 데이터 전략   | **DB 마스터.** `refuel_point`를 일 1회 CSV 임포트로 채우고 검색은 DB만 조회 (MIGRATION-DB.md) |
 | 검색 API 형태 | **SSE 스트리밍** (`POST /api/search`) + **JSON 폴백** (§3.3)        |
-| 인증          | **없음.** 로그인 기능을 추가하지 않는다                             |
+| 인증          | **일반 사용자 인증 없음.** 사용자 로그인·회원가입은 추가하지 않는다. `/admin`은 운영자용 공유 비밀번호·서버 세션 인증을 사용한다 |
 | AI/LLM        | **사용하지 않는다** (§4)                                            |
 
 ### 3.2 스택
@@ -86,7 +86,7 @@
 | 클라이언트 상태 | **Zustand** (+ `persist`)                            | §7.5                                                                            |
 | 서버 상태       | **사용자 검색 흐름은 라이브러리 없음.** 관리자 화면은 TanStack Query 사용 | 사용자 검색에 도입하는 신호는 §16.4                         |
 | 스타일링        | **Tailwind CSS**                                     |                                                                                 |
-| UI 컴포넌트     | **shadcn/ui — Drawer · Tabs · Switch · Dialog · Badge · Alert 여섯만** | §7.5                                                               |
+| UI 컴포넌트     | **shadcn/ui — Button · Drawer · Tabs · Switch · Dialog · Badge · Alert · Sonner 여덟만** | §7.5                                                   |
 | 스키마 검증     | **zod** — `infra/`·`app/api/` 경계 전용              | 도메인·컴포넌트에 들어가지 않음                                                 |
 | 테스트          | **Vitest + MSW + Playwright**                        | §10                                                                             |
 | 린트·포맷       | **ESLint + Prettier**                                | 레이어 경계 규칙 집행 (§17)                                                     |
@@ -280,10 +280,10 @@ src/lib/api/
 
 컴포넌트는 훅만 압니다. 이 경계가 있어야 나중에 TanStack Query를 도입할 때 화면을 건드리지 않습니다.
 
-**UI 컴포넌트 라이브러리는 지금 쓰는 여섯으로 제한합니다.**
+**UI 컴포넌트 라이브러리는 지금 쓰는 여덟으로 제한합니다.**
 
 ```
-shadcn/ui에서 가져오는 것 (이 여섯만): Drawer · Tabs · Switch · Dialog · Badge · Alert
+shadcn/ui에서 가져오는 것 (이 여덟만): Button · Drawer · Tabs · Switch · Dialog · Badge · Alert · Sonner
 직접 작성: 결과 카드 · 티어 배지 조합 · 우회 고지 배너 · 로딩 단계 표시 · 가격/기준일자 표시
 ```
 
@@ -385,7 +385,7 @@ shadcn/ui에서 가져오는 것 (이 여섯만): Drawer · Tabs · Switch · Di
 - ❌ 추정치를 확정 수치처럼 표시
 - ❌ `NetSaving`에 시간 비용 합산
 - ❌ IP·정확한 좌표 등 개인 식별 가능 정보 DB 저장
-- ❌ 로그인·회원가입 기능 추가
+- ❌ 일반 사용자 대상 로그인·회원가입 기능 추가 (`/admin` 운영자 인증은 기존 예외)
 - ❌ 24시간 영업·셀프 주유·타이어 공기압 필터 추가 (데이터 없음)
 - ❌ 구글지도 딥링크 추가 (한국 자동차 내비 미지원)
 - ❌ 전기차 충전소 기능 추가 (별도 제품)

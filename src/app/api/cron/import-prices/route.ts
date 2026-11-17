@@ -6,7 +6,7 @@
  *
  * 실패(다운로드 없음·게이트 탈락)는 200으로 응답합니다 — "어제 데이터로 계속
  * 서비스"가 정상 동작이라, 5xx로 올리면 Vercel이 불필요하게 알람을 냅니다.
- * 결과는 csv_import_log에 남고 결과 화면 배너가 기준일자를 읽습니다.
+ * 결과는 csv_import_log에 남고 관리자 대시보드가 최근 상태를 읽습니다.
  */
 
 import { NextResponse } from "next/server";
