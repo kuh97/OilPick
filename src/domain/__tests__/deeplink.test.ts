@@ -223,7 +223,7 @@ describe("buildStationDeeplink — 주변 주유소 목적지", () => {
     destination: WP,
     originName: "내 위치",
     destinationName: "주변 주유소",
-    appName: "https://oilpick.vercel.app",
+    appName: "https://oilpick.kro.kr",
   };
 
   it("카카오: 현재 위치(sp)에서 주유소(ep)까지 열고 경유지 파라미터는 넣지 않는다", () => {
@@ -238,7 +238,7 @@ describe("buildStationDeeplink — 주변 주유소 목적지", () => {
     const url = buildStationDeeplink({ ...BASE, app: "NAVER" });
     expect(url).toContain("dlat=36.3");
     expect(url).toContain("dlng=128");
-    expect(url).toContain("appname=https%3A%2F%2Foilpick.vercel.app");
+    expect(url).toContain("appname=https%3A%2F%2Foilpick.kro.kr");
     expect(url).not.toContain("v1lat");
   });
 
@@ -256,7 +256,7 @@ describe("buildStationWebFallbackUrl — 주변 주유소 목적지", () => {
     destination: WP,
     originName: "내 위치",
     destinationName: "주변 주유소",
-    appName: "https://oilpick.vercel.app",
+    appName: "https://oilpick.kro.kr",
   };
 
   it("카카오는 출발→목적지 2지점 웹 길찾기를 제공한다", () => {

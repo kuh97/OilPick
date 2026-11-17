@@ -37,7 +37,7 @@ export const NAVI_APPS: { app: NaviApp; label: string; appName?: string }[] = [
   {
     app: "NAVER",
     label: "네이버지도로 길찾기",
-    appName: "https://oilpick.vercel.app",
+    appName: "https://oilpick.kro.kr",
   },
   { app: "TMAP", label: "TMAP으로 길찾기" },
 ];

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-const DEFAULT_SITE_URL = "https://oilpick.vercel.app";
+const DEFAULT_SITE_URL = "https://oilpick.kro.kr";
 
 /**
  * 공개 URL의 단일 기준점. 배포 환경에서는 README.md에 정의된 APP_BASE_URL을 쓰고,
