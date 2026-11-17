@@ -155,8 +155,9 @@ curl http://127.0.0.1:8002/status
 타일을 다시 만들지 않고 컨테이너만 재시작하려면 `stop`과 `start`를 사용합니다.
 `data/valhalla/`를 삭제하는 명령은 기본 사용법에 포함하지 않습니다.
 
-현재 Vercel 서버는 개발자의 localhost Docker에 접근할 수 없습니다. 운영용 Valhalla
-서버 위치는 아직 결정하지 않았으며, 배포 전 별도로 결정해야 합니다.
+현재 Vercel 서버는 개발자의 localhost Docker에 접근할 수 없습니다. 운영에서는
+`VALHALLA_BASE_URL`에 설정한 HTTPS Valhalla 주소를 사용하며, Caddy reverse proxy가
+`VALHALLA_API_KEY` 서버 전용 헤더를 확인한 요청만 내부 Valhalla로 전달합니다.
 
 #### 한국 PBF 로컬 실측 (2026-11-05)
 
@@ -240,6 +241,8 @@ pnpm data:backfill-details [--status|N] # 시설 정보 백필 실행 / 현황 �
 | `FEEDBACK_NOTIFY_EMAIL`     | —    | 문의 알림을 받을 관리자 이메일                                                                                                                                                                                   |
 | `FEEDBACK_FROM_EMAIL`       | —    | Resend에서 인증한 발신자 주소. 예: `OilPick <noreply@example.com>`                                                                                                                                              |
 | `REDIS_KEY_PREFIX`          | ✅   | Redis 키 접두사. `dev` / `prod` 로 환경 분리                                                                                                                                                                  |
+| `VALHALLA_BASE_URL`         | —    | 운영 Valhalla HTTPS 주소. 기본값은 로컬 Docker `http://127.0.0.1:8002`                                                                                                                                          |
+| `VALHALLA_API_KEY`          | ✅   | Caddy와 공유하는 Valhalla 서버 인증 키. **서버 전용**이며 `NEXT_PUBLIC_` 접두사를 붙이지 않음                                                                                                                    |
 | `OPINET_CONCURRENCY`        | —    | 오피넷 동시 호출 수 (기본 `8`). CSV 임포트 지오코딩 / 시설 백필에서 사용                                                                                                                                       |
 | `OPINET_BACKFILL_LIMIT`     | —    | 시설 백필 1회 처리량 (기본 `280`)                                                                                                                                                                             |
 | `CACHE_BYPASS`              | —    | 디버깅용 캐시 우회. 기본 `false`. 운영에서 켜지 마십시오                                                                                                                                                      |

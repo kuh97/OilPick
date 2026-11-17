@@ -352,10 +352,11 @@ JSON API로 한 번에 받을 수 없지만, "과거 판매가격" CSV가 전국
 - 기본 경로 map-match 실패는 Kakao 경로로 조용히 대체하지 않습니다. 해당 경로의 후보를 제외하고 `VALHALLA_PARTIAL` 또는 `VALHALLA_UNAVAILABLE` 경고를 냅니다
 - 후보별 실패는 성공한 후보를 보존하는 부분 실패로 처리합니다
 - 외부 호출은 `VALHALLA_ROUTE_CONCURRENCY`와 `VALHALLA_TIMEOUT_MS`로 제한합니다. 로컬 실측 후 기본 동시성은 8로 정했고, Valhalla 서버 스레드 4개보다 크게 올리지 않습니다
+- 운영 Valhalla는 Caddy HTTPS reverse proxy 뒤에 두며, `VALHALLA_API_KEY` 헤더가 일치하는 서버 요청만 `/route`·`/trace_route`로 전달합니다. `VALHALLA_API_KEY`는 `NEXT_PUBLIC_` 접두사 없이 Vercel과 Caddy에만 설정하고, Valhalla의 직접 외부 포트(8002)는 차단합니다
 
 로컬 개발은 `docker-compose.yml`의 Valhalla 컨테이너를 사용합니다. 운영 환경의 Valhalla
-호스팅 위치와 비용은 아직 결정하지 않았으므로, `VALHALLA_BASE_URL`을 별도 환경변수로
-두고 서버에서만 접근합니다.
+호스트는 Caddy HTTPS 주소로 두며, `VALHALLA_BASE_URL`과 `VALHALLA_API_KEY`를 별도
+환경변수로 두고 서버에서만 접근합니다.
 
 ### 5.3 호출 예산
 

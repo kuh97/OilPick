@@ -10,6 +10,8 @@ const VALHALLA_BASE_URL = "http://127.0.0.1:8002";
 const ORIGIN = wgs84(37, 127);
 const DESTINATION = wgs84(37.001, 127.0005);
 
+vi.stubEnv("VALHALLA_API_KEY", "test-valhalla-key");
+
 describe("Valhalla mapper", () => {
   it("6자리 encoded polyline을 WGS84로 디코딩한다", () => {
     const points = decodePolyline6(valhallaFixture.trip.legs[0].shape);
@@ -24,9 +26,11 @@ describe("Valhalla mapper", () => {
 describe("fetchValhallaRoute", () => {
   it("출발지·목적지·경유지를 route 요청으로 보내고 m·s로 변환한다", async () => {
     let body: Record<string, unknown> | undefined;
+    let apiKey: string | null = null;
     server.use(
       http.post(`${VALHALLA_BASE_URL}/route`, async ({ request }) => {
         body = (await request.json()) as Record<string, unknown>;
+        apiKey = request.headers.get("x-valhalla-api-key");
         return HttpResponse.json(valhallaFixture);
       }),
     );
@@ -40,6 +44,7 @@ describe("fetchValhallaRoute", () => {
     });
 
     expect(body).toMatchObject({ costing: "auto", units: "kilometers" });
+    expect(apiKey).toBe("test-valhalla-key");
     expect((body?.locations as unknown[]).length).toBe(3);
     expect(route.distanceM).toBe(123);
     expect(route.durationS).toBe(43);

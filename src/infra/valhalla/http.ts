@@ -1,5 +1,7 @@
 /** Valhalla POST 호출 — timeout과 상위 AbortSignal을 함께 처리합니다. */
 
+import { env } from "@/infra/env";
+
 export class ValhallaTimeoutError extends Error {
   constructor(message: string) {
     super(message);
@@ -26,7 +28,10 @@ export async function postValhallaJson(
   try {
     const response = await fetch(url, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: {
+        "content-type": "application/json",
+        "x-valhalla-api-key": env.VALHALLA_API_KEY,
+      },
       body: JSON.stringify(body),
       signal: controller.signal,
     });
